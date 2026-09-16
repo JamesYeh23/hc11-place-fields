@@ -1,0 +1,36 @@
+# --- Data (never committed; see README for download instructions) ---
+data/
+*.mat
+*.eeg
+*.lfp
+*.dat
+*.whl
+
+# --- Generated results ---
+results/**
+!results/.gitkeep
+
+# --- Papers / PDFs (copyrighted, kept outside the repo) ---
+*.pdf
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# --- Tooling ---
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+notebooks/**/*.nbconvert.ipynb
+
+# --- OS ---
+.DS_Store
+Thumbs.db

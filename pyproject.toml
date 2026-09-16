@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hc11"
+version = "0.1.0"
+description = "Replication of place-field and Bayesian position-decoding analyses on the CRCNS hc-11 dataset (Grosmark & Buzsaki 2016)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "James Yeh" }]
+keywords = ["hippocampus", "place cells", "bayesian decoding", "electrophysiology", "crcns"]
+
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "h5py>=3.8",
+    "matplotlib>=3.7",
+    "pyyaml>=6.0",
+    "tqdm>=4.65",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.4",
+    "jupyterlab>=4.0",
+    "ipykernel>=6.25",
+]
+
+[project.urls]
+"Dataset (CRCNS hc-11)" = "https://crcns.org/data-sets/hc/hc-11"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hc11"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "requires_data: test needs the raw hc-11 .mat files to be present",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

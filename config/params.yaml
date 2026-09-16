@@ -1,0 +1,125 @@
+# ============================================================================
+# hc11-place-fields — analysis parameters
+#
+# Every tunable number used anywhere in src/hc11/ lives in this file.
+# Analysis functions must not hard-code values that appear here.
+#
+# Provenance tags on each entry:
+#   [CHEN2016]     stated in Chen, Grosmark, Penagos & Wilson 2016, Sci Rep 6:32193
+#   [GB2016]       stated in the main text of Grosmark & Buzsaki 2016, Science 351:1440
+#   [DATA]         to be confirmed from the .mat files themselves (step 2)
+#   [PROVISIONAL]  chosen by us; the Science supplement is not available.
+#                  Rationale recorded in docs/decisions.md.
+# ============================================================================
+
+schema_version: 1
+
+# ---------------------------------------------------------------------------
+# Dataset-level constants
+# ---------------------------------------------------------------------------
+dataset:
+  # Nominal position-tracking sample rate. The description PDF says ~39 Hz;
+  # the loader must measure the true rate from the timestamps and warn on
+  # disagreement rather than trusting this value.
+  position_rate_hz: 39.06          # [DATA]
+  # Spike times in sessInfo are expected to already be in seconds.
+  spike_time_units: seconds        # [DATA]
+  # Unit-type labels as they appear in the file (confirm spelling in step 2).
+  pyramidal_label: pyr             # [DATA]
+  interneuron_label: int           # [DATA]
+
+# ---------------------------------------------------------------------------
+# Behaviour / running-period definition
+# ---------------------------------------------------------------------------
+behavior:
+  # Speed threshold separating running from immobility.
+  speed_threshold_cm_s: 15.0       # [CHEN2016]
+  # Half-width of the Gaussian used to smooth the speed trace before
+  # thresholding, in seconds. Unsmoothed speed from 39 Hz tracking is noisy
+  # enough to fragment running epochs.
+  speed_smoothing_sigma_s: 0.1     # [PROVISIONAL]
+  # Running epochs shorter than this are discarded.
+  min_run_epoch_s: 0.5             # [PROVISIONAL]
+  # Gaps shorter than this between two running epochs are bridged.
+  max_run_gap_s: 0.2               # [PROVISIONAL]
+
+# ---------------------------------------------------------------------------
+# Unit selection
+# ---------------------------------------------------------------------------
+units:
+  # Only pyramidal cells enter place-field and decoding analyses.
+  include_types: [pyramidal]       # [GB2016]
+  # Minimum spike count during the MAZE epoch for a unit to be considered.
+  min_spikes_maze: 100             # [PROVISIONAL]
+  # Units whose mean MAZE firing rate exceeds this are treated as mislabelled
+  # interneurons and flagged (not silently dropped).
+  max_mean_rate_hz: 5.0            # [PROVISIONAL]
+
+# ---------------------------------------------------------------------------
+# Place fields (step 4)
+# ---------------------------------------------------------------------------
+place_fields:
+  bin_size_cm: 10.0                # [CHEN2016]
+  # Gaussian smoothing applied to both the spike-count and occupancy maps
+  # before taking their ratio. Chen et al. describe smoothing over ~5 bins;
+  # we read that as a kernel of ~5 bins full width, i.e. sigma ~1 bin.
+  smoothing_sigma_bins: 1.0        # [CHEN2016] / [PROVISIONAL] interpretation
+  smoothing_truncate_bins: 4.0     # [PROVISIONAL]
+  # Spatial bins with less than this much occupancy are treated as unvisited
+  # (NaN) rather than as zero-rate.
+  min_occupancy_s: 0.1             # [PROVISIONAL]
+  # Running directions are mapped separately.
+  separate_directions: true        # [GB2016]
+  # --- place-cell inclusion criteria ---
+  criteria:
+    min_peak_rate_hz: 1.0          # [PROVISIONAL]
+    min_spatial_info_bits_per_spike: 0.5   # [PROVISIONAL]
+    # A contiguous run of bins above this fraction of the peak rate counts as
+    # a field.
+    field_threshold_frac_of_peak: 0.20     # [PROVISIONAL]
+    min_field_width_cm: 10.0       # [PROVISIONAL]
+    max_field_width_cm: 120.0      # [PROVISIONAL]
+  # Target from the paper, used as a QC check, not as a filter.
+  expected_total_place_cells: 491  # [GB2016]
+
+# ---------------------------------------------------------------------------
+# Bayesian decoding during running (step 5)
+# ---------------------------------------------------------------------------
+decoding:
+  # Time bin for decoding running behaviour. (Phase 2 replay decoding uses
+  # 20 ms bins; that is out of scope here.)
+  time_bin_s: 0.25                 # [PROVISIONAL]
+  # Memoryless Poisson decoder with a spatially uniform prior.
+  prior: uniform                   # [CHEN2016]
+  # Small constant added to tuning curves so that a zero-rate bin cannot
+  # veto a position outright.
+  rate_floor_hz: 0.01              # [PROVISIONAL]
+  # Cross-validation scheme: tuning curves are estimated on all laps but the
+  # held-out one, then used to decode that lap.
+  cv_scheme: leave_one_lap_out     # [PROVISIONAL]
+  # Decoding bins containing fewer than this many spikes across the ensemble
+  # are reported as undecodable rather than being assigned a position.
+  min_spikes_per_bin: 1            # [PROVISIONAL]
+  # Minimum number of simultaneously recorded place cells for a session to be
+  # decoded at all.
+  min_units_for_decoding: 10       # [PROVISIONAL]
+
+# ---------------------------------------------------------------------------
+# Lap detection on the linear track
+# ---------------------------------------------------------------------------
+laps:
+  # A lap is a traversal from one end zone to the other. End zones are defined
+  # as the outer fraction of the linearized track at each end.
+  end_zone_frac: 0.15              # [PROVISIONAL]
+  min_lap_duration_s: 1.0          # [PROVISIONAL]
+  max_lap_duration_s: 60.0         # [PROVISIONAL]
+
+# ---------------------------------------------------------------------------
+# Output / reproducibility
+# ---------------------------------------------------------------------------
+output:
+  figure_format: png
+  figure_dpi: 150
+  # Every figure gets a sidecar <name>.json with the parameters and git commit.
+  write_sidecar_json: true
+  random_seed: 20160310            # [PROVISIONAL] (Science publication date)
