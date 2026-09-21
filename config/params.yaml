@@ -18,15 +18,14 @@ schema_version: 1
 # Dataset-level constants
 # ---------------------------------------------------------------------------
 dataset:
-  # Nominal position-tracking sample rate. The description PDF says ~39 Hz;
-  # the loader must measure the true rate from the timestamps and warn on
-  # disagreement rather than trusting this value.
-  position_rate_hz: 39.06          # [DATA]
-  # Spike times in sessInfo are expected to already be in seconds.
-  spike_time_units: seconds        # [DATA]
-  # Unit-type labels as they appear in the file (confirm spelling in step 2).
-  pyramidal_label: pyr             # [DATA]
-  interneuron_label: int           # [DATA]
+  # Position-tracking sample rate. Confirmed in step 2: timestamps are on an
+  # exact, gap-free 25.6 ms grid in all 8 sessions (docs/data_schema.md).
+  # Informational only -- code uses the measured Session.position_dt.
+  position_rate_hz: 39.0625        # [DATA] confirmed
+  # All times in sessInfo are in seconds on the session clock.  [DATA] confirmed
+  spike_time_units: seconds        # [DATA] confirmed
+  # Cell type is given by separate ID vectors (Spikes.PyrIDs / Spikes.IntIDs),
+  # not by per-unit labels, so no label strings are needed here.
 
 # ---------------------------------------------------------------------------
 # Behaviour / running-period definition

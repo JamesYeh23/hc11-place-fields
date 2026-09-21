@@ -52,3 +52,80 @@ One entry per completed step: what was done, what came out of it, what is still 
 
 **Time**: ~45 min.
 
+## 2026-09-21 — Step 2: sessInfo loader, validation, schema documentation
+
+**Done**
+
+- Walked the full HDF5 tree of all 8 files (groups, datasets, shapes, dtypes,
+  `MATLAB_class` / `MATLAB_empty` attributes). The tree is identical across sessions.
+  Documented every field in `docs/data_schema.md`.
+- `src/hc11/io.py`: generic MATLAB v7.3 reader (`read_matlab`: structs, char → str,
+  `MATLAB_empty` placeholders → zero-size arrays, object references dereferenced,
+  unconditional axis reversal) plus hc-11 assembly into an immutable `Session`
+  dataclass with read-only arrays. Helpers: `as_vector`, `as_intervals`, `as_int_ids`,
+  `decode_matlab_string`, `is_matlab_empty`, `shank_of`, `parse_animal`. Methods:
+  `units()`, `spikes_for()`, `spikes_in()`, `epoch()`, `epoch_duration()`,
+  `maze_kind`, `track_length_m`, `position_xy_cm`, `position_1d_cm`.
+  `list_sessions()` searches recursively, so per-session folders work too.
+- `src/hc11/validate.py`: `validate(session) -> list[Issue]` with error / warning / info
+  severities covering spikes, unit labels, epochs, position, states, 1-D range.
+- Tests: 124 passing, 3 skipped (circular sessions in a linear-only check).
+  Synthetic-HDF5 unit tests for every helper (including the 2 × 2 orientation trap,
+  empty placeholders, references, non-ASCII strings); one test per validation check;
+  integration tests over all 8 real sessions (zero errors, exact known-warning set,
+  agreement with `Sessions_Recordings_Summary.pdf`, bit-for-bit agreement with
+  `pymatreader`, and a physical 1-D-vs-2-D projection check).
+- `scripts/inspect_sessions.py` → `results/session_overview.csv` (+ sidecar JSON).
+- README "Loading the data" section; decisions D2.1–D2.6; config `dataset` section
+  updated with confirmed values (label-string placeholders removed — the file uses ID
+  vectors, not labels).
+
+**Results**
+
+- 8 sessions, 4 animals, 562 putative pyramidal cells and 128 interneurons,
+  64.1 M spikes. 5 linear-track sessions (4 × 1.6 m, 1 × 2 m) and 3 circular.
+- Every cluster in every session is labelled either pyramidal or interneuron — zero
+  unclassified clusters, no overlap, no labelled unit without spikes.
+- Position timestamps are an exact, gap-free 25.6 ms grid (39.0625 Hz) spanning the
+  MAZE epoch precisely.
+- `OneDLocation` is defined for only 2.8–26 min per session (42–93 % NaN) and appears to
+  be pre-restricted to track running (median speed 14–55 cm/s where defined vs
+  4–22 cm/s where not). On linear tracks it is an exact linear projection of the 2-D
+  position (|r| = 1.0000).
+- Validation: **0 errors** in all sessions. Warnings only in two sessions (below).
+
+**Discrepancies with the data description / recording summary**
+
+1. **Gatsby_08022013:** 263 976 spikes (4.67 %, all 80 clusters) and 5 state intervals
+   extend up to 1 589 s past `sessDuration` (30 413.6 s). `sessDuration`, `POSTEpoch`
+   and the recording summary (POST = 10 999 s) all agree with each other; the extra data
+   lies outside every documented epoch.
+2. **Achilles_11012013:** REM row 12 is zero-length (`[13281, 13281]`).
+3. The description says v7.3 files open with `scipy.io` — they don't.
+4. `OneDLocation`'s NaN mask is a running mask, not only a tracking-loss mask (the
+   description only documents NaN for `TwoDLocation`).
+5. Circular maze: 1-D range (2.84–2.90 m) is shorter than a 1 m-diameter circle's
+   circumference (3.14 m) and than what the 2-D radius implies (2.82–3.34 m).
+6. File names differ from those cited in the description
+   (`Sessions_Recordings_Summary.pdf`, `Channel_Orderings.pdf`).
+
+**Open questions (need James's decision)**
+
+- **Q1 — Gatsby_08022013 tail.** Clip to `sessDuration` (i.e. trust the documented
+  epochs, which agree with the recording summary) or treat POST as extending to the last
+  spike? Irrelevant for Phase 1 MAZE analyses; matters for whole-session firing rates in
+  step 3 and for POST events in Phase 2. Recommendation: clip — both the file's epoch
+  fields and the summary PDF put the end at 30 413.6 s.
+- **Q2 — Running definition for step 4.** `OneDLocation` is already restricted to
+  track running by the authors. Options: (a) use the authors' mask *and* our
+  speed > 15 cm/s threshold; (b) authors' mask only; (c) ignore it, compute running from
+  2-D speed alone and linearise ourselves. Recommendation: (a) as primary, with (c) as a
+  sensitivity check. Note Buddy_06272013 has only 2.8 min of defined 1-D position.
+- **Q3 — Zero-length REM row.** Drop zero-length intervals when building state masks
+  (harmless either way for durations)? Recommendation: drop, with a warning.
+- Fig. 1A of the paper shows 77 simultaneously recorded place cells in one session; only
+  Achilles_10252013 (120 pyr), Achilles_11012013 (92) and Cicero_09102014 (81) have
+  enough pyramidal units — a useful cross-check for step 4 place-cell criteria.
+
+**Time**: ~2 h.
+

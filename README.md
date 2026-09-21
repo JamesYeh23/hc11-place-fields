@@ -33,7 +33,7 @@ contribution scores, and rigid vs. plastic cell classification.
 | Step | Description | State |
 |------|-------------|-------|
 | 1 | Repository setup | done |
-| 2 | Session loader + schema documentation | not started |
+| 2 | Session loader + schema documentation | done |
 | 3 | QC across all 8 sessions | not started |
 | 4 | Place fields (linear track) | not started |
 | 5 | Bayesian decoding | not started |
@@ -88,6 +88,43 @@ Verify with:
 
 ```bash
 python -m hc11.config
+```
+
+## Loading the data
+
+```python
+from hc11.io import list_sessions, load_session
+from hc11.validate import validate
+
+list_sessions()
+# ['Achilles_10252013', 'Achilles_11012013', 'Buddy_06272013', ...]
+
+s = load_session("Achilles_10252013")   # a name, or a path to the .mat file
+s
+# Session('Achilles_10252013', '1.6m Linear Maze', 120 pyr / 17 int,
+#         8,414,607 spikes, 9.68 h)
+
+s.epoch("MAZE")               # array([18079.5, 20147. ])  seconds
+s.units("pyr")                # cluster IDs of putative pyramidal cells
+s.spikes_for(102)             # sorted spike times of cluster 102
+t, ids = s.spikes_in(s.epoch("MAZE"))   # all spikes in [start, end)
+s.position_t, s.position_xy   # (M,), (M, 2) in metres; NaN = tracking lost
+s.position_1d_cm              # linearised position in cm (NaN outside track running)
+s.states["NREM"]              # (k, 2) [start, end] intervals
+
+for issue in validate(s):
+    print(issue)
+```
+
+`Session` is immutable and holds exactly what the file contains — nothing is clipped or
+interpolated. Two sessions have known anomalies that `validate()` reports as warnings;
+see [`docs/data_schema.md`](docs/data_schema.md), which documents every field, its on-disk
+layout, and every discrepancy with the CRCNS data description.
+
+A one-line summary of every session, saved to `results/session_overview.csv`:
+
+```bash
+uv run python scripts/inspect_sessions.py --warnings
 ```
 
 ## Installation
