@@ -50,7 +50,53 @@ is what makes "which version of the code made this figure" answerable after the 
 
 ## Step 2 — loader
 
-_Not started._
+### D2.1 — Transpose unconditionally, never by shape
+
+The loader reverses HDF5 axes for *every* numeric dataset (MATLAB array = `h5py.T`) and
+then normalises each field to its documented logical shape, raising if it does not fit.
+Guessing orientation from shape ("if it has 2 rows, transpose") silently mis-reads a
+`2 × 2` interval matrix, and the real files are not even internally consistent
+(`TimeStamps` is a row vector, `OneDLocation` a column). A test pins the `2 × 2` case.
+
+### D2.2 — Two layers: generic MATLAB reader, then hc-11 assembly
+
+`read_matlab` knows nothing about hc-11 (structs, chars, empties, references, logicals);
+`load_session` knows nothing about HDF5. Each can be tested on its own, and the generic
+layer handles `MATLAB_empty` placeholders and object references even though no current
+file uses them.
+
+### D2.3 — The loader never modifies data
+
+No clipping, no dropping, no interpolation, no unit conversion of stored arrays. Metres
+stay metres (`position_xy_cm` / `position_1d_cm` are derived views). Anomalies are
+reported by `validate()`, not "fixed" in the loader, so that each fix is an explicit,
+reviewable analysis decision.
+
+### D2.4 — `validate()` returns issues with a severity instead of raising
+
+`error` = an invariant downstream code relies on is broken; `warning` = a real anomaly to
+account for; `info` = a measurement for the record. The integration tests assert zero
+errors **and** pin the exact set of warning codes per session, so a new anomaly (or a
+disappearing one, e.g. after a data re-download) fails the suite.
+
+Spikes outside `[0, sess_duration]` are a *warning*, not an error: the ask was to
+report them, and every Phase 1 analysis restricts spikes to an explicit epoch anyway,
+which already excludes them.
+
+### D2.5 — No cache
+
+Loading a session takes 0.2–0.7 s straight from the gzip-compressed HDF5. An `.npz`
+cache would save ~0.3 s per session at the cost of an invalidation problem. Not worth it;
+revisit if Phase 2 shuffles need thousands of reloads (they won't — load once, shuffle
+in memory).
+
+### D2.6 — Cross-check with an independent reader
+
+`pymatreader` (a dev dependency only) is used in `tests/test_io.py` to re-read every
+session and compare every field for exact equality with `hc11.io`. A physical check adds
+a second, reader-independent line of evidence: on linear tracks `OneDLocation` must be a
+linear function of `TwoDLocation` (|r| > 0.999 against the first principal axis), which
+would fail if the position arrays were transposed or mis-paired.
 
 ---
 
