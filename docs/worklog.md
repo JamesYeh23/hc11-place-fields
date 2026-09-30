@@ -166,3 +166,58 @@ not running, and how strictly it was restricted varies by session.
 
 **Time**: ~1 h.
 
+## 2026-09-30 — Step 4 (part B): directional place fields
+
+**Done**
+
+- `src/hc11/laps.py`: direction from a smoothed derivative with hysteresis, traversals
+  segmented on the authors' mask blocks (D4.1), split at the reward site on circular
+  tracks so one lap is one circuit (D4.3).
+- `src/hc11/fields.py`: sample selection, occupancy and spike maps smoothed separately
+  (wraparound on circular tracks), Skaggs information in bits/spike and bits/second,
+  field detection, split-half stability, laps active, and a circular-shift shuffle in
+  compressed running time (D4.4).
+- `src/hc11/plots.py`: lap plot, sorted rate-map heatmap, field grid, information
+  histogram. Two fixed colourblind-safe hues for direction (checked: worst-case protan
+  ΔE 21.9), a perceptually uniform ramp for rate.
+- `scripts/place_fields.py`, `scripts/sensitivity_running.py`.
+- 41 new tests (218 total, 3 skipped): hand-computed Skaggs cases, synthetic Poisson
+  place-cell recovery, shuffle calibration, lap segmentation including the circular wrap.
+
+**Laps per direction** (the adequacy number)
+
+| Session | Maze | pos | neg | Pyr | Place cells |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 1.6 m linear | 40 | 42 | 120 | 76 (63 %) |
+| Achilles_11012013 | circular | 1 | 75 | 92 | 72 (78 %) |
+| Buddy_06272013 | 1.6 m linear | 27 | 24 | 48 | 16 (33 %) |
+| Cicero_09012014 | 1.6 m linear | 44 | 44 | 55 | 16 (29 %) |
+| Cicero_09102014 | circular | 0 | 19 | 81 | 35 (43 %) |
+| Cicero_09172014 | 2 m linear | 28 | 27 | 59 | 23 (39 %) |
+| Gatsby_08022013 | 1.6 m linear | 41 | 42 | 66 | 29 (44 %) |
+| Gatsby_08282013 | circular | 1 | 79 | 41 | 29 (71 %) |
+| **Total** | | **182** | **352** | **562** | **296 (53 %)** |
+
+Under-sampled directions: the three circular sessions, which are unidirectional by
+design; Cicero_09102014 has only 19 laps in its one direction. Every linear session has
+24–44 laps per direction. Buddy_06272013, flagged as thin on running time (2.6 min),
+turns out to have 27/24 laps — adequate by lap count, but its cells fire so few spikes
+during running (median 12 per cell-direction) that the 50-spike floor excludes most.
+
+**Validation**: Achilles_10252013's sorted heatmap reproduces the staircase of Fig. 1A,
+and individual fields are single-peaked with peaks of 1.7–26.6 Hz.
+
+**Open questions**
+
+- 296 place cells vs the paper's 491 (1.66x), outside the agreed tolerance. Criteria were
+  not tuned. The binding constraint is the provisional 120 cm field-width cap: 105
+  cell-directions have significant spatial information and a peak above 1 Hz but no
+  detected field. Relaxing that cap alone gives 335 (1.47x); also lowering the spike floor
+  to 20 gives 356 (1.38x). Needs James's decision — see D4.6.
+- The speed threshold barely changes the fields (D4.5): with laps held fixed, place-cell
+  counts and median information and stability are unchanged even where it discards 59 %
+  of samples. Kept as primary for cross-session comparability, not because the fields
+  need it.
+
+**Time**: ~3 h.
+

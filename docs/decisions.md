@@ -148,14 +148,20 @@ Consequences for the code:
 
 This stays an open question; it does not affect Phase 1 linear-track place fields.
 
-### D3.4 — Running = the authors' mask, with our speed threshold on top
+### D3.4 — Running = the authors' mask ∩ our speed threshold (a substantive choice)
 
 Stage 1 is `OneDLocation` being defined; stage 2 is speed > 15 cm/s (2-D tracking,
 differentiated then smoothed with σ = 0.1 s). Short dips (≤ 0.2 s) are bridged, and runs
 under 0.5 s dropped.
 
-The expectation was that stage 2 would remove very little, confirming that the authors'
-mask already encodes a running criterion. **It does not.** The speed threshold removes:
+**This is a methodological choice, not a confirmation of the released mask.**
+`OneDLocation` marks *being on the linearised track*; how strictly it was curated varies
+from session to session, so it does not reliably carry a running criterion, and the speed
+threshold supplies one the data does not otherwise provide. Treating stage 2 as a
+formality would mean accepting a definition of "running" that silently differs between
+sessions — the opposite of a controlled comparison across the eight of them.
+
+The evidence: the speed threshold removes
 
 | Session | Removed by speed | Samples < 5 cm/s | Mask block duration (median / max) |
 |---|---|---|---|
@@ -174,10 +180,12 @@ and deceleration at the ends of a run, which any speed threshold trims. In the o
 the mask contains blocks of up to 23–59 s with 8–17 % of samples below 5 cm/s spread
 across the middle of the track, i.e. genuine pauses.
 
-So `OneDLocation` marks *on the linearised track*, and only incidentally *running*; how
-strictly it was restricted varies by session. The speed threshold is therefore a real
-filter, not a formality, and the stage-1/stage-2 split is kept precisely so the effect
-stays visible per session (`results/running_summary.csv`).
+In the first three sessions the mask is made of short blocks the length of a single
+traversal; in the other five it contains blocks of up to 23–59 s with genuine mid-track
+pauses. The stage-1/stage-2 split is kept precisely so this stays visible per session
+(`results/running_summary.csv`).
+
+What it does **not** change is the place fields themselves — see D4.5.
 
 ### D3.5 — Refractory-period violations cannot be a quality metric
 
@@ -192,6 +200,112 @@ per-session archives, which this phase does not download.
 ---
 
 ## Step 4 — place fields
+
+### D4.1 — Laps are segmented before the speed filter, not after
+
+`segment_laps` runs on the authors' mask blocks; the speed filter enters later, in
+`select_running_samples`, when occupancy and spikes are accumulated. Segmenting on the
+speed-filtered mask would cut a traversal with a brief mid-track slowdown into several
+fragments, each covering too little of the track to qualify as a lap, so a session's lap
+count would depend on the speed threshold. Pinned by
+`tests/test_laps.py::test_brief_slowdown_does_not_split_a_lap`.
+
+### D4.2 — Direction by hysteresis, with no assumption of alternation
+
+Direction is the sign of a smoothed (σ = 0.25 s) derivative of the linearised position,
+with a ±5 cm/s hysteresis band: the direction flips only when the animal clearly moves
+the other way. Runs are then split wherever the direction changes, so two traversals in
+the same direction in a row are two laps of that direction — nothing assumes the animal
+alternates. A lap must cover ≥ 50 % of the track extent end to end and last 0.5–60 s.
+
+### D4.3 — On a circular track, one lap is one circuit
+
+A constant-direction run is split again at every crossing of the reward site at position
+0. Without this, an animal running continuously round the ring yields a single "lap"
+spanning many circuits, with a coverage of 2, 3, … Found by a test written for the wrap,
+not by inspection of the data.
+
+Consequence for the circular sessions: their laps are strongly unidirectional (1/75,
+0/19, 1/79 for pos/neg), which matches the data description — the animals were
+"gently encouraged to run unidirectionally" on the circular platform. Their median lap
+coverage is 0.66–0.99: the linearised position is undefined for much of the ring in two
+of them, so many segments are partial circuits.
+
+### D4.4 — Circular-shift shuffle in compressed running time
+
+The null shifts each cell's spike train circularly through the *selected running samples*
+rather than through session time. This preserves the spike count and the trajectory,
+destroys the pairing between them, and keeps every shuffled spike at a position the animal
+actually occupied while running. Spikes are attached to the nearest position sample
+(≈ 1.5 cm at observed speeds, versus 10 cm bins), which also keeps them on the grid the
+shuffle operates on.
+
+**Known limitation, pinned as a test.** The shuffle's power depends on lap-to-lap
+variability. If every lap took exactly the same time, a shift of *k* slots would map bin
+*i* onto bin *i + k* in every lap, so the shuffled map would be a rotation of the true one
+and would carry the same spatial information — the null would sit at the observed value
+and no cell would be significant. Real lap durations vary (Achilles_10252013: 2.0–6.9 s),
+which is what gives the test its power. The failure mode is conservative, never
+anti-conservative. See `tests/test_fields.py::test_stereotyped_running_weakens_the_shuffle`
+and the calibration test alongside it, which checks that spatially uniform cells are
+flagged at roughly the nominal 5 % rate rather than more often.
+
+### D4.5 — The speed threshold barely changes the place fields
+
+`scripts/sensitivity_running.py` rebuilds the maps three ways for one session from each
+group in D3.4 (laps held fixed, so only the samples differ):
+
+| Session | Condition | Running | % of mask | Place cells | Median info | Median stability | Median peak |
+|---|---|---|---|---|---|---|---|
+| Achilles_10252013 | mask only | 4.3 min | 96 % | 76 | 0.62 | 0.97 | 5.5 Hz |
+| Achilles_10252013 | mask + 15 cm/s | 4.0 min | 90 % | 76 | 0.62 | 0.97 | 5.5 Hz |
+| Achilles_10252013 | mask + 5 cm/s | 4.2 min | 96 % | 76 | 0.62 | 0.97 | 5.5 Hz |
+| Cicero_09012014 | mask only | 19.6 min | 97 % | 16 | 0.54 | 0.97 | 5.6 Hz |
+| Cicero_09012014 | mask + 15 cm/s | 8.4 min | 41 % | 16 | 0.54 | 0.97 | 6.9 Hz |
+| Cicero_09012014 | mask + 5 cm/s | 16.0 min | 79 % | 16 | 0.53 | 0.97 | 5.8 Hz |
+
+**Mask-only fields are not noticeably worse.** Even in Cicero_09012014, where the
+threshold discards 59 % of the samples, the place-cell count, median spatial information
+and median stability are unchanged to two decimal places. Cell membership is identical in
+Achilles_10252013 and 76 % overlapping in Cicero_09012014 (3 cell-directions swap each
+way). The one thing that does move is the median peak rate (5.6 → 6.9 Hz in
+Cicero_09012014), which is what you would expect from removing slow, low-rate occupancy
+from the denominator.
+
+So the threshold is not doing necessary work for *identifying* place cells. It is kept as
+primary anyway, for the reason in D3.4 — it makes "running" mean the same thing in all
+eight sessions — and because rate estimates do depend on it. But the fields themselves are
+robust to it, which is a reassuring negative result rather than a justification.
+
+### D4.6 — Place-cell criteria, and why our count is below the paper's
+
+Criteria (all in `config/params.yaml`, all provisional): ≥ 50 spikes during running in that
+direction, peak rate ≥ 1 Hz, spatial information significant against the shuffle null at
+α = 0.05, at least one detected field, and split-half (odd vs even laps) r ≥ 0.3. A cell
+counts once per session if it qualifies in either direction. Counts are reported both with
+and without the stability criterion, because the paper states no threshold for it; in
+practice it changes nothing (cells that pass the other criteria are highly stable).
+
+**Result: 296 place cells across the 8 sessions, against the paper's 491 — a factor of
+1.66, outside the factor-1.5 tolerance James set.** Per the working rules, the criteria
+have *not* been adjusted to close the gap. The diagnosis:
+
+| Criterion | Cell-directions failing it alone |
+|---|---|
+| no detected field | 101 |
+| fewer than 50 spikes | 32 |
+| peak rate < 1 Hz | 6 |
+| unstable (r < 0.3) | 3 |
+| information not significant | 2 |
+
+The dominant constraint is field *detection*, not spatial tuning: 105 cell-directions have
+significant spatial information, a peak above 1 Hz and enough spikes, yet no field, because
+the region above 20 % of their peak is wider than the provisional 120 cm cap — on a 160 cm
+track that cap excludes any cell tuned more broadly than 75 % of the track. Relaxing only
+that cap gives 335 place cells (1.47x); additionally lowering the spike floor to 20 gives
+356 (1.38x). Both are inside the tolerance, and both are single-parameter changes to
+numbers we invented rather than took from a source — which is exactly why they need
+James's decision rather than ours.
 
 Provisional choices already recorded in `config/params.yaml`, to be revisited once real
 maps exist:

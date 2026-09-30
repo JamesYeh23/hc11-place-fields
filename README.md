@@ -34,8 +34,8 @@ contribution scores, and rigid vs. plastic cell classification.
 |------|-------------|-------|
 | 1 | Repository setup | done |
 | 2 | Session loader + schema documentation | done |
-| 3 | QC across all 8 sessions | not started |
-| 4 | Place fields (linear track) | not started |
+| 3 | Anomaly decisions + running periods | done |
+| 4 | Directional place fields, all 8 sessions | done |
 | 5 | Bayesian decoding | not started |
 
 ## Getting the data
@@ -126,6 +126,22 @@ A one-line summary of every session, saved to `results/session_overview.csv`:
 ```bash
 uv run python scripts/inspect_sessions.py --warnings
 ```
+
+## Running the analysis
+
+```bash
+uv run python scripts/inspect_sessions.py --warnings   # per-session overview + QC
+uv run python scripts/report_running.py                # how the running mask is built
+uv run python scripts/place_fields.py                  # place fields, all 8 sessions
+uv run python scripts/place_fields.py Achilles_10252013
+uv run python scripts/sensitivity_running.py           # speed-threshold sensitivity
+```
+
+`place_fields.py` writes `results/place_fields_summary.csv` (one row per cell per
+direction), `results/lap_summary.csv`, and per-session figures in `results/<session>/`:
+laps over time, sorted rate-map heatmaps per direction, a grid of the most informative
+fields, and a spatial-information histogram. Every figure has a sidecar JSON recording
+the parameters and git commit that produced it.
 
 ## Installation
 

@@ -96,15 +96,28 @@ place_fields:
   min_occupancy_s: 0.1             # [PROVISIONAL]
   # Running directions are mapped separately.
   separate_directions: true        # [GB2016]
+  # --- shuffle test for spatial information ---
+  shuffle:
+    # Circular shift of the spike train relative to position, within the
+    # running samples only (compressed running time). See fields.shuffle_test.
+    n_shuffles: 500                # [PROVISIONAL]
+    alpha: 0.05                    # [PROVISIONAL]
+    random_seed: 20160310          # [PROVISIONAL]
   # --- place-cell inclusion criteria ---
   criteria:
+    min_spikes: 50                 # [PROVISIONAL] spikes during running, per direction
     min_peak_rate_hz: 1.0          # [PROVISIONAL]
-    min_spatial_info_bits_per_spike: 0.5   # [PROVISIONAL]
+    # Spatial information must beat the shuffle null at `shuffle.alpha`; no
+    # absolute bits/spike threshold is imposed, because the paper gives none
+    # and an absolute cut would depend on bin size and smoothing.
     # A contiguous run of bins above this fraction of the peak rate counts as
     # a field.
     field_threshold_frac_of_peak: 0.20     # [PROVISIONAL]
     min_field_width_cm: 10.0       # [PROVISIONAL]
     max_field_width_cm: 120.0      # [PROVISIONAL]
+    # Split-half (odd vs even laps) correlation. Reported both with and without
+    # this criterion, since the paper states no threshold.
+    min_stability_r: 0.3           # [PROVISIONAL]
   # Target from the paper, used as a QC check, not as a filter.
   expected_total_place_cells: 491  # [GB2016]
 
@@ -134,10 +147,21 @@ decoding:
 # Lap detection on the linear track
 # ---------------------------------------------------------------------------
 laps:
-  # A lap is a traversal from one end zone to the other. End zones are defined
-  # as the outer fraction of the linearized track at each end.
-  end_zone_frac: 0.15              # [PROVISIONAL]
-  min_lap_duration_s: 1.0          # [PROVISIONAL]
+  # Laps are segmented on the AUTHORS' mask blocks (OneDLocation defined), not
+  # on the speed-filtered mask: a traversal that briefly dips below the speed
+  # threshold would otherwise fragment into several sub-threshold laps. The
+  # speed filter is applied afterwards, when occupancy and spikes are counted.
+  # See decision D4.1.
+  segment_on: authors_mask         # [PROVISIONAL] James's decision, 2026-09-30
+  # Smoothing of the linearised position before differentiating for direction.
+  position_smoothing_sigma_s: 0.25 # [PROVISIONAL]
+  # Hysteresis threshold on the along-track velocity: direction flips only when
+  # the animal clearly moves the other way, so a wobble is not a turnaround.
+  direction_threshold_cm_s: 5.0    # [PROVISIONAL]
+  # A traversal must cover this fraction of the track extent, end to end, in one
+  # direction to count as a lap.
+  min_coverage_frac: 0.5           # [PROVISIONAL]
+  min_lap_duration_s: 0.5          # [PROVISIONAL]
   max_lap_duration_s: 60.0         # [PROVISIONAL]
 
 # ---------------------------------------------------------------------------
