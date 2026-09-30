@@ -28,10 +28,37 @@ dataset:
   # not by per-unit labels, so no label strings are needed here.
 
 # ---------------------------------------------------------------------------
+# Preprocessing of the raw session (analysis layer; the loader stays faithful)
+# ---------------------------------------------------------------------------
+preprocess:
+  # Drop spikes and clip state intervals after sessDuration. Affects only
+  # Gatsby_08022013 (263,976 spikes, 4.67%). See decision D3.1.
+  truncate_to_session: true        # [PROVISIONAL] James's decision, 2026-09-30
+  # Drop zero-length state intervals. Affects only Achilles_11012013 (one REM
+  # row, [13281, 13281]). See decision D3.2.
+  drop_zero_length_state_intervals: true   # [PROVISIONAL] James's decision
+
+# ---------------------------------------------------------------------------
+# Track geometry
+# ---------------------------------------------------------------------------
+track:
+  # Build the track extent from the observed OneDLocation range per session
+  # rather than from an assumed track length. Required on the circular maze,
+  # where the observed range (2.84-2.90 m) disagrees with the circumference
+  # implied by the documented 1 m diameter (3.14 m). See decision D3.3.
+  use_observed_range: true         # [PROVISIONAL]
+
+# ---------------------------------------------------------------------------
 # Behaviour / running-period definition
 # ---------------------------------------------------------------------------
 behavior:
-  # Speed threshold separating running from immobility.
+  # Start from the authors' own definition of track running: the samples where
+  # OneDLocation is defined. Required for 1-D rate maps -- a sample without a
+  # linearised position has no spatial bin. See decision D3.4.
+  require_linearized: true         # [GB2016] implicit in the released data
+  # Speed threshold separating running from immobility, applied on top of the
+  # authors' mask. NOT a formality: it removes 3-11% of the authors' mask in
+  # 3 sessions but 31-52% in the other 5 (docs/decisions.md D3.4).
   speed_threshold_cm_s: 15.0       # [CHEN2016]
   # Half-width of the Gaussian used to smooth the speed trace before
   # thresholding, in seconds. Unsmoothed speed from 39 Hz tracking is noisy

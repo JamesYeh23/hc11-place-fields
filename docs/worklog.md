@@ -129,3 +129,40 @@ One entry per completed step: what was done, what came out of it, what is still 
 
 **Time**: ~2 h.
 
+## 2026-09-30 — Step 3 (part A): anomaly decisions implemented
+
+**Done**
+
+- `src/hc11/preprocess.py`: `truncate_to_session` (+ `TruncationReport`),
+  `clean_intervals`, `state_intervals`, `intervals_to_mask`, `mask_to_intervals`.
+- `src/hc11/track.py`: `Track` built from the observed 1-D range per session, with
+  wrap-aware `difference` / `distance` / `wrap` / `unwrap` and spatial binning.
+- `src/hc11/behavior.py`: NaN-aware speed from 2-D tracking, and a two-stage
+  `running_mask` (authors' mask, then speed threshold) reporting what each stage does.
+- `scripts/report_running.py` → `results/running_summary.csv`.
+- Config: new `preprocess` and `track` sections; `behavior.require_linearized`.
+- Decisions D3.1–D3.5; 45 new tests (177 total, 3 skipped).
+
+**Results**
+
+- Truncation affects only Gatsby_08022013: 263 976 spikes (4.67 %), 4 state intervals
+  dropped, 1 clipped. All other sessions are untouched (asserted in tests).
+- Zero-length intervals affect only Achilles_11012013 (1 REM row), also asserted.
+- Running time after both stages: 2.6–15.4 min per session, 6.7–34.6 % of the MAZE epoch.
+
+**The speed threshold is not a formality (D3.4)**
+
+Removal ranges from 3.3 % (Buddy) to 51.9 % (Cicero_09012014). In the three
+low-removal sessions the authors' mask is built of single-traversal blocks and the slow
+samples are at the track ends; in the other five it contains blocks up to 23–59 s with
+8–17 % of samples below 5 cm/s in mid-track. `OneDLocation` marks the linearised track,
+not running, and how strictly it was restricted varies by session.
+
+**Open questions**
+
+- The circular 1-D range vs. circumference mismatch (D3.3) remains unexplained.
+- Cicero_09012014 loses over half its linearised time to the speed threshold, leaving
+  8.4 min of running from a 92.7 min MAZE epoch. Worth watching in step 4.
+
+**Time**: ~1 h.
+

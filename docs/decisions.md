@@ -100,9 +100,94 @@ would fail if the position arrays were transposed or mis-paired.
 
 ---
 
-## Step 3 — quality control
+## Step 3 — anomaly resolution and behaviour
 
-_Not started._
+James's decisions, 2026-09-30. All three are implemented in an analysis layer
+(`preprocess.py`, `track.py`, `behavior.py`); `load_session` still returns raw values.
+
+### D3.1 — Truncate Gatsby_08022013 at `sessDuration`
+
+`truncate_to_session(session)` drops spikes after `sess_duration` and clips state
+intervals to it, returning a new `Session` plus a `TruncationReport` that is logged.
+Only Gatsby_08022013 is affected: 263 976 spikes (4.67 %) from 80 clusters, up to
+1 588.7 s past the end, plus 4 state intervals dropped and 1 clipped (1 578.4 s).
+
+Rationale: `sessDuration`, `POSTEpoch` and `Sessions_Recordings_Summary.pdf` agree that
+the session ends at 30 413.628 s, so the extra data lies outside every documented epoch
+and its provenance is unknown. Keeping it in would inflate whole-session firing rates by
+~5 % for that session only. Implemented as a separate function, not inside the loader, so
+that reversing the decision means not calling it.
+
+### D3.2 — Drop zero-length state intervals
+
+`clean_intervals` / `state_intervals` drop rows with `end <= start`, logging what was
+dropped. Only Achilles_11012013 REM row 12 (`[13281, 13281]`) is affected. A zero-length
+interval contributes nothing to a duration sum but can yield a degenerate result in
+interval intersection or sample masking.
+
+### D3.3 — Circular tracks: observed range, explicit wrap **(open question)**
+
+On the three circular sessions, `OneDLocation` spans 2.84–2.90 m, while the documented
+1 m-diameter platform implies a 3.14 m circumference, and the median 2-D radius
+(0.45–0.53 m) implies 2.82–3.34 m. **The cause is unknown.** Possibilities not
+distinguished by the released data: the linearisation may cover only the portion of the
+ring the animal actually ran, it may be scaled to a nominal path radius rather than the
+measured one, or the reward zone may be excluded.
+
+Consequences for the code:
+
+- `Track.from_session` takes the extent from the **observed** `OneDLocation` range per
+  session, never from an assumed circumference. An assumed 3.14 m would misplace every
+  bin edge and put the wrap discontinuity at a position the animal never occupied.
+- The wrap is explicit: `Track.difference` / `Track.distance` take the short way around,
+  so two positions either side of the reward site at 0 are correctly ~0.1 m apart rather
+  than a full lap. `Track.unwrap` gives continuous position for direction and lap
+  detection. Unit-tested in `tests/test_track.py::TestWrap`.
+- The circular period is taken as `hi - lo`, which underestimates the true circumference
+  by at most one inter-sample step (< 1.5 cm at observed speeds) — well inside a 10 cm bin.
+
+This stays an open question; it does not affect Phase 1 linear-track place fields.
+
+### D3.4 — Running = the authors' mask, with our speed threshold on top
+
+Stage 1 is `OneDLocation` being defined; stage 2 is speed > 15 cm/s (2-D tracking,
+differentiated then smoothed with σ = 0.1 s). Short dips (≤ 0.2 s) are bridged, and runs
+under 0.5 s dropped.
+
+The expectation was that stage 2 would remove very little, confirming that the authors'
+mask already encodes a running criterion. **It does not.** The speed threshold removes:
+
+| Session | Removed by speed | Samples < 5 cm/s | Mask block duration (median / max) |
+|---|---|---|---|
+| Buddy_06272013 | 3.3 % | 0.6 % | 1.6 s / 5.7 s |
+| Achilles_10252013 | 5.5 % | 0.3 % | 1.9 s / 6.9 s |
+| Gatsby_08022013 | 11.0 % | 1.1 % | 2.8 s / 15.4 s |
+| Gatsby_08282013 | 30.8 % | 8.4 % | 1.4 s / 30.6 s |
+| Achilles_11012013 | 36.2 % | 9.0 % | 0.7 s / 30.2 s |
+| Cicero_09102014 | 39.5 % | 10.6 % | 0.4 s / 23.2 s |
+| Cicero_09172014 | 50.4 % | 12.1 % | 2.2 s / 29.7 s |
+| Cicero_09012014 | 51.9 % | 16.5 % | 0.8 s / 58.7 s |
+
+In the first three sessions the mask is made of short blocks the length of a single
+traversal, and 71–87 % of the slow samples sit in the end zones — i.e. the acceleration
+and deceleration at the ends of a run, which any speed threshold trims. In the other five
+the mask contains blocks of up to 23–59 s with 8–17 % of samples below 5 cm/s spread
+across the middle of the track, i.e. genuine pauses.
+
+So `OneDLocation` marks *on the linearised track*, and only incidentally *running*; how
+strictly it was restricted varies by session. The speed threshold is therefore a real
+filter, not a formality, and the stage-1/stage-2 split is kept precisely so the effect
+stays visible per session (`results/running_summary.csv`).
+
+### D3.5 — Refractory-period violations cannot be a quality metric
+
+The minimum inter-spike interval within a cluster is **exactly 0.85 ms in all 8
+sessions** — an implausible coincidence unless a refractory censoring step was applied
+before release. Standard cluster-quality measures based on ISI violations (refractory
+contamination rate, fraction of ISIs below 2 ms) are therefore uninformative here: they
+measure the upstream cleaning, not the isolation quality of the cluster. If unit quality
+needs assessing in Phase 2, it has to come from waveform or amplitude data in the
+per-session archives, which this phase does not download.
 
 ---
 
