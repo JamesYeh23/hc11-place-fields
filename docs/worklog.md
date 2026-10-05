@@ -221,3 +221,33 @@ and individual fields are single-peaked with peaks of 1.7–26.6 Hz.
 
 **Time**: ~3 h.
 
+## 2026-10-05 — Step 5a: place-cell count resolved
+
+**Done**
+
+- Established that the paper's 491 counts unique neurons (D5.1); the pipeline now reports
+  unique cells and cell-direction pairs side by side everywhere.
+- Replaced the fixed 120 cm field-width cap with `max_field_width_frac: 0.75` of the
+  usable track extent (D5.2), so the 1.6 m, 2 m and circular tracks are treated alike.
+- `scripts/place_cell_sensitivity.py` → `results/place_cell_sensitivity.csv`.
+
+**Results**
+
+| Variant | Unique | % pyr | 491/ours | Cell-dir |
+|---|---|---|---|---|
+| primary | 304 | 54 % | 1.62 | 370 |
+| cap relaxed | 346 | 62 % | 1.42 | 458 |
+| cap relaxed + 20 spikes | 367 | 65 % | 1.34 | 489 |
+| peak ≥ 1 Hz only | 392 | 70 % | 1.25 | 618 |
+| paper | 491 | 87 % | — | — |
+
+The fraction cap added 8 unique cells (296 → 304), all on the 2 m and circular sessions.
+
+**The gap is not a threshold we mis-set.** Applying only Chen et al.'s stated criterion
+(peak > 1 Hz) with nothing else still gives 392; the most inclusive base available (all
+samples with a defined OneDLocation, directions merged) gives 353. 186 of 562 pyramidal
+cells fire < 50 spikes in their best direction during the released running periods.
+Recorded in D5.4 and left as a finding, not tuned away.
+
+**Time**: ~1 h.
+

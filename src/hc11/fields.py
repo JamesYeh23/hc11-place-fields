@@ -316,7 +316,12 @@ def find_fields(
     max_width_m: float,
     circular: bool,
 ) -> list[tuple[int, int]]:
-    """Place fields as contiguous runs above ``threshold_frac`` of the peak rate."""
+    """Place fields as contiguous runs above ``threshold_frac`` of the peak rate.
+
+    ``max_width_m`` is an absolute width; callers pass
+    ``criteria.max_field_width_frac * track.extent`` so that the cap scales with
+    the track (decision D5.2).
+    """
     valid = np.isfinite(rate)
     if not valid.any():
         return []
@@ -506,7 +511,7 @@ def analyse_cell(
         rmap.rate, rmap.bin_size_m,
         threshold_frac=crit["field_threshold_frac_of_peak"],
         min_width_m=crit["min_field_width_cm"] / 100.0,
-        max_width_m=crit["max_field_width_cm"] / 100.0,
+        max_width_m=crit["max_field_width_frac"] * track.extent,
         circular=track.is_circular,
     )
     in_field = np.zeros(track.n_bins, dtype=bool)
