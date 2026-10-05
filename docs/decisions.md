@@ -327,3 +327,88 @@ maps exist:
 | `decoding.rate_floor_hz` | 0.01 Hz | Without a floor, a single spike from a cell with a 0 Hz estimate at some position assigns that position zero posterior probability outright. |
 | `decoding.cv_scheme` | leave-one-lap-out | Laps are the natural independent unit on a linear track; random bin-wise splits leak information through temporal autocorrelation of position. |
 | `laps.end_zone_frac` | 0.15 | Enough of the track end to capture the turnaround reliably despite tracking dropout at the reward sites. |
+
+---
+
+## Step 5a — place-cell count: convention, criteria, and the residual gap
+
+### D5.1 — The paper's 491 counts unique neurons, so ours must too
+
+Grosmark & Buzsáki: *"a spatial Bayesian decoder, constructed from the firing-rate vectors
+of place cells (n = 491 cells) during track running (eight novel exploration sessions)"*.
+Three things fix the convention as **unique neurons**, not cell-direction pairs:
+
+1. The same 491 is later divided *"into equal subgroups by either 'off-line' sleep-firing
+   rate or ripple-rate gain"* — properties a neuron has once, not once per direction.
+2. *"n = 216 neurons"* is described as a subset of them (Fig. 2B, one point per neuron).
+3. Per-cell contribution (PCC) is defined per neuron.
+
+Our pipeline reports both. The ratio between them is only 1.21 overall, not the ~2 a
+linear track might suggest, because the three circular sessions are unidirectional (ratio
+exactly 1.00) and on the linear tracks many cells qualify in one direction only
+(1.31–1.57). **The convention does not close the gap**: 304 unique vs 370 cell-direction
+pairs, against the paper's 491 unique.
+
+### D5.2 — Field-width cap as a fraction of track extent
+
+`criteria.max_field_width_frac: 0.75` replaces the fixed `max_field_width_cm: 120`, which
+was inconsistent across mazes — 75 % of a 1.6 m track, 60 % of the 2 m track, but only
+41 % of a 2.84–2.90 m ring, so the same cell shape was judged differently depending on
+which maze it was recorded on.
+
+Why 0.75 and not something tighter:
+
+- A field is defined as the contiguous run above 20 % of the peak rate. A textbook CA1
+  field with σ = 20 cm already spans 2σ·√(2 ln 5) ≈ 72 cm at that threshold — 45 % of a
+  1.6 m track before the 10 cm smoothing kernel widens it further. A cap at 0.5 would
+  reject ordinary fields.
+- A spatially uniform cell spans 100 % by construction.
+- 0.75 sits between the widest plausible genuine field and total non-localisation, and it
+  reproduces the previous behaviour on the 1.6 m tracks, so this change is about
+  consistency across track lengths rather than about loosening the criterion.
+
+Effect: +8 unique place cells (296 → 304), all on the 2 m and circular sessions.
+Provisional, like every other criterion we invented.
+
+### D5.3 — The 50-spike floor stays primary
+
+`min_spikes: 50` during running, per direction. The 20-spike variant is reported in
+`results/place_cell_sensitivity.csv` as a sensitivity row only and is **not** adopted.
+
+### D5.4 — The gap is real and cannot be closed by relaxing our criteria
+
+`scripts/place_cell_sensitivity.py`, all counts across the 8 sessions (562 pyramidal
+cells):
+
+| Variant | Unique cells | % of pyramidal | 491 / ours | Cell-direction pairs |
+|---|---|---|---|---|
+| **primary** | **304** | 54 % | **1.62** | 370 |
+| cap relaxed (no max width) | 346 | 62 % | 1.42 | 458 |
+| cap relaxed + 20-spike floor | 367 | 65 % | 1.34 | 489 |
+| peak rate ≥ 1 Hz only, nothing else | 392 | 70 % | 1.25 | 618 |
+| Grosmark & Buzsáki | 491 | 87 % | — | — |
+
+The last row of our own results is the important one. Chen et al. (2016), whose methods
+section describes the same recordings, state that *"all putative pyramidal neurons selected
+for analysis had peak firing rate > 1 Hz"*. Applying **only** that — no field requirement,
+no shuffle test, no stability, no spike floor — still yields 392, not 491. Measuring on
+the most inclusive base available (every sample with a defined `OneDLocation`, directions
+merged) gives 353. **There is no setting of our criteria that reaches 87 % of pyramidal
+cells**, so the difference is not a threshold we have mis-set.
+
+Where it plausibly comes from, none of which we can test with the released files:
+
+- **The released `OneDLocation` covers only part of the behaviour.** It is defined for
+  7–35 % of each MAZE epoch (docs/data_schema.md), so cells are scored on a fraction of
+  the running the authors had. 186 of 562 pyramidal cells fire fewer than 50 spikes in
+  their best direction within our running periods, and 10 fire none at all. Across the
+  eight sessions, place-cell fraction correlates with running time (r = 0.63, n = 8).
+- **Field construction may differ.** Two-dimensional fields, or fields built over all MAZE
+  time rather than running periods, would admit cells that our 1-D running-only maps
+  cannot evaluate.
+- **The supplement is unavailable**, and with it the actual inclusion criteria.
+
+Per the working rules the criteria were **not** tuned toward 491. The gap is recorded as a
+finding: our place-cell population is a conservative subset of theirs, and step 5b's
+decoder is built on that subset.
+

@@ -93,9 +93,11 @@ def main() -> None:
             sel = [c for c in cells if c.direction == d]
             row[f"n_place_cells_{d}"] = sum(c.is_place_cell for c in sel)
         unique = {c.cluster_id for c in cells if c.is_place_cell}
+        pairs = sum(c.is_place_cell for c in cells)
         unique_nostab = {c.cluster_id for c in cells if c.is_place_cell_no_stability}
         row["n_pyr"] = len(session.pyr_ids)
         row["n_place_cells_unique"] = len(unique)
+        row["n_place_cell_directions"] = int(pairs)
         row["n_place_cells_unique_no_stability"] = len(unique_nostab)
         row["under_sampled"] = any(
             0 < summary[d]["n_laps"] < LAP_WARNING_THRESHOLD for d in DIRECTIONS
@@ -150,24 +152,28 @@ def main() -> None:
 
     print()
     header = (f"{'session':<18} {'maze':<17} {'laps +':>7} {'laps -':>7} {'pyr':>5} "
-              f"{'PC':>5} {'PC%':>6} {'run min':>8}")
+              f"{'PC':>5} {'PC%':>6} {'cell-dir':>9} {'run min':>8}")
     print(header)
     print("-" * len(header))
     for r in lap_rows:
         flag = " *" if r["under_sampled"] else ""
         print(f"{r['session']:<18} {r['maze_type']:<17} {r['n_laps_pos']:7d} {r['n_laps_neg']:7d} "
               f"{r['n_pyr']:5d} {r['n_place_cells_unique']:5d} "
-              f"{100 * r['n_place_cells_unique'] / r['n_pyr']:5.0f}% {r['running_min']:8.1f}{flag}")
+              f"{100 * r['n_place_cells_unique'] / r['n_pyr']:5.0f}% "
+              f"{r['n_place_cell_directions']:9d} {r['running_min']:8.1f}{flag}")
     print("-" * len(header))
     total_pyr = laps_df.n_pyr.sum()
     total_pc = laps_df.n_place_cells_unique.sum()
     print(f"{'total':<18} {'':<17} {laps_df.n_laps_pos.sum():7d} {laps_df.n_laps_neg.sum():7d} "
-          f"{total_pyr:5d} {total_pc:5d} {100 * total_pc / total_pyr:5.0f}%")
+          f"{total_pyr:5d} {total_pc:5d} {100 * total_pc / total_pyr:5.0f}% "
+          f"{laps_df.n_place_cell_directions.sum():9d}")
     print(f"\n* = fewer than {LAP_WARNING_THRESHOLD} laps in a direction")
     if total_pc and set(names) == set(config.SESSIONS):
-        # Only meaningful for the complete set: the paper's 491 is a total over all 8.
-        print(f"paper reports 491 place cells across all 8 sessions; ours is {total_pc} "
-              f"({491 / total_pc:.2f}x ours)")
+        # Only meaningful for the complete set, and only against unique cells:
+        # the paper's 491 counts neurons, not cell-direction pairs (D5.1).
+        print(f"paper reports 491 place cells (unique neurons) across all 8 sessions; "
+              f"ours is {total_pc} unique ({491 / total_pc:.2f}x). "
+              f"See scripts/place_cell_sensitivity.py")
 
 
 if __name__ == "__main__":

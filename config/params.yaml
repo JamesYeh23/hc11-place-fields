@@ -114,7 +114,10 @@ place_fields:
     # a field.
     field_threshold_frac_of_peak: 0.20     # [PROVISIONAL]
     min_field_width_cm: 10.0       # [PROVISIONAL]
-    max_field_width_cm: 120.0      # [PROVISIONAL]
+    # Maximum field width as a FRACTION of the usable track extent, so that the
+    # 1.6 m, 2 m and circular tracks are treated consistently (a fixed 120 cm cap
+    # was 75% of a 1.6 m track but only 41% of a 2.9 m ring). See decision D5.2.
+    max_field_width_frac: 0.75     # [PROVISIONAL] James's decision, 2026-10-05
     # Split-half (odd vs even laps) correlation. Reported both with and without
     # this criterion, since the paper states no threshold.
     min_stability_r: 0.3           # [PROVISIONAL]
