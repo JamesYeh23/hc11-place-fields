@@ -319,3 +319,39 @@ shortfall (D5.4) therefore costs decoding accuracy directly.
 
 **Time**: ~2 h.
 
+## 2026-10-07 — Step 6c (first half): MUA event detection
+
+**Done**
+
+- `src/hc11/events.py`: shared `EventList`, two-threshold detector, per-event
+  `participation`, and `compare_events` for the forthcoming LFP cross-check.
+- `src/hc11/mua.py`: per-state-interval population rate (1 ms bins, 10 ms Gaussian),
+  pooled per-state baseline, detection via the shared rule.
+- `src/hc11/plots.py`: event rasters, event rate over the session, participation.
+- `scripts/detect_mua_events.py` → `mua_summary.csv`, `mua_events.csv`,
+  `mua_threshold_sensitivity.csv`.
+- 31 new tests (281 total, 3 skipped).
+
+**Results (PRE/POST, non-REM)**
+
+| Session | Epoch | State min | Events | /s | Median dur | Median active |
+|---|---|---|---|---|---|---|
+| Achilles_10252013 | PRE | 168.5 | 7046 | 0.70 | 68 ms | 18/120 |
+| Achilles_10252013 | POST | 89.7 | 3955 | 0.74 | 62 ms | 18/120 |
+| Achilles_11012013 | PRE | 104.0 | 4709 | 0.76 | 57 ms | 11/92 |
+| Achilles_11012013 | POST | 73.0 | 3328 | 0.76 | 58 ms | 12/92 |
+
+- Durations match expectation: median 57–68 ms, about half in the 50–100 ms band.
+- Participation matches the paper's "10–15 % of the pyramidal population per ripple":
+  median 15 % and 13 %. The distribution is cleanly lognormal — raw skew +1.5/+1.8,
+  skew of the log +0.17 — i.e. many small events and few large ones, as Chen et al. note.
+- **Decodability for step 7**: 97 %/94 % of events have ≥ 5 place cells active, 70 %/51 %
+  have ≥ 10, and the median event has 12/10 place cells active. There is plenty to score.
+- Rate is 0.70–0.76/s, above the expected 0.2–0.5/s. The threshold sweep puts 4 SD at
+  0.39–0.41/s, inside the range. Not changed — see D6.4 and the report to James.
+
+**Blocked**: MAZE events (D6.3). Immobility cannot be defined from the released position
+data; it needs the theta/delta ratio or EMG from the `.eeg` file.
+
+**Time**: ~2 h.
+

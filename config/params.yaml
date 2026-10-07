@@ -190,3 +190,41 @@ output:
   # Every figure gets a sidecar <name>.json with the parameters and git commit.
   write_sidecar_json: true
   random_seed: 20160310            # [PROVISIONAL] (Science publication date)
+
+# ---------------------------------------------------------------------------
+# Candidate-event detection (Phase 2, step 6)
+# ---------------------------------------------------------------------------
+events:
+  # Where events may be detected, per epoch.
+  states:
+    # PRE and POST: scored non-REM sleep from sessInfo.Epochs.
+    sleep_state: NREM              # [GB2016]
+    # MAZE: quiet wakefulness, i.e. immobility on the track.
+    maze_immobility_speed_cm_s: 2.0        # [CHEN2016]
+    speed_smoothing_sigma_s: 0.1   # [PROVISIONAL] as in behavior.speed_cm_s
+    # Brief apparent movement shorter than this does not break an immobility
+    # period. Without it, tracking jitter fragments every quiet period into
+    # sub-threshold pieces and the MAZE epoch yields almost no searchable time.
+    max_immobility_gap_s: 0.5      # [PROVISIONAL]
+    # Immobility periods shorter than this are not searched: they cannot
+    # contain a whole event plus the baseline around it.
+    min_immobility_s: 0.5          # [PROVISIONAL]
+
+  # Population-synchrony (multi-unit activity) detector, spikes only.
+  mua:
+    unit_kind: pyr                 # [GB2016] pyramidal cells only
+    bin_ms: 1.0                    # [PROVISIONAL]
+    # Gaussian smoothing of the 1 ms population-rate trace. 10 ms is short
+    # enough to keep a 50-100 ms event sharp and long enough that the trace is
+    # not dominated by single-spike noise.
+    smoothing_sigma_ms: 10.0       # [PROVISIONAL]
+    threshold_high_sd: 3.0         # [CHEN2016] peak must clear this
+    threshold_low_sd: 1.0          # [CHEN2016] boundaries extend to this
+    min_duration_ms: 30            # [PROVISIONAL]
+    max_duration_ms: 400           # [GB2016] SPW-Rs last 50-400 ms
+    merge_gap_ms: 30               # [PROVISIONAL]
+
+  # What counts as an event worth decoding in step 7.
+  decodable:
+    min_active_cells: 5            # [PROVISIONAL]
+    min_active_fraction: 0.10      # [PROVISIONAL]
