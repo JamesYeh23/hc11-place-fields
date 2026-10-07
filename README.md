@@ -36,7 +36,7 @@ contribution scores, and rigid vs. plastic cell classification.
 | 2 | Session loader + schema documentation | done |
 | 3 | Anomaly decisions + running periods | done |
 | 4 | Directional place fields, all 8 sessions | done |
-| 5 | Bayesian decoding | not started |
+| 5 | Bayesian decoding | done |
 
 ## Getting the data
 
@@ -135,6 +135,9 @@ uv run python scripts/report_running.py                # how the running mask is
 uv run python scripts/place_fields.py                  # place fields, all 8 sessions
 uv run python scripts/place_fields.py Achilles_10252013
 uv run python scripts/sensitivity_running.py           # speed-threshold sensitivity
+uv run python scripts/place_cell_sensitivity.py        # place-cell criteria variants
+uv run python scripts/decode_position.py               # Bayesian decoding
+uv run python scripts/diagnostic_linearization.py      # diagnostic: measurement base
 ```
 
 `place_fields.py` writes `results/place_fields_summary.csv` (one row per cell per

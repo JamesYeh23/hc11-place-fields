@@ -189,3 +189,127 @@ def plot_info_histogram(cells, session_name, path: Path, params: dict) -> Path:
     ax.legend(fontsize=8, frameon=False, labelcolor=INK)
     _style(ax)
     return _save(fig, path, params)
+
+
+# ---------------------------------------------------------------------------
+# Decoding figures
+# ---------------------------------------------------------------------------
+
+#: Bin sizes are ordered, not categorical, so they get steps of one hue.
+BIN_SIZE_COLORS = {0.25: "#0072B2", 0.02: "#56B4E9"}
+CHANCE_COLOR = "#6b6b6b"
+
+
+def plot_decoding_examples(result, inputs, track, path: Path, params: dict,
+                           n_laps: int = 4) -> Path:
+    """Posterior as a heatmap with the true trajectory drawn over it."""
+    laps = [lap for lap in inputs.laps if lap.index in result.posteriors][:n_laps]
+    if not laps:
+        fig, ax = plt.subplots(figsize=(4, 2))
+        ax.text(0.5, 0.5, "no decoded laps", ha="center", va="center", color=MUTED)
+        ax.axis("off")
+        return _save(fig, path, params)
+
+    fig, axes = plt.subplots(1, len(laps), figsize=(3.4 * len(laps), 3.2), squeeze=False)
+    for ax, lap in zip(axes[0], laps, strict=False):
+        posterior = np.exp(result.posteriors[lap.index])
+        t_rel = lap.centres - lap.centres[0]
+        im = ax.imshow(
+            posterior, aspect="auto", origin="lower", cmap=RATE_CMAP,
+            extent=(t_rel[0], t_rel[-1] + result.time_bin_s, track.lo, track.hi),
+            vmin=0, vmax=max(float(posterior.max()), 1e-9),
+        )
+        ax.plot(t_rel + result.time_bin_s / 2, lap.true_pos, color="#ffffff",
+                linewidth=2.4, alpha=0.95)
+        ax.plot(t_rel + result.time_bin_s / 2, lap.true_pos, color=INK,
+                linewidth=1.2, label="true position")
+        ax.set_title(f"lap {lap.index} ({lap.direction})", fontsize=8, color=INK)
+        ax.set_xlabel("time in lap (s)", fontsize=8, color=INK)
+        ax.tick_params(colors=MUTED, labelsize=7)
+        ax.grid(False)
+    axes[0][0].set_ylabel("position (m)", fontsize=9, color=INK)
+    axes[0][0].legend(fontsize=7, frameon=False, loc="upper left", labelcolor=INK)
+    cbar = fig.colorbar(im, ax=axes[0].tolist(), pad=0.015, fraction=0.03)
+    cbar.set_label("posterior probability", color=INK, fontsize=8)
+    cbar.ax.tick_params(colors=MUTED, labelsize=7)
+    fig.suptitle(
+        f"{result.session} — {DIRECTION_LABELS.get(result.direction, result.direction)} — "
+        f"{result.n_cells} cells, {result.time_bin_s * 1000:.0f} ms bins, "
+        f"median error {result.median_error_cm:.1f} cm",
+        fontsize=10, color=INK, x=0.01, ha="left",
+    )
+    return _save(fig, path, params)
+
+
+def plot_error_distribution(results, chance_by_bin, session_name, path: Path,
+                            params: dict) -> Path:
+    """Cumulative error distribution, one line per bin size, with the chance level."""
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    for result in results:
+        errors = np.sort(result.error_cm[result.decodable])
+        if errors.size == 0:
+            continue
+        color = BIN_SIZE_COLORS.get(result.time_bin_s, INK)
+        ax.plot(errors, np.linspace(0, 1, errors.size), color=color, linewidth=2,
+                label=f"{result.time_bin_s * 1000:.0f} ms bins "
+                      f"(median {result.median_error_cm:.1f} cm)")
+        ax.plot([result.median_error_cm], [0.5], "o", color=color, markersize=5)
+    for chance in chance_by_bin.values():
+        if np.isfinite(chance):
+            ax.axvline(chance, color=CHANCE_COLOR, linestyle="--", linewidth=1.2)
+            ax.text(chance, 0.04, f" chance {chance:.0f} cm", color=CHANCE_COLOR, fontsize=8)
+            break
+    ax.set_xlabel("absolute decoding error (cm)", color=INK, fontsize=9)
+    ax.set_ylabel("cumulative fraction of time bins", color=INK, fontsize=9)
+    ax.set_title(f"{session_name} — decoding error", color=INK, fontsize=11, loc="left")
+    ax.set_ylim(0, 1)
+    ax.legend(fontsize=8, frameon=False, loc="lower right", labelcolor=INK)
+    _style(ax)
+    return _save(fig, path, params)
+
+
+def plot_error_vs_ensemble(curves, session_name, path: Path, params: dict) -> Path:
+    """Median error against the number of cells, one line per bin size."""
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    for bin_s, rows in sorted(curves.items(), reverse=True):
+        if not rows:
+            continue
+        n = [r["n_cells"] for r in rows]
+        med = [r["median_error_cm"] for r in rows]
+        color = BIN_SIZE_COLORS.get(bin_s, INK)
+        ax.fill_between(n, [r["p25_cm"] for r in rows], [r["p75_cm"] for r in rows],
+                        color=color, alpha=0.15)
+        ax.plot(n, med, "-o", color=color, linewidth=2, markersize=5,
+                label=f"{bin_s * 1000:.0f} ms bins")
+        ax.annotate(f"{med[-1]:.1f} cm", (n[-1], med[-1]), textcoords="offset points",
+                    xytext=(6, 0), fontsize=8, color=INK, va="center")
+    ax.set_xlabel("number of place cells in the ensemble", color=INK, fontsize=9)
+    ax.set_ylabel("median decoding error (cm)", color=INK, fontsize=9)
+    ax.set_title(f"{session_name} — error vs ensemble size", color=INK, fontsize=11, loc="left")
+    ax.set_ylim(0, None)
+    ax.legend(fontsize=8, frameon=False, labelcolor=INK)
+    _style(ax)
+    return _save(fig, path, params)
+
+
+def plot_confusion(result, track, path: Path, params: dict) -> Path:
+    """True position (rows) against decoded position (columns), row-normalised."""
+    matrix = result.confusion_matrix(track)
+    fig, ax = plt.subplots(figsize=(4.6, 4.0))
+    im = ax.imshow(matrix, origin="lower", cmap=RATE_CMAP, vmin=0, vmax=1,
+                   extent=(track.lo, track.hi, track.lo, track.hi), interpolation="nearest")
+    ax.plot([track.lo, track.hi], [track.lo, track.hi], color="#ffffff", linewidth=0.8,
+            alpha=0.6)
+    cbar = fig.colorbar(im, ax=ax, pad=0.02, fraction=0.045)
+    cbar.set_label("fraction of bins", color=INK, fontsize=8)
+    cbar.ax.tick_params(colors=MUTED, labelsize=7)
+    ax.set_xlabel("decoded position (m)", color=INK, fontsize=9)
+    ax.set_ylabel("true position (m)", color=INK, fontsize=9)
+    ax.set_title(
+        f"{result.session} — {result.time_bin_s * 1000:.0f} ms bins, "
+        f"median {result.median_error_cm:.1f} cm",
+        color=INK, fontsize=10, loc="left",
+    )
+    ax.grid(False)
+    ax.tick_params(colors=MUTED, labelsize=8)
+    return _save(fig, path, params)
