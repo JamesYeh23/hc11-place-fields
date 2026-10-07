@@ -401,8 +401,11 @@ Where it plausibly comes from, none of which we can test with the released files
 - **The released `OneDLocation` covers only part of the behaviour.** It is defined for
   7–35 % of each MAZE epoch (docs/data_schema.md), so cells are scored on a fraction of
   the running the authors had. 186 of 562 pyramidal cells fire fewer than 50 spikes in
-  their best direction within our running periods, and 10 fire none at all. Across the
-  eight sessions, place-cell fraction correlates with running time (r = 0.63, n = 8).
+  their best direction within our running periods, and 10 fire none at all. Place-cell
+  fraction and running time rise together across the eight sessions (r = 0.63), which is
+  *consistent with* this explanation but is not evidence for it: with n = 8 that
+  correlation is not statistically meaningful (p ≈ 0.09), and the sessions differ in
+  several other ways at the same time. Tested directly in D5.5.
 - **Field construction may differ.** Two-dimensional fields, or fields built over all MAZE
   time rather than running periods, would admit cells that our 1-D running-only maps
   cannot evaluate.
@@ -411,4 +414,60 @@ Where it plausibly comes from, none of which we can test with the released files
 Per the working rules the criteria were **not** tuned toward 491. The gap is recorded as a
 finding: our place-cell population is a conservative subset of theirs, and step 5b's
 decoder is built on that subset.
+
+### D5.5 — Diagnostic: Fig. 1A's 77 cells, and the measurement base tested directly
+
+Two checks on D5.4's reasoning. Both are **diagnostics**; the authors' `OneDLocation`
+remains the replication base in every primary result, because it is their linearisation.
+
+**Fig. 1A is not a match.** The legend reads *"Simultaneous recording of 77 place cells
+(rightward runs) used to generate a sequence template"* — 77 in a **single** direction. The
+figure is almost certainly Achilles_10252013: only three sessions have ≥ 77 pyramidal
+cells (120, 92, 81) and the other two are circular, where "rightward" has no meaning. Our
+counts for that session:
+
+| | Place cells |
+|---|---|
+| increasing position | 55 |
+| decreasing position | 52 |
+| **unique (either direction)** | **77** |
+| both directions | 30 |
+
+Neither direction approaches 77; our *unique* count equalling their *one-direction* count
+is a coincidence and should not be read as a match. What the figure does give us is a
+per-session, per-direction anchor that is much tighter than the 491 aggregate: on their
+best session they admitted 77 of 120 pyramidal cells (64 %) in one direction, where we
+admit 55 (46 %). They are roughly 1.4× more inclusive per direction — the same factor as
+the overall gap, which at least says the discrepancy is uniform rather than concentrated
+in the aggregate.
+
+**The measurement base explains part of the gap, not all of it.**
+`scripts/diagnostic_linearization.py` rebuilds everything on our own linearisation of the
+2-D position over all MAZE time with valid tracking (`src/hc11/linearize.py`), with the
+primary criteria unchanged:
+
+| Session | Maze | Coverage theirs → ours | Running min | Unique place cells |
+|---|---|---|---|---|
+| Achilles_10252013 | 1.6 m linear | 13 % → 79 % | 4.0 → 11.4 | 77 → 83 |
+| Buddy_06272013 | 1.6 m linear | 7 % → 97 % | 2.6 → 17.4 | 16 → **32** |
+| Cicero_09012014 | 1.6 m linear | 22 % → 97 % | 8.4 → 17.3 | 16 → **29** |
+| Cicero_09172014 | 2 m linear | 32 % → 68 % | 7.3 → 8.6 | 25 → 28 |
+| Gatsby_08022013 | 1.6 m linear | 19 % → 98 % | 6.3 → 26.7 | 30 → 35 |
+| **linear total** | | | | **164 → 207** (47 % → 59 % of 348) |
+| Achilles_11012013 | circular | 58 % → 81 % | 15.4 → 19.9 | 73 → 65 |
+| Cicero_09102014 | circular | 29 % → 46 % | 7.6 → 9.1 | 36 → 32 |
+| Gatsby_08282013 | circular | 36 % → 95 % | 10.9 → 19.8 | 31 → 14 |
+
+Read the linear rows only. On those five sessions our linearisation reproduces the
+authors' exactly (r = 1.0000 against `OneDLocation` wherever both are defined), so the
+comparison isolates the base. On the ring our arc-length reconstruction is merely close
+(r = 0.972–0.997) and its extent disagrees with theirs, so the circular rows measure the
+quality of our linearisation rather than the effect of the base — which is why the
+all-session total (304 → 318) understates the effect.
+
+Conclusion: widening the base from 7–32 % to 68–98 % of each linear MAZE epoch raises the
+yield from 47 % to 59 % of pyramidal cells. Buddy_06272013 doubles (16 → 32), exactly the
+session where the released mask was thinnest at 2.6 min of running. So the restricted
+`OneDLocation` mask is a real contributor to the gap — but 59 % is still well short of the
+paper's 87 %, so it is not the whole story, and the remainder stays unexplained.
 
