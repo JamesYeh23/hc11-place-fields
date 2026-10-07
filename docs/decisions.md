@@ -577,3 +577,76 @@ session where the released mask was thinnest at 2.6 min of running. So the restr
 `OneDLocation` mask is a real contributor to the gap — but 59 % is still well short of the
 paper's 87 %, so it is not the whole story, and the remainder stays unexplained.
 
+---
+
+## Step 6c (first half) — population-synchrony detection from spikes
+
+Built before the LFP arrived, so the two detectors can be compared as soon as it does.
+
+### D6.1 — One detection rule, shared by both detectors
+
+`events.detect_two_threshold` is used by the MUA detector now and by the ripple detector
+later: peak above a high threshold, boundaries extended out to a low threshold, merge,
+then filter on duration. Both return the same `EventList`, so the 6c cross-check is a
+comparison of two event lists and nothing else. A difference in how boundaries are
+defined would otherwise show up as a difference in the events.
+
+### D6.2 — Baselines per state and per interval
+
+Thresholds come from the baseline of the epoch's own brain state, pooled across that
+state's intervals, never session-wide: baseline population rate differs between non-REM
+sleep and quiet waking, and a session-wide threshold would hand one epoch systematically
+more events than another — which is exactly the comparison Fig. 1C rests on. Detection
+then runs inside each interval separately, so no event spans a gap in the searched time
+and smoothing never bleeds across a state boundary. Pinned by
+`test_baseline_is_computed_within_the_state`.
+
+### D6.3 — MAZE immobility cannot be defined from the released position data **(blocked)**
+
+Chen et al.'s quiet-wakefulness criterion is speed < 2 cm/s. On these two sessions that
+yields **0.4 min of searchable time out of 34–45 min**, which is not a threshold problem:
+
+| | Achilles_10252013 | Achilles_11012013 |
+|---|---|---|
+| MAZE epoch | 34.5 min | 44.6 min |
+| samples below 2 cm/s | 22 % | — |
+| but: contiguous runs below 2 cm/s | 0.6 min total, median 0.18 s | 0.6 min, median 0.18 s |
+| tracking lost | 7.6 min (235 runs, max 26 s) | 8.7 min (480 runs, max 338 s) |
+| searchable immobility found | 0.4 min | 0.4 min |
+
+The sub-2 cm/s samples are overwhelmingly **turnaround zero-crossings** — the speed passes
+through zero as the animal reverses — not pauses. Bridging brief excursions (which is
+needed anyway, and is applied) barely helps. Meanwhile the genuinely quiet periods appear
+to be the long tracking-lost runs: the animal sits at a reward site and the head-mounted
+LED is occluded or out of frame. Those cannot be used, because a lost LED is
+indistinguishable from an animal that left the tracked area, and population rate during
+them (259–389 Hz) is far above the non-REM baseline (60–77 Hz), so they are not uniformly
+quiet.
+
+The scored states do not rescue it either: Wake covers 96–100 % of both MAZE epochs, with
+1.4 min of Drowsy in one session and none in the other.
+
+**So MAZE events are blocked until the LFP arrives.** The theta/delta ratio and the EMG
+channel both live in the `.eeg` file, and either would define immobility without relying
+on the LED. PRE and POST are unaffected — non-REM comes from the scored states.
+
+### D6.4 — The mean + 3 SD threshold is self-referential
+
+The baseline SD is computed over a trace that contains the events, so more events means a
+larger SD means a higher threshold. On the real data the SD (109 Hz) exceeds the mean
+(77 Hz) for this reason, and the rate trace is strongly skewed (median 37 Hz, p99 537 Hz,
+max 1323 Hz; only 32 % of time is above the mean). Two consequences worth stating:
+
+- A flat Poisson background still produces threshold crossings — about 0.35–0.68/s in a
+  20-cell synthetic session. Event *count* alone is therefore not evidence of synchrony.
+  What separates a real burst from a noise crossing is **participation**: a crossing
+  involves a few cells firing once each, a burst involves many. Pinned by
+  `test_injected_bursts_stand_out_from_background_noise`.
+- Robust statistics would make this worse, not better: median + 3 MAD-equivalent SD is
+  200 Hz against mean + 3 SD's 411 Hz, so it would roughly double the event count.
+
+The threshold stays at 3 SD for now — it is the value Chen et al. give for the *ripple
+envelope*, and we have no published value for a MUA detector — with the sweep in
+`results/mua_threshold_sensitivity.csv` recorded so the choice can be revisited once the
+LFP cross-check says which crossings are real.
+

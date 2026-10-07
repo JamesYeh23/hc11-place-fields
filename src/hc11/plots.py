@@ -313,3 +313,104 @@ def plot_confusion(result, track, path: Path, params: dict) -> Path:
     ax.grid(False)
     ax.tick_params(colors=MUTED, labelsize=8)
     return _save(fig, path, params)
+
+
+# ---------------------------------------------------------------------------
+# Candidate-event figures (step 6)
+# ---------------------------------------------------------------------------
+
+EPOCH_COLORS = {"PRE": "#0072B2", "MAZE": "#009E73", "POST": "#D55E00"}
+
+
+def plot_event_examples(session, events, part, cluster_ids, epoch, path: Path,
+                        params: dict, n_show: int = 6) -> Path:
+    """Spike rasters around events spanning the participation range."""
+    if len(events) == 0:
+        fig, ax = plt.subplots(figsize=(4, 2))
+        ax.text(0.5, 0.5, "no events", ha="center", va="center", color=MUTED)
+        ax.axis("off")
+        return _save(fig, path, params)
+
+    order = np.argsort(part.n_active)
+    picks = order[np.linspace(0, len(order) - 1, min(n_show, len(order))).astype(int)]
+    cluster_ids = np.asarray(cluster_ids)
+    row_of = {int(c): i for i, c in enumerate(cluster_ids)}
+
+    fig, axes = plt.subplots(1, len(picks), figsize=(2.6 * len(picks), 3.6), squeeze=False)
+    for ax, idx in zip(axes[0], picks, strict=True):
+        centre = events.peak[idx]
+        lo, hi = centre - 0.25, centre + 0.25
+        times, ids = session.spikes_in((lo, hi))
+        keep = np.isin(ids, cluster_ids)
+        rows = np.array([row_of[int(i)] for i in ids[keep]]) if keep.any() else np.empty(0)
+        ax.plot((times[keep] - centre) * 1000, rows, "|", color=INK, markersize=3,
+                markeredgewidth=0.8)
+        ax.axvspan((events.start[idx] - centre) * 1000, (events.end[idx] - centre) * 1000,
+                   color=EPOCH_COLORS.get(epoch, "#0072B2"), alpha=0.16, zorder=0)
+        ax.set_title(f"{part.n_active[idx]}/{part.n_cells} cells\n"
+                     f"{1000 * (events.end[idx] - events.start[idx]):.0f} ms, "
+                     f"z={events.peak_z[idx]:.1f}", fontsize=7, color=INK)
+        ax.set_xlim(-250, 250)
+        ax.set_ylim(-1, len(cluster_ids))
+        ax.set_xlabel("ms from peak", fontsize=8, color=INK)
+        _style(ax)
+        ax.tick_params(labelsize=6)
+    axes[0][0].set_ylabel("pyramidal cell", fontsize=9, color=INK)
+    fig.suptitle(f"{session.name} — {epoch} — events across the participation range",
+                 fontsize=10, color=INK, x=0.01, ha="left")
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_event_rate_over_session(session, events_by_epoch, path: Path, params: dict,
+                                 window_min: float = 5.0) -> Path:
+    """Event rate through the session, one colour per epoch."""
+    fig, ax = plt.subplots(figsize=(11, 3.2))
+    for epoch, events in events_by_epoch.items():
+        if len(events) == 0:
+            continue
+        start, end = session.epoch(epoch)
+        edges = np.arange(start, end + window_min * 60, window_min * 60)
+        counts = np.histogram(events.peak, bins=edges)[0] / window_min
+        centres = 0.5 * (edges[:-1] + edges[1:]) / 60
+        ax.step(centres, counts, where="mid", color=EPOCH_COLORS.get(epoch, INK),
+                linewidth=1.8, label=f"{epoch} ({len(events)} events)")
+    for epoch in ("PRE", "MAZE", "POST"):
+        ax.axvline(session.epoch(epoch)[0] / 60, color=GRID, linewidth=1, zorder=0)
+    ax.set_xlabel("time in session (min)", color=INK, fontsize=9)
+    ax.set_ylabel("events per minute", color=INK, fontsize=9)
+    ax.set_title(f"{session.name} — candidate-event rate", color=INK, fontsize=11, loc="left")
+    ax.legend(fontsize=8, frameon=False, ncols=3, labelcolor=INK)
+    _style(ax)
+    return _save(fig, path, params)
+
+
+def plot_participation(by_epoch, n_cells, session_name, path: Path, params: dict) -> Path:
+    """Active-cell counts per event, per epoch, with the decodability cut marked."""
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.4))
+    bins = np.arange(0, n_cells + 2) - 0.5
+    for epoch, (events, part) in by_epoch.items():
+        if len(events) == 0:
+            continue
+        color = EPOCH_COLORS.get(epoch, INK)
+        axes[0].hist(part.n_active, bins=bins, histtype="step", linewidth=1.8, color=color,
+                     density=True, label=f"{epoch} (n={len(events)})")
+        counts = np.sort(part.n_active)
+        axes[1].plot(counts, 1 - np.linspace(0, 1, counts.size), color=color, linewidth=1.8,
+                     label=epoch)
+    axes[0].set_xlabel(f"active pyramidal cells per event (of {n_cells})", color=INK, fontsize=9)
+    axes[0].set_ylabel("fraction of events", color=INK, fontsize=9)
+    axes[0].set_title(f"{session_name} — participation", color=INK, fontsize=11, loc="left")
+    axes[0].legend(fontsize=8, frameon=False, labelcolor=INK)
+    axes[1].axvline(5, color=MUTED, linestyle="--", linewidth=1.2)
+    axes[1].text(5, 0.95, "  5 cells", color=MUTED, fontsize=8)
+    axes[1].set_xlabel("active cells per event", color=INK, fontsize=9)
+    axes[1].set_ylabel("fraction of events at least this large", color=INK, fontsize=9)
+    axes[1].set_xscale("symlog", linthresh=10)
+    axes[1].set_title("survival (log x) — is the tail lognormal-ish?", color=INK,
+                      fontsize=10, loc="left")
+    axes[1].legend(fontsize=8, frameon=False, labelcolor=INK)
+    for ax in axes:
+        _style(ax)
+    fig.tight_layout()
+    return _save(fig, path, params)

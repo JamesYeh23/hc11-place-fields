@@ -117,7 +117,7 @@ class RunningMask:
         )
 
 
-def _bridge_short_gaps(
+def bridge_short_gaps(
     mask: np.ndarray, allowed: np.ndarray, max_gap: int
 ) -> tuple[np.ndarray, int]:
     """Fill ``False`` runs of at most ``max_gap`` samples that sit between ``True`` runs.
@@ -181,7 +181,7 @@ def running_mask(
     after_speed = base & fast
     n_removed_by_speed = int(base.sum() - after_speed.sum())
 
-    bridged, n_restored = _bridge_short_gaps(
+    bridged, n_restored = bridge_short_gaps(
         after_speed, allowed=base, max_gap=int(round(max_run_gap_s / dt))
     )
     final, n_short = _drop_short_runs(bridged, min_len=int(round(min_run_epoch_s / dt)))
