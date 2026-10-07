@@ -284,3 +284,38 @@ paper's 87 %. The remainder is unexplained.
 
 **Time**: ~1 h.
 
+## 2026-10-06 — Step 5b: Bayesian position decoding
+
+**Done**
+
+- `src/hc11/decode.py`: memoryless Poisson decoder with a uniform prior, computed in log
+  space; leave-one-lap-out cross-validation with precomputed per-lap templates; chance
+  baseline by permuting tuning curves between cells; ensemble-size sweep.
+- `src/hc11/plots.py`: posterior heatmaps with the true trajectory, error distributions,
+  error vs ensemble size, confusion matrices.
+- `scripts/decode_position.py` → `results/decoding_summary.csv`,
+  `results/decoding_ensemble.csv`, per-session figures.
+- `select_running_samples(direction=None)` for the direction-agnostic decoder.
+- 20 new tests (250 total, 3 skipped), including three that enforce no leakage.
+
+**Results (250 ms, directional)**: median error 4.7–10.6 cm against a chance level of
+36–71 cm. Achilles_10252013 reaches 4.7–5.1 cm with 77 cells; the 16-cell sessions sit at
+8.8–10.6 cm. Error is lower at the track ends (6.1 cm) than in the middle (8.3 cm).
+
+**Better than the expected "low tens of cm", and verified not to be leakage**: the honest
+error is 0.89 cm worse than a deliberately leaky all-laps template, a 10 cm spatial bin
+puts a floor near 2.5 cm on any median error, and a 1-D track with 77 cells is easier than
+the 2-D open fields behind Chen et al.'s 8.5–12.5 cm.
+
+**Directional split** is worth 6–34 % on linear sessions, and nothing on the circular ones,
+which are unidirectional.
+
+**20 ms bins**: median 10–24 cm, 5–60 % of bins undecodable, median spikes per bin 0–4, p90
+at or above chance. Expected, and the useful number for Phase 2: a 20 ms bin here is worth
+about one spike, so sequence scoring must rely on the trajectory across bins.
+
+**Ensemble size**: 12.1 cm at 5 cells → 5.2 cm at 55, flattening past ~30. Our place-cell
+shortfall (D5.4) therefore costs decoding accuracy directly.
+
+**Time**: ~2 h.
+

@@ -128,9 +128,13 @@ place_fields:
 # Bayesian decoding during running (step 5)
 # ---------------------------------------------------------------------------
 decoding:
-  # Time bin for decoding running behaviour. (Phase 2 replay decoding uses
-  # 20 ms bins; that is out of scope here.)
-  time_bin_s: 0.25                 # [PROVISIONAL]
+  # Time bin for decoding running behaviour.
+  time_bin_s: 0.25                 # [CHEN2016]
+  # Every bin size the analysis is run at. 250 ms is Chen et al.'s running bin;
+  # 20 ms is the bin Grosmark & Buzsaki use for ripple sequence scoring, run
+  # here on running data to show what that bin size costs when most cells
+  # contribute no spikes.
+  time_bins_s: [0.25, 0.02]        # [CHEN2016] / [GB2016]
   # Memoryless Poisson decoder with a spatially uniform prior.
   prior: uniform                   # [CHEN2016]
   # Small constant added to tuning curves so that a zero-rate bin cannot
@@ -145,6 +149,16 @@ decoding:
   # Minimum number of simultaneously recorded place cells for a session to be
   # decoded at all.
   min_units_for_decoding: 10       # [PROVISIONAL]
+  # Chance baseline: permute which tuning curve belongs to which cell and
+  # re-decode. Preserves both the spike counts and the set of fields, and
+  # destroys only the correspondence between them.
+  n_chance_shuffles: 20            # [PROVISIONAL]
+  # Error against ensemble size (Chen et al. emphasise this dependence).
+  ensemble_sizes: [5, 10, 20, 30, 40, 60, 80]   # [PROVISIONAL]
+  n_ensemble_draws: 10             # [PROVISIONAL]
+  # Decode each direction against its own fields; also report a
+  # direction-agnostic decoder built from fields merged across directions.
+  report_direction_merged: true    # [PROVISIONAL]
 
 # ---------------------------------------------------------------------------
 # Lap detection on the linear track

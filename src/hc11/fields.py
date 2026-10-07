@@ -66,9 +66,14 @@ def select_running_samples(
     track: Track,
     laps: list[Lap],
     speed_mask: np.ndarray,
-    direction: str,
+    direction: str | None,
 ) -> RunningSamples:
-    """Samples inside a lap of ``direction`` that also pass the speed filter."""
+    """Samples inside a lap of ``direction`` that also pass the speed filter.
+
+    ``direction=None`` takes laps of both directions and labels the result
+    ``"both"``; that is the direction-agnostic base used to ask how much the
+    directional split is worth (:mod:`hc11.decode`).
+    """
     in_lap = lap_mask(session, laps, direction)
     bins_all = track.digitize(session.position_1d)
     keep = in_lap & np.asarray(speed_mask, dtype=bool) & (bins_all >= 0)
@@ -76,7 +81,7 @@ def select_running_samples(
 
     lap_of_sample = np.full(len(session.position_t), -1, dtype=np.int64)
     for lap in laps:
-        if lap.direction == direction:
+        if direction is None or lap.direction == direction:
             lap_of_sample[lap.start_sample : lap.stop_sample] = lap.index
 
     slot_of_index = np.full(len(session.position_t), -1, dtype=np.int64)
@@ -84,7 +89,7 @@ def select_running_samples(
 
     return RunningSamples(
         session=session.name,
-        direction=direction,
+        direction="both" if direction is None else direction,
         indices=indices,
         bins=bins_all[indices],
         lap_of_sample=lap_of_sample[indices],

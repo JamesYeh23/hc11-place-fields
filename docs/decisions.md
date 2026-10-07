@@ -319,7 +319,113 @@ maps exist:
 | `place_fields.criteria.*` | see config | Standard CA1 place-cell criteria. The paper's own count (n = 491 place cells across 8 sessions) is the target used to check whether these are too strict or too loose. |
 | `units.min_spikes_maze` | 100 | Below this, a tuning curve is not estimable in any useful sense. |
 
-## Step 5 — decoding
+## Step 5b — Bayesian decoding
+
+### D5.6 — Memoryless Poisson decoder, uniform prior, log space
+
+`log P(x | n) = sum_i n_i log f_i(x) - dt sum_i f_i(x) + const`, normalised with a
+log-sum-exp. The `-dt sum_i f_i(x)` term matters and is easy to drop by accident: it is
+what makes *too few* spikes evidence *against* a high-rate position (pinned by
+`test_too_few_spikes_is_evidence_against_a_high_rate_position`). Tuning curves are floored
+at `rate_floor_hz = 0.01` so one spike cannot veto a position outright, and NaN bins
+(never visited in the training laps) take the same floor.
+
+The assumptions — Poisson firing, conditional independence across cells, no transition
+model — are documented in the module docstring together with where they fail. In short:
+bursting and assembly structure both make the posterior sharper than the evidence
+warrants, which damages calibration more than the peak position, so decoding *error*
+stays usable while posterior probabilities should not be read as confidences.
+
+### D5.7 — Leave-one-lap-out, with the templates precomputed
+
+Each lap is decoded against fields built from every lap except itself — no spikes and no
+occupancy from the held-out lap reach its own template. Three tests enforce this: the
+template for lap *i* is compared against an independently computed one; spikes fabricated
+into lap *i* change every other template and the all-laps template but not lap *i*'s own;
+and the honest error must be no better than a deliberately leaky template built from all
+laps. On the real data that penalty is **+0.89 cm on average** — small, because one lap of
+40 barely moves a template, but consistently in the right direction.
+
+Templates are precomputed once per session/direction/bin size, so the chance baseline
+(which permutes their rows) and the ensemble sweep (which slices them) are nearly free.
+
+### D5.8 — Chance baseline by permuting tuning curves between cells
+
+Rather than shuffling spikes, the baseline reassigns which field belongs to which cell,
+keeping the spike counts and the set of fields intact and destroying only the
+correspondence. It is applied to the same cross-validated templates, so the baseline is
+cross-validated too. It lands at **36–71 cm**, against a uniform-guess expectation of
+53 cm on the 1.6 m track — i.e. permuted fields are no better than guessing, as they
+should be.
+
+### D5.9 — Results on running data
+
+Primary condition, 250 ms bins, each direction against its own fields:
+
+| Session | Cells | Median error | Mean | p90 | Chance |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 77 | **4.7–5.1 cm** | 7.2–8.0 | 13.6–16.2 | 40–43 |
+| Achilles_11012013 | 73 | 4.9 | 10.7 | 16.0 | 67 |
+| Buddy_06272013 | 16 | 8.8 | 14.5–16.2 | 31–34 | 36–45 |
+| Cicero_09012014 | 16 | 10.6 | 17.7–21.4 | 44–68 | 38–53 |
+| Cicero_09102014 | 36 | 4.9 | 13.3 | 16.6 | 71 |
+| Cicero_09172014 | 25 | 9.0–9.3 | 20.5–21.2 | 54–58 | 49–63 |
+| Gatsby_08022013 | 30 | 6.6–7.9 | 11.9–16.7 | 26–43 | 38–43 |
+| Gatsby_08282013 | 31 | 5.4 | 16.3 | 45.5 | 68 |
+
+**The median error of 4.7–10.6 cm is better than the "low tens of centimetres" we
+expected, and that is not leakage.** Three things explain it. The cross-validation checks
+above all pass. The spatial bin is 10 cm and the decoder returns a bin centre, so even
+perfect bin identification yields a median error near 2.5 cm — our 5 cm means the right
+bin or an adjacent one. And a 1.6 m linear track with 77 cells is a far easier problem
+than the 2-D open fields where Chen et al. report 8.5–12.5 cm with 49 neurons.
+
+Error is **lower at the track ends** (6.1 cm) than in the middle (8.3 cm), the opposite of
+the usual expectation. The ends are where the animal slows and turns, so more time bins
+accumulate there per unit distance, and the boundary itself restricts where the posterior
+can place the animal.
+
+### D5.10 — The directional split is worth 6–34 %
+
+Same cells, same laps, only the template differs:
+
+| Session | Directional | Merged | Cost of merging |
+|---|---|---|---|
+| Achilles_10252013 | 4.9 cm | 5.9 cm | +19 % |
+| Buddy_06272013 | 8.8 | 9.3 | +6 % |
+| Cicero_09012014 | 10.6 | 12.6 | +19 % |
+| Cicero_09172014 | 9.2 | 10.1 | +10 % |
+| Gatsby_08022013 | 7.2 | 9.7 | +34 % |
+
+On the three circular sessions the two are identical to within 0.3 cm, as they must be:
+those sessions are unidirectional, so there is nothing to merge.
+
+### D5.11 — 20 ms bins cost a factor of two, and more than that in the tail
+
+| | 250 ms | 20 ms |
+|---|---|---|
+| Median error | 4.7–10.6 cm | 10.0–24.0 cm |
+| Undecodable bins | 0–3 % | 5–60 % |
+| Median spikes per bin | 10–40 | **0–4** |
+
+At 20 ms the median spike count per bin is between 0 and 4 across sessions, so a large
+share of bins carry no information at all (60 % undecodable in Cicero_09012014, which has
+16 cells). The p90 error reaches 84–126 cm, at or above the chance level, meaning the
+worst decile is pure guesswork. This is expected rather than a defect: 20 ms is the bin
+Grosmark & Buzsáki use for *ripple* events, where ~10–20× temporal compression packs a
+whole trajectory into a few hundred milliseconds and each bin is read as part of a
+sequence rather than as an independent position estimate. The number to carry into
+Phase 2 is that a 20 ms bin on this dataset is worth roughly one spike, so sequence
+scoring must lean on the trajectory across bins, not on any single posterior.
+
+### D5.12 — Ensemble size
+
+Achilles_10252013, 250 ms: 12.1 cm with 5 cells, 9.7 with 10, 7.1 with 20, 5.9 with 30,
+5.5 with 40, 5.2 with all 55. The curve flattens past ~30 cells, which is why the
+16-cell sessions (Buddy, Cicero_09012014) sit at 9–11 cm while the 73–77-cell sessions
+reach 5 cm. This is the dependence Chen et al. emphasise, and it means our place-cell
+shortfall (D5.4) costs decoding accuracy directly: sessions where we admit fewer cells
+decode measurably worse.
 
 | Parameter | Value | Reasoning |
 |-----------|-------|-----------|
