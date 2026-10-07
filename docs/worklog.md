@@ -251,3 +251,36 @@ Recorded in D5.4 and left as a finding, not tuned away.
 
 **Time**: ~1 h.
 
+## 2026-10-06 — Step 5a diagnostics (D5.5)
+
+**Done**
+
+- `src/hc11/linearize.py` + `scripts/diagnostic_linearization.py`: our own linearisation
+  of the 2-D position (principal axis for linear tracks, arc length for the ring) and a
+  rerun of the primary criteria on that wider base. Diagnostic only — the authors'
+  `OneDLocation` stays the replication base everywhere else.
+- Softened the r = 0.63 claim in D5.4 (n = 8, p ≈ 0.09: consistent with, not evidence for).
+- 12 new tests (230 total, 3 skipped), including that our linearisation reproduces the
+  authors' on all five linear sessions at r > 0.9999.
+
+**Results**
+
+- Fig. 1A shows 77 place cells on *rightward runs* — one direction. Achilles_10252013
+  gives 55 and 52 per direction, 77 unique. Neither direction is near 77, so our unique
+  count matching their one-direction count is a coincidence. It does give a tighter
+  anchor than the 491 aggregate: 77/120 = 64 % per direction for them, 55/120 = 46 % for
+  us, a factor of 1.4 — the same as the overall gap.
+- Wider base, linear sessions only (where our linearisation is exact): coverage 7–32 % →
+  68–98 % of the MAZE epoch, place cells 164 → 207 (47 % → 59 % of 348 pyramidal cells).
+  Buddy_06272013 doubles, 16 → 32, which is the session whose released mask was thinnest.
+- Circular sessions go the other way (140 → 111), but our arc-length reconstruction there
+  is only r = 0.972–0.997 against theirs and disagrees on extent, so those rows measure
+  our linearisation rather than the base. The all-session total (304 → 318) understates
+  the effect for that reason.
+
+**Conclusion**: the restricted `OneDLocation` mask is a real contributor to the gap, worth
+roughly 12 percentage points on the linear sessions, but 59 % is still well short of the
+paper's 87 %. The remainder is unexplained.
+
+**Time**: ~1 h.
+
