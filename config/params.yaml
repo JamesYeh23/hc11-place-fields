@@ -192,6 +192,20 @@ output:
   random_seed: 20160310            # [PROVISIONAL] (Science publication date)
 
 # ---------------------------------------------------------------------------
+# Local field potential (LFP) files
+# ---------------------------------------------------------------------------
+lfp:
+  # The .eeg recordings are tens of GB and live outside the repository. Path
+  # resolution: $HC11_LFP_DIR -> <repo>/data/raw/lfp -> <repo>/../hc-11_LFP.
+  # Both <session>.eeg and <session>.xml must be present, flat or in a
+  # <session>/ subfolder.
+  dir_env_var: HC11_LFP_DIR
+  # Tolerance when checking the .eeg duration against sessInfo.sessDuration.
+  # A file that is not a whole number of frames fails regardless: that is the
+  # signature of a wrong channel count, which mis-strides every sample.
+  size_check_tolerance_s: 1.0    # [PROVISIONAL]
+
+# ---------------------------------------------------------------------------
 # Candidate-event detection (Phase 2, step 6)
 # ---------------------------------------------------------------------------
 events:

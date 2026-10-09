@@ -720,3 +720,43 @@ unaffected (they compare per-event scores, not counts), but POST rests on roughl
 many events as PRE in Achilles_10252013, so its distribution is the noisier of the two and
 any test across epochs should account for the unequal n.
 
+
+---
+
+## Step 6a — LFP file access
+
+### D6.7 — Two channel counts, never one variable
+
+`LfpMetadata` exposes `n_channels_total` and `probe_channels` as separate, differently
+named quantities, and nothing reuses one for the other.
+
+- **`n_channels_total` is the stride.** Every byte offset, the memory map and the
+  file-size check use it. The hc-11 `.eeg` holds "hippocampal LFP, EMG and accelerometer
+  data", so it is strictly larger than the probe count — 136 vs 128 in the test fixture.
+- **`probe_channels` is the selection pool.** Ripple-channel selection operates on these
+  alone. An electromyogram channel has no pyramidal layer and no ripples, but it does
+  have power in the 150–300 Hz band, so it would quietly win a power-based contest.
+
+### D6.8 — A wrong channel count fails loudly
+
+`LfpFile.check_size` divides the file size by `n_channels_total × 2` bytes and reports
+the remainder; `require_consistent_size` raises unless the file is a whole number of
+frames and its duration matches `sessDuration` within a tolerance.
+
+This is strict rather than advisory because the failure mode is silent. An off-by-one
+channel count does not merely misreport the duration: it shifts every frame by one
+channel, so each "channel" becomes a slowly drifting mixture of the real ones. The result
+has plausible amplitudes, plausible spectra, and no error anywhere — it would survive
+ripple detection and produce events. `test_a_wrong_channel_count_is_detected_not_accepted`
+pins this for 135, 137 and 128 channels against a 136-channel file.
+
+A missing `lfpSamplingRate` likewise raises rather than defaulting to 1250 Hz: a wrong
+rate rescales every timestamp, silently decoupling LFP events from spike times.
+
+### D6.9 — Memory-mapped reads only
+
+`LfpFile.read(start_s, end_s, channels)` maps the file and copies out only the requested
+window, shaped `(time, channel)`. The full session is never materialised — at 136
+channels Achilles_10252013 is about 11 GB. A 544 MB fixture in the test suite checks that
+a one-second read touches ~0.3 MB; the test fails outright if the reader ever loads the
+file.
