@@ -72,6 +72,19 @@ data/raw/NoveltySessInfoMatFiles/
 └── Gatsby_08282013_sessInfo.mat
 ```
 
+### Local field potential (LFP) files
+
+The `.eeg` recordings are not needed for Phase 1 and are large (roughly 11 GB per
+session at 136 channels). Phase 2 needs `<session>.eeg` **and** `<session>.xml` for each
+session; without the XML the binary cannot be indexed at all. Put them anywhere and
+point at the directory:
+
+```bash
+export HC11_LFP_DIR="/path/to/hc-11-lfp"
+```
+
+Resolution order is `$HC11_LFP_DIR` → `<repo>/data/raw/lfp` → `<repo>/../hc-11_LFP`.
+
 ### Pointing the code somewhere else
 
 If your data lives elsewhere, set the `HC11_DATA_DIR` environment variable to the

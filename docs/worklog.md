@@ -383,3 +383,24 @@ data; it needs the theta/delta ratio or EMG from the `.eeg` file.
 
 **Time**: ~1 h.
 
+## 2026-10-08 — Step 6a infrastructure: XML parser and memory-mapped .eeg reader
+
+**Done** (written against synthetic fixtures; no real LFP yet)
+
+- `src/hc11/lfp.py`: `parse_xml` (channel count, LFP sampling rate, wideband rate, bit
+  depth, voltage range, amplification, shank grouping, skipped channels),
+  `LfpMetadata` with `n_channels_total` and `probe_channels` kept separate,
+  `LfpFile` with memory-mapped `read()`, `check_size()` and `require_consistent_size()`,
+  and `$HC11_LFP_DIR` path resolution supporting flat and per-session layouts.
+- Config `lfp` section; README section on where to put the `.eeg` files.
+- Decisions D6.7–D6.9.
+- 27 new tests (315 total, 3 skipped). Fixtures are 8 shanks × 16 probe channels plus 8
+  EMG/accelerometer channels = 136 total, so the two channel counts are different
+  numbers and a confusion between them cannot pass. Channel values encode their own
+  index, so a mis-strided read is visible. One fixture is 544 MB, proportionally
+  equivalent to the real 11 GB file, and asserts a 1 s read materialises < 10 kB.
+
+**Not done**: channel selection by ripple-band power (6a-2) needs real LFP.
+
+**Time**: ~1 h.
+
