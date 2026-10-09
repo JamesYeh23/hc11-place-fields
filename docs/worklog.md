@@ -355,3 +355,31 @@ data; it needs the theta/delta ratio or EMG from the `.eeg` file.
 
 **Time**: ~2 h.
 
+## 2026-10-08 — Step 6c addenda: jitter null, state asymmetry, MAZE hypothesis
+
+**Done**
+
+- `mua.jitter_spikes` + `scripts/mua_jitter_null.py` → `mua_jitter_null.csv`,
+  `mua_jitter_per_event.csv`. Per-cell independent jitter, U(±100 ms), 5 repeats.
+- Revised D6.3: the MAZE tracking-lost runs are an open hypothesis for the LFP to
+  resolve, not ruled out. Elevated population rate there is ambiguous — awake
+  sharp-wave ripples at an occluded reward site look exactly like that.
+- D6.6: per-epoch scored-state breakdown for both sessions.
+
+**Results**
+
+- The events are real synchrony. Observed events outnumber jitter-null events by
+  1.7–2.2x, and in the per-event comparison (participation recounted in the *observed*
+  windows using jittered spikes) observed participation is ~1.7x the null, with
+  **84–90 % of individual events above the 95th percentile of their own null**.
+- Recorded a trap: comparing median participation of *re-detected* null events against
+  observed suggests the null is more synchronous (22 vs 18 cells). That is a duration
+  artefact — jittered events are nearly twice as long (124 vs 68 ms). Per unit duration
+  the observed events are denser (2.50 vs 1.85 cells per 10 ms).
+- POST has less non-REM than PRE in both sessions: 168.5 → 89.7 min and 104.0 → 73.0 min.
+  The proportion falls in one session (56 % → 37 %) and holds in the other, where REM
+  collapses instead (27 % → 5 % of scored sleep). Fig. 1C must therefore normalise by
+  searched time, and POST rests on about half the events PRE does in Achilles_10252013.
+
+**Time**: ~1 h.
+
