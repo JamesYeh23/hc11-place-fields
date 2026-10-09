@@ -22,6 +22,8 @@ Two things about how the baseline is computed matter more than the thresholds:
 
 from __future__ import annotations
 
+import dataclasses
+
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
@@ -170,3 +172,44 @@ def detect_mua_events(
         params={**dict(cfg), "n_cells": len(ids), "threshold_high": high, "threshold_low": low},
     )
     return events, intervals
+
+
+def jitter_spikes(
+    session: Session,
+    rng: np.random.Generator,
+    *,
+    window_s: float,
+    cluster_ids: np.ndarray | None = None,
+) -> Session:
+    """A copy of ``session`` with each cell's spikes independently jittered.
+
+    Every spike of every included cell is displaced by an independent uniform
+    draw from ``[-window_s, +window_s]``. This is the null that answers "is
+    this real synchrony":
+
+    * it **preserves** each cell's spike count exactly, and its firing-rate
+      envelope on timescales longer than ``2 * window_s`` (a uniform jitter is a
+      boxcar smoothing of the spike train, so the slow modulation that makes
+      non-REM bursty in the first place survives);
+    * it **destroys** co-firing on the timescale of an event, because each cell
+      is displaced independently.
+
+    So any excess participation in the observed events, over this null, is
+    fine-timescale synchrony between cells rather than a slow population
+    envelope that happens to cross a threshold. The flat-Poisson comparison in
+    D6.4 cannot make that distinction — it destroys the envelope too, and so
+    answers a different and much weaker question.
+
+    ``window_s`` must exceed the event duration (events here are 57-68 ms) and
+    stay well under the envelope timescale; 100 ms is the default.
+    """
+    ids = session.pyr_ids if cluster_ids is None else np.asarray(cluster_ids)
+    times = np.array(session.spike_times, dtype=np.float64)
+    affected = np.isin(session.spike_ids, ids)
+    times[affected] += rng.uniform(-window_s, window_s, size=int(affected.sum()))
+    order = np.argsort(times, kind="stable")
+    jittered = times[order]
+    jittered.setflags(write=False)
+    ids_sorted = np.array(session.spike_ids)[order]
+    ids_sorted.setflags(write=False)
+    return dataclasses.replace(session, spike_times=jittered, spike_ids=ids_sorted)

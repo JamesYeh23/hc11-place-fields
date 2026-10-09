@@ -153,3 +153,80 @@ def test_real_sessions_give_plausible_events(real_sessions, name):
     for lo, hi in nrem[(nrem[:, 1] > pre[0]) & (nrem[:, 0] < pre[1])]:
         inside |= (events.peak >= lo) & (events.peak <= hi)
     assert inside.all()
+
+
+class TestJitterNull:
+    """The jitter must keep rates and the slow envelope, and break co-firing."""
+
+    def test_preserves_each_cells_spike_count(self, tmp_path, synthetic_arrays):
+        from hc11.mua import jitter_spikes
+
+        session = _burst_session(tmp_path, synthetic_arrays, [20.0, 40.0])
+        out = jitter_spikes(session, np.random.default_rng(0), window_s=0.1)
+        for cid in session.pyr_ids:
+            assert out.spikes_for(cid).size == session.spikes_for(cid).size
+        assert out.spike_times.size == session.spike_times.size
+
+    def test_displacement_stays_inside_the_window(self, tmp_path, synthetic_arrays):
+        from hc11.mua import jitter_spikes
+
+        session = _burst_session(tmp_path, synthetic_arrays, [20.0])
+        out = jitter_spikes(session, np.random.default_rng(0), window_s=0.1)
+        for cid in session.pyr_ids:
+            before = np.sort(session.spikes_for(cid))
+            after = np.sort(out.spikes_for(cid))
+            # Sorting within a cell pairs spikes only approximately, so compare
+            # the distributions: no spike can have moved more than the window.
+            assert np.abs(after - before).max() <= 0.2 + 1e-9
+
+    def test_output_is_globally_sorted(self, tmp_path, synthetic_arrays):
+        from hc11.mua import jitter_spikes
+
+        session = _burst_session(tmp_path, synthetic_arrays, [20.0])
+        out = jitter_spikes(session, np.random.default_rng(0), window_s=0.1)
+        assert np.all(np.diff(out.spike_times) >= 0)
+        assert out.spike_times.size == out.spike_ids.size
+
+    def test_slow_envelope_survives(self, tmp_path, synthetic_arrays):
+        """Population rate in 1 s bins should barely move under a 100 ms jitter."""
+        from hc11.mua import jitter_spikes
+
+        session = _burst_session(tmp_path, synthetic_arrays, [20.0, 40.0, 60.0])
+        out = jitter_spikes(session, np.random.default_rng(0), window_s=0.1)
+        edges = np.arange(0, 300, 1.0)
+        before = np.histogram(session.spike_times, bins=edges)[0]
+        after = np.histogram(out.spike_times, bins=edges)[0]
+        assert np.corrcoef(before, after)[0, 1] > 0.95
+
+    def test_fine_co_firing_is_destroyed(self, tmp_path, synthetic_arrays):
+        """The point of the null: synchrony on the event timescale must go."""
+        from hc11.mua import jitter_spikes, population_rate
+
+        session = _burst_session(tmp_path, synthetic_arrays, [20.0, 40.0, 60.0],
+                                 burst_cells=18)
+        out = jitter_spikes(session, np.random.default_rng(0), window_s=0.1)
+        interval = np.array([10.0, 90.0])
+        _, before = population_rate(session, interval, session.pyr_ids,
+                                    bin_s=0.001, sigma_s=0.010)
+        _, after = population_rate(out, interval, session.pyr_ids,
+                                   bin_s=0.001, sigma_s=0.010)
+        assert after.max() < before.max(), "jitter must flatten the synchronous peaks"
+        assert after.std() < before.std()
+
+    def test_only_the_named_cells_move(self, tmp_path, synthetic_arrays):
+        from hc11.mua import jitter_spikes
+
+        session = _burst_session(tmp_path, synthetic_arrays, [20.0])
+        keep = session.pyr_ids[:2]
+        out = jitter_spikes(session, np.random.default_rng(0), window_s=0.1,
+                            cluster_ids=keep)
+        for cid in session.pyr_ids[2:]:
+            np.testing.assert_array_equal(out.spikes_for(cid), session.spikes_for(cid))
+
+    def test_original_session_is_unchanged(self, tmp_path, synthetic_arrays):
+        from hc11.mua import jitter_spikes
+
+        session = _burst_session(tmp_path, synthetic_arrays, [20.0])
+        before = np.array(session.spike_times)
+        jitter_spikes(session, np.random.default_rng(0), window_s=0.1)
+        np.testing.assert_array_equal(session.spike_times, before)

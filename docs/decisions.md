@@ -616,12 +616,22 @@ yields **0.4 min of searchable time out of 34–45 min**, which is not a thresho
 
 The sub-2 cm/s samples are overwhelmingly **turnaround zero-crossings** — the speed passes
 through zero as the animal reverses — not pauses. Bridging brief excursions (which is
-needed anyway, and is applied) barely helps. Meanwhile the genuinely quiet periods appear
-to be the long tracking-lost runs: the animal sits at a reward site and the head-mounted
-LED is occluded or out of frame. Those cannot be used, because a lost LED is
-indistinguishable from an animal that left the tracked area, and population rate during
-them (259–389 Hz) is far above the non-REM baseline (60–77 Hz), so they are not uniformly
-quiet.
+needed anyway, and is applied) barely helps. Meanwhile the genuinely quiet periods are plausibly
+the long tracking-lost runs: the animal sits at a reward site and the head-mounted LED is
+occluded or out of frame.
+
+**Those runs are an open hypothesis, not a ruled-out one.** They cannot be used *yet*,
+because a lost LED is indistinguishable from an animal that left the tracked area. But
+the elevated population rate during them (259–389 Hz, against a non-REM baseline of
+60–77 Hz) is **ambiguous evidence, not disqualifying**: awake sharp-wave ripples at a
+reward site, with the LED occluded, would produce exactly that signature – and those are
+precisely the MAZE events the paper cares about. Reading the high rate as "the animal was
+active, so these are not quiet periods" would beg the question.
+
+Either channel in the `.eeg` settles it. A high theta/delta ratio during those runs means
+locomotion or attentive waking; a low ratio with ripple-band bursts means awake
+sharp-wave ripples at the reward site. The EMG channel answers the same question
+independently of the hippocampal LFP.
 
 The scored states do not rescue it either: Wake covers 96–100 % of both MAZE epochs, with
 1.4 min of Drowsy in one session and none in the other.
@@ -649,4 +659,64 @@ The threshold stays at 3 SD for now — it is the value Chen et al. give for the
 envelope*, and we have no published value for a MUA detector — with the sweep in
 `results/mua_threshold_sensitivity.csv` recorded so the choice can be revisited once the
 LFP cross-check says which crossings are real.
+
+### D6.5 – The events carry real fine-timescale synchrony (spike-jitter null)
+
+The flat-Poisson comparison in D6.4 is about threshold arithmetic and nothing else: it
+destroys the slow population envelope along with the synchrony, so it cannot distinguish
+"real co-firing" from "a bursty envelope crossing a threshold". The null that can is a
+**spike jitter**: displace each cell's spikes independently by U(-100, +100) ms, which
+preserves every cell's rate and the envelope on timescales above ~200 ms while destroying
+co-firing on the 57–68 ms scale of an event. 5 repeats, `mua.jitter_spikes`.
+
+Three comparisons, all pointing the same way:
+
+| | Achilles_10252013 PRE | POST | Achilles_11012013 PRE | POST |
+|---|---|---|---|---|
+| Observed events | 7046 | 3955 | 4709 | 3328 |
+| Jitter-null events | 3619 | 1830 | 2781 | 1853 |
+| **Observed / null** | **1.9x** | **2.2x** | **1.7x** | **1.8x** |
+| Observed active cells, per event | 18 | 18 | 11 | 12 |
+| Null active cells, *same windows* | 10.8 | 10.0 | 6.4 | 6.8 |
+| **Events above the null's own 95th percentile** | **89 %** | **90 %** | **84 %** | **86 %** |
+
+The per-event "same windows" row is the decisive one and the only apples-to-apples
+comparison: participation is recounted inside the *observed* event windows using jittered
+spikes, so duration and timing are held fixed and only the co-firing changes. Observed
+participation is ~1.7x the null, and **84–90 % of individual events exceed the 95th
+percentile of their own null** – these are not a slow envelope crossing a threshold.
+
+**A trap worth recording.** Comparing the median participation of *re-detected* null
+events against observed gives the opposite-looking answer – 22 vs 18 cells, i.e. the null
+appears *more* synchronous. It is an artefact of detection, not of the data: jittering
+smooths the rate trace, so null events are nearly twice as long (median 124 ms vs 68 ms)
+and simply accumulate more distinct cells over their longer span. Normalised for
+duration, the observed events are denser (2.50 vs 1.85 active cells per 10 ms). Any
+comparison of participation between two event sets has to control for duration.
+
+### D6.6 – POST has less non-REM sleep than PRE, in both sessions
+
+| Session | Epoch | Duration | Wake | Drowsy | **NREM** | Intermediate | REM |
+|---|---|---|---|---|---|---|---|
+| Achilles_10252013 | PRE | 301.3 min | 7 % | 25 % | **56 %** | 2 % | 10 % |
+| Achilles_10252013 | POST | 245.2 min | 17 % | 36 % | **37 %** | 2 % | 6 % |
+| Achilles_11012013 | PRE | 322.2 min | 9 % | 45 % | **32 %** | 1 % | 13 % |
+| Achilles_11012013 | POST | 243.8 min | 9 % | 59 % | **30 %** | 0 % | 2 % |
+
+In absolute terms non-REM falls from 168.5 to 89.7 min and from 104.0 to 73.0 min. Part
+of that is simply that the POST epoch is shorter (245 vs 301 and 244 vs 322 min), but the
+*proportion* also falls in Achilles_10252013 (56 % to 37 %), with Drowsy and Wake taking
+up the difference. Achilles_11012013 holds its non-REM share (32 % to 30 %) but its REM
+collapses, from 27 % of scored sleep to 5 %.
+
+This is the opposite of a naive post-learning expectation, and the most likely reason is
+mundane: the animal has already slept for roughly five hours in PRE, so sleep pressure is
+largely discharged by the time POST begins. We cannot test that here.
+
+**Consequence for Fig. 1C.** Any epoch comparison has to be normalised by searched time,
+never by raw event count – PRE would otherwise win on sleep duration alone. Event *rates*
+are already reported per minute of state. The sequence-score distributions themselves are
+unaffected (they compare per-event scores, not counts), but POST rests on roughly half as
+many events as PRE in Achilles_10252013, so its distribution is the noisier of the two and
+any test across epochs should account for the unequal n.
 

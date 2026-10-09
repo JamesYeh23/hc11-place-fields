@@ -223,6 +223,12 @@ events:
     min_duration_ms: 30            # [PROVISIONAL]
     max_duration_ms: 400           # [GB2016] SPW-Rs last 50-400 ms
     merge_gap_ms: 30               # [PROVISIONAL]
+    # Spike-jitter null (D6.5): displace each cell's spikes independently by
+    # U(-w, +w). Must exceed the event duration (57-68 ms here) so that
+    # within-event co-firing is destroyed, while staying short enough that the
+    # slow population envelope survives.
+    jitter_window_ms: 100          # [PROVISIONAL]
+    n_jitter_repeats: 5            # [PROVISIONAL]
 
   # What counts as an event worth decoding in step 7.
   decodable:
