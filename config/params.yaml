@@ -205,6 +205,29 @@ lfp:
   # signature of a wrong channel count, which mis-strides every sample.
   size_check_tolerance_s: 1.0    # [PROVISIONAL]
 
+  # --- Channel selection for ripple detection (step 6a-2) ---
+  channel_selection:
+    # Bands used to describe a channel. Only `ripple` decides the selection;
+    # delta and theta are diagnostics -- a channel elevated in every band is
+    # noisy rather than in the pyramidal layer.
+    bands:
+      delta: [1.0, 4.0]            # [PROVISIONAL] diagnostic only
+      theta: [5.0, 11.0]           # [PROVISIONAL] diagnostic only
+      ripple: [150.0, 300.0]       # [CHEN2016]
+    # Ranking 134 channels does not need the whole recording. A fixed,
+    # deterministic sample of scored non-REM spread evenly through PRE and
+    # POST; 40 x 15 s = 10 min. No seed, because the sampling is not random.
+    window_s: 15.0                 # [PROVISIONAL]
+    n_windows: 40                  # [PROVISIONAL]
+    # Channels dropped on top of the XML's own skip flags, after inspecting
+    # the profile. Empty until a channel earns an entry, with the reason in
+    # docs/decisions.md.
+    skip_channels: []              # [PROVISIONAL]
+    # Diagnostic figure: how many of the strongest ripple-band peaks to show,
+    # and how much context either side of each.
+    n_example_events: 9            # [PROVISIONAL]
+    example_pad_ms: 250.0          # [PROVISIONAL]
+
 # ---------------------------------------------------------------------------
 # Candidate-event detection (Phase 2, step 6)
 # ---------------------------------------------------------------------------

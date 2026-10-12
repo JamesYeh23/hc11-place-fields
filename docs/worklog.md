@@ -404,3 +404,66 @@ data; it needs the theta/delta ratio or EMG from the `.eeg` file.
 
 **Time**: ~1 h.
 
+
+## 2026-10-11 — Step 6a-2: LFP in place, file geometry verified, ripple channels selected
+
+**Done**
+
+- Extracted both `.eeg` files from the CRCNS archives (11.7 and 12.3 GB) with a new
+  resumable extractor, `src/hc11/eeg_archive.py`. Two earlier plain `tar -x` attempts had
+  been killed partway and left 4.6 and 3.5 GB fragments with no error; the extractor
+  appends, stops on a deadline at a chunk boundary, and resumes by skipping what is
+  already on disk. `member_info` reads the uncompressed size from the tar header without
+  decompressing the body.
+- **`require_consistent_size` passes on both files, exactly.** 11,678,469,572 and
+  12,270,786,020 bytes are both whole numbers of 268-byte frames with remainder zero, and
+  both durations match `sessDuration` to +0.000 s (34,861.103 s and 36,629.212 s). 134 is
+  the only plausible channel count that divides either file exactly, so the stride is
+  confirmed by the data rather than only by the XML.
+- Verified the channel grouping against `Channel_Orderings.pdf`: 12 CA1 shanks of 10
+  channels (spike groups 1–6, 8–13), two four-channel "Extra Channels" groups (7 and 14),
+  EMG on 0-based 128–130 and accelerometer on 131–133. Every line matches. The EMG
+  channels carry 9.8–21.8 of ripple-band envelope against 2.4–5.0 for the accelerometer,
+  which is an independent confirmation of which is which — and a reminder that EMG
+  channel 130 (20.0) would have outranked two real spike groups in a naive selection.
+- Selected one channel per shank by mean 150–300 Hz envelope over 10 min of sampled
+  non-REM, restricted to shanks carrying sorted units. Primary detection channel: **ch 2**
+  (Achilles_10252013) and **ch 3** (Achilles_11012013), both left CA1 shank 1. Full table
+  in D6.13; `results/ripple_channels.csv` and `results/channel_profiles.csv`.
+- Figures per session: `lfp_channel_power.png` (profile across channels and collapsed
+  onto depth), `lfp_band_profile.png` (delta/theta/ripple together), and
+  `lfp_ripple_examples.png` (raw and band-passed LFP around the nine strongest
+  ripple-band peaks).
+- New modules `src/hc11/eeg_archive.py` and `src/hc11/ripple_channels.py`, new script
+  `scripts/select_ripple_channels.py`, `lfp.size_check`/`require_size_consistency`
+  factored out so the archive path shares the file path's validation, config section
+  `lfp.channel_selection`, decisions D6.10–D6.15. 43 new tests (358 total, 3 skipped).
+
+**Results worth looking at**
+
+- The ripple-band profile is a clean sawtooth: each shank peaks two to three channels
+  from its top and decays monotonically with depth. Theta and delta peak several channels
+  *deeper* than the ripple band, which is the CA1 depth signature and is the strongest
+  evidence that the selection is tracking anatomy.
+- Seven of twelve shanks select the identical channel across two sessions a week apart;
+  the rest differ by one or two, all on the right-hemisphere probe.
+- The example traces are textbook: 40–80 ms spindle-shaped bursts at roughly 180–200 Hz
+  on a slow deflection, often in pairs 100–200 ms apart.
+
+**Open questions**
+
+- Within-shank margins are 1–14 %, so the winner and its neighbour are near-equivalent.
+  Ranking by excursion (p99/median) instead of level moves the choice by one channel on
+  8 of 12 shanks in one session, and by seven channels on spike group 3. Whether that
+  matters is a step-6b question: detect on both and compare the event sets.
+- Whether to detect on one channel or combine shanks is still open. Everything is
+  recorded per shank so either is available.
+
+**Cost of the bug** (D6.15): the first run reported a uniform 44–46 envelope on all 134
+channels with NaN theta/delta, from indexing `data[channel]` (a time point) instead of
+`data[:, channel]`. It produced no error and plausible numbers, and several hours went
+into verifying the recording before the fault was located in the analysis. The fix is
+structural, not a patch: explicit `axis=0`, a per-channel loop over 1-D arrays, and
+`sosfiltfilt` instead of `filtfilt`.
+
+**Time**: ~3 h, of which about half was the extraction and the bug above.

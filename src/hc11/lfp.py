@@ -313,6 +313,61 @@ class SizeCheck:
         return text
 
 
+def size_check(
+    path: str | Path,
+    n_bytes: int,
+    meta: LfpMetadata,
+    expected_duration_s: float | None = None,
+) -> SizeCheck:
+    """Frame geometry implied by a byte count, against the XML and the clock.
+
+    Takes the byte count rather than reading a file, so the same check runs on
+    a recording still inside its archive: the uncompressed size sits in the tar
+    header, and a declared size that is not a whole number of frames makes the
+    extraction pointless before it starts.
+    """
+    bytes_per_frame = meta.n_channels_total * BYTES_PER_SAMPLE
+    if bytes_per_frame <= 0:
+        raise LfpFormatError(f"{Path(path).name}: non-positive channel count")
+    n_samples = n_bytes // bytes_per_frame
+    return SizeCheck(
+        path=Path(path),
+        n_bytes=n_bytes,
+        n_channels_total=meta.n_channels_total,
+        bytes_per_frame=bytes_per_frame,
+        n_samples=n_samples,
+        remainder_bytes=n_bytes % bytes_per_frame,
+        duration_s=n_samples / meta.sampling_rate_hz,
+        expected_duration_s=expected_duration_s,
+    )
+
+
+def require_size_consistency(check: SizeCheck, tolerance_s: float = 1.0) -> SizeCheck:
+    """Return ``check``, or raise if the geometry does not hold up.
+
+    Raises if the byte count is not a whole number of frames, or if the implied
+    duration disagrees with the session clock by more than ``tolerance_s``.
+    """
+    if not check.exact:
+        raise LfpFormatError(
+            f"{check.path.name}: {check.n_bytes:,} bytes is not a whole number of "
+            f"{check.bytes_per_frame}-byte frames ({check.remainder_bytes} left over). "
+            f"The channel count of {check.n_channels_total} is probably wrong; a wrong "
+            "count mis-strides every sample and yields plausible-looking garbage."
+        )
+    if (
+        check.expected_duration_s is not None
+        and abs(check.duration_difference_s) > tolerance_s
+    ):
+        raise LfpFormatError(
+            f"{check.path.name}: file is {check.duration_s:.3f} s at "
+            f"{check.n_channels_total} channels but the session is "
+            f"{check.expected_duration_s:.3f} s "
+            f"({check.duration_difference_s:+.3f} s, tolerance {tolerance_s} s)."
+        )
+    return check
+
+
 class LfpFile:
     """Memory-mapped read access to one ``.eeg`` recording.
 
@@ -354,16 +409,7 @@ class LfpFile:
         that cannot tolerate a mis-strided read should use
         :meth:`require_consistent_size`.
         """
-        n_bytes = self.n_bytes
-        return SizeCheck(
-            path=self.path, n_bytes=n_bytes,
-            n_channels_total=self.meta.n_channels_total,
-            bytes_per_frame=self.bytes_per_frame,
-            n_samples=n_bytes // self.bytes_per_frame,
-            remainder_bytes=n_bytes % self.bytes_per_frame,
-            duration_s=(n_bytes // self.bytes_per_frame) / self.meta.sampling_rate_hz,
-            expected_duration_s=expected_duration_s,
-        )
+        return size_check(self.path, self.n_bytes, self.meta, expected_duration_s)
 
     def require_consistent_size(
         self, expected_duration_s: float | None = None, tolerance_s: float = 1.0
@@ -373,25 +419,9 @@ class LfpFile:
         Raises if the file is not a whole number of frames, or if its duration
         disagrees with ``expected_duration_s`` by more than ``tolerance_s``.
         """
-        check = self.check_size(expected_duration_s)
-        if not check.exact:
-            raise LfpFormatError(
-                f"{self.path.name}: {check.n_bytes:,} bytes is not a whole number of "
-                f"{check.bytes_per_frame}-byte frames ({check.remainder_bytes} left over). "
-                f"The channel count of {check.n_channels_total} is probably wrong; a wrong "
-                "count mis-strides every sample and yields plausible-looking garbage."
-            )
-        if (
-            expected_duration_s is not None
-            and abs(check.duration_difference_s) > tolerance_s
-        ):
-            raise LfpFormatError(
-                f"{self.path.name}: file is {check.duration_s:.3f} s at "
-                f"{check.n_channels_total} channels but the session is "
-                f"{expected_duration_s:.3f} s "
-                f"({check.duration_difference_s:+.3f} s, tolerance {tolerance_s} s)."
-            )
-        return check
+        return require_size_consistency(
+            self.check_size(expected_duration_s), tolerance_s=tolerance_s
+        )
 
     # --- reading ------------------------------------------------------------
 

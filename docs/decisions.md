@@ -760,3 +760,157 @@ window, shaped `(time, channel)`. The full session is never materialised — at 
 channels Achilles_10252013 is about 11 GB. A 544 MB fixture in the test suite checks that
 a one-second read touches ~0.3 MB; the test fails outright if the reader ever loads the
 file.
+
+### D6.10 — The `.eeg` files are extracted from the archives, not streamed
+
+CRCNS ships the LFP as one gzipped tarball per session holding a single member,
+`<session>/<session>.eeg`, 11.7 and 12.3 GB uncompressed. Two routes were available:
+decompress on the fly and keep only the channels in use, or extract once to disk and
+memory-map.
+
+We extract. The streaming route was tried first and works — it reads a whole archive in
+about 75 s — but it gives up random access, which every later step needs: detection runs
+over the full recording on a handful of channels, and the characterisation figures need
+to jump to an arbitrary event time. Extraction costs 24 GB of disk once and leaves
+`LfpFile`'s memory map as the only access path in the codebase, which is the simpler
+thing to reason about and the thing the tests cover.
+
+`src/hc11/eeg_archive.py` does the extraction, and is resumable: it appends to the
+destination and can stop at a chunk boundary on a deadline, with the next call skipping
+the bytes already on disk. That is not incidental. A 12 GB write to this machine's data
+volume takes about 170 s, which does not reliably fit in one run, and the first two
+attempts at a plain `tar -x` were killed partway and left 4.6 GB and 3.5 GB fragments
+with no indication that anything was wrong. Resuming is safe because a single-member tar
+is a pure byte stream; a destination *larger* than the member raises instead of being
+truncated, since that means it is not a prefix of this archive.
+
+`member_info` reads the uncompressed size from the tar header — the front of the stream —
+so `size_check` can run against the declared size before committing minutes to an
+extraction.
+
+### D6.11 — Both `.eeg` files match the XML and the session clock exactly
+
+| Session | bytes | ÷ (134 × 2) | duration | `sessDuration` | difference |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 11,678,469,572 | 43,576,379 frames, remainder 0 | 34,861.103 s | 34,861.103 s | +0.000 s |
+| Achilles_11012013 | 12,270,786,020 | 45,786,515 frames, remainder 0 | 36,629.212 s | 36,629.212 s | +0.000 s |
+
+`require_consistent_size` passes on both. The remainder of zero is the stronger of the
+two results: 134 is the only channel count near the right value that divides either file
+exactly, so the stride is confirmed by the data and not only by the XML.
+
+### D6.12 — Channel grouping verified against `Channel_Orderings.pdf`
+
+The XML's `spikeDetection` grouping for both Achilles sessions matches the dataset's own
+channel-order document line for line, once its 1-based numbering is shifted to the
+0-based numbering Neuroscope and this codebase use:
+
+- 12 CA1 shanks of 10 channels — six on a left-hemisphere BUZ64SP probe, six on a right —
+  which are spike groups 1–6 and 8–13.
+- Two groups of four, spike groups 7 and 14, which the document calls **"Extra
+  Channels"**. They are not shanks in the cell layer.
+- Six channels outside the probe: neck-muscle EMG (0-based 128–130) and head-mounted
+  accelerometer (131–133). These are exactly the channels absent from `spikeDetection`,
+  which is how D6.7 identifies them without a label.
+
+Two independent checks agree with the document. The EMG channels carry 9.8–21.8 of
+150–300 Hz envelope against 2.4–5.0 for the accelerometer — muscle is broadband, an
+accelerometer is not — and the "Extra Channels" groups carry no sorted units in
+`sessInfo` and the lowest ripple-band power on the probe.
+
+### D6.13 — Selection: highest mean 150–300 Hz envelope during non-REM, on a shank with units
+
+The ripple channel for each shank is the one with the highest mean ripple-band envelope
+over a sample of scored non-REM sleep. 150–300 Hz is Chen et al.'s band. The rest is
+ours and provisional:
+
+- **Sample, not the whole recording.** 40 windows of 15 s = 10 min, spread evenly through
+  the non-REM of PRE and POST, deterministic (positions are equally spaced along total
+  non-REM time, so there is no seed to record). Ranking 134 channels does not need the
+  3–4 h of non-REM these sessions contain.
+- **Non-REM only, PRE and POST.** MAZE immobility is a few minutes at most here (D6.3)
+  and running theta bleeding into a short sample would tilt the profile.
+- **Shanks with sorted units only.** The "Extra Channels" groups of D6.12 are excluded,
+  by the data rather than by their size: a group with no sorted pyramidal cell is not in
+  *stratum pyramidale*, whatever the document calls it. Were they included, spike group 7
+  of Achilles_10252013 would have been "selected" at channel 62 with less ripple power
+  than the EMG.
+
+Chosen channels (0-based), with the two sessions side by side:
+
+| Spike group | Anatomy | 10252013 | 11012013 |
+|---|---|---|---|
+| 1 | Left CA1 shank 1 | 2 | 3 |
+| 2 | Left CA1 shank 2 | 10 | 10 |
+| 3 | Left CA1 shank 3 | 20 | 20 |
+| 4 | Left CA1 shank 4 | 31 | 31 |
+| 5 | Left CA1 shank 5 | 41 | 41 |
+| 6 | Left CA1 shank 6 | 56 | 57 |
+| 8 | Right CA1 shank 1 | 69 | 71 |
+| 9 | Right CA1 shank 2 | 77 | 79 |
+| 10 | Right CA1 shank 3 | 84 | 86 |
+| 11 | Right CA1 shank 4 | 95 | 95 |
+| 12 | Right CA1 shank 5 | 105 | 107 |
+| 13 | Right CA1 shank 6 | 116 | 118 |
+
+The primary detection channel is the strongest of these: **channel 2** in
+Achilles_10252013 and **channel 3** in Achilles_11012013, both on left CA1 shank 1.
+
+### D6.14 — Why the selection is believed, given that the margins are small
+
+The winner beats the next channel on its own shank by 1–14 % of mean envelope, which on
+its own would not be worth much. Three things make the choice credible anyway, and none
+of them is the margin.
+
+1. **The depth profile is smooth and peaked.** On left shank 1 of Achilles_10252013 the
+   envelope runs 40.3, 44.1, **45.8**, 43.5, 41.7, 37.7, 37.8, 32.7, 32.5, 29.8 down the
+   shank. Every shank has that shape. A profile driven by per-channel noise would not be
+   monotonic away from a single maximum, and a small margin between two adjacent channels
+   20 µm apart is what a real layer looks like at this electrode spacing.
+2. **Theta runs anti-phase to the ripple band.** Within each shank the theta and delta
+   envelopes peak several channels *deeper* than the ripple envelope
+   (`lfp_band_profile.png`). That is the CA1 depth signature — ripples maximal in
+   *stratum pyramidale*, theta maximal towards *lacunosum-moleculare* — and it is not
+   something a noisy channel can produce.
+3. **The two sessions agree.** Seven of twelve shanks select the identical channel a week
+   apart, and the rest differ by one or two. The right-hemisphere probe is the one that
+   moved, consistently by two channels (40 µm).
+
+**Sensitivity.** Ranking instead by *contrast* — 99th percentile over median envelope,
+which measures excursion above a channel's own baseline rather than level — moves the
+choice by one channel on 8 of 12 shanks in Achilles_10252013 and 5 of 12 in
+Achilles_11012013. One disagreement is larger: spike group 3 of Achilles_10252013, mean
+picks channel 20 and contrast picks 27, seven channels (140 µm) apart. Both rankings are
+recorded in `results/ripple_channels.csv`; the mean is primary because it is the stated
+criterion. Whether the choice matters at all is testable in step 6b and should be
+tested there rather than argued here.
+
+### D6.15 — The filter axis, and a bug worth recording
+
+The first attempt at this analysis reported a mean ripple envelope of 44–46 on *every one*
+of the 134 channels, with the theta/delta ratio NaN. It looked like corrupt data, and
+several hours went into checking the recording: raw values varied smoothly, per-channel
+s.d. ranged 646–944, neighbouring channels correlated 0.56–0.86, the Welch spectrum fell
+47.6 dB (1–4 Hz) to 7.1 dB (400–600 Hz), and little-endian was confirmed against
+big-endian by a 25-fold difference in s.d. The data was fine. The analysis was indexing
+`data[channel]` — a row, one time point across 134 channels — instead of
+`data[:, channel]`, so it was band-passing the probe's spatial profile rather than time.
+
+The reason this is a decision and not just a fixed bug is that **it produced no error and
+plausible numbers**. 134 samples is enough for a 150–300 Hz filter to return something,
+and what it returns is a few tens of units, slightly different per channel — a flat
+profile reading as "all channels are equivalent" rather than as a fault. The 1–4 Hz band
+is the only part that complained, and it complained with NaN rather than an exception,
+because a narrow low-frequency Butterworth in transfer-function form is numerically
+unstable at this length.
+
+Three things in `src/hc11/ripple_channels.py` now make this hard to repeat: every filter
+call passes `axis=0` explicitly rather than taking scipy's default of `-1`;
+`channel_profile` loops one channel at a time over 1-D arrays, where the axis cannot be
+ambiguous; and the band-pass is `sosfiltfilt` on second-order sections rather than
+`filtfilt` on a transfer function, so the delta band is numerically stable. Two tests
+pin the behaviour by *answer* rather than by arithmetic —
+`test_bandpass_filters_time_not_channels` and
+`test_profile_finds_the_channel_carrying_ripples`, the latter planting a 190 Hz burst on
+one known channel — and a third, `test_profile_is_not_flat_across_channels`, pins the
+symptom directly.

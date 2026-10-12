@@ -414,3 +414,173 @@ def plot_participation(by_epoch, n_cells, session_name, path: Path, params: dict
         _style(ax)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+# ---------------------------------------------------------------------------
+# LFP channel selection (step 6a)
+# ---------------------------------------------------------------------------
+
+
+def plot_channel_power_profile(profile, meta, choices, session_name, path: Path,
+                               params: dict) -> Path:
+    """Ripple-band power per channel, with the per-shank winners marked.
+
+    Shanks are not given 14 colours: they are an ordered spatial sequence, so
+    they are separated along the x axis instead and labelled on the top edge.
+    The lower panel collapses the shanks onto depth within the shank, which is
+    where the pyramidal layer shows as a peak if the selection is picking up
+    anatomy rather than noise.
+    """
+    chosen = {c.channel for c in choices}
+    probe = set(meta.probe_channels)
+    order = list(profile.channels)
+    x = np.arange(len(order))
+    ripple = profile.ripple
+
+    fig, (top, bottom) = plt.subplots(
+        2, 1, figsize=(11, 7), gridspec_kw={"height_ratios": [2, 1.4]}
+    )
+
+    top.plot(x, ripple, color=MUTED, linewidth=0.9, zorder=2)
+    non_probe = [i for i, c in enumerate(order) if c not in probe]
+    if non_probe:
+        top.scatter([x[i] for i in non_probe], ripple[non_probe], s=26, marker="x",
+                    color="#CC79A7", linewidth=1.2, zorder=4,
+                    label="not on a sorted shank (ineligible)")
+    picked = [i for i, c in enumerate(order) if c in chosen]
+    if picked:
+        top.scatter([x[i] for i in picked], ripple[picked], s=46, color="#0072B2",
+                    zorder=5, label="selected for this shank")
+    for shank in sorted(meta.shanks):
+        channels = [c for c in meta.shanks[shank] if c in set(order)]
+        if not channels:
+            continue
+        left = order.index(channels[0]) - 0.5
+        right = order.index(channels[-1]) + 0.5
+        top.axvline(right, color=GRID, linewidth=0.8, zorder=1)
+        top.text((left + right) / 2, 1.02, str(shank), transform=top.get_xaxis_transform(),
+                 ha="center", va="bottom", fontsize=7, color=MUTED)
+    top.text(-0.045, 1.015, "shank", transform=top.transAxes, fontsize=7, color=MUTED,
+             ha="right")
+    top.set_xlabel("channel (file numbering, in shank order)")
+    top.set_ylabel("mean 150-300 Hz envelope\n(a.d. units)")
+    top.set_xlim(-1, len(order))
+    top.set_xticks(x[::8])
+    top.set_xticklabels([str(order[i]) for i in range(0, len(order), 8)])
+    top.legend(frameon=False, fontsize=8, loc="upper right")
+    top.set_title(
+        f"{session_name}: ripple-band power by channel during non-REM "
+        f"({profile.n_samples / profile.rate_hz / 60:.0f} min sampled)",
+        color=INK, fontsize=10, pad=26,
+    )
+    _style(top)
+
+    selected_shanks = {c.shank for c in choices}
+    for shank in sorted(meta.shanks):
+        channels = [c for c in meta.shanks[shank] if c in set(order)]
+        if len(channels) < 2:
+            continue
+        values = [ripple[profile.index_of(c)] for c in channels]
+        # Shanks left out of the selection are drawn, so that what was excluded
+        # is visible, but dotted and unmarked so they cannot be misread as
+        # candidates.
+        included = shank in selected_shanks
+        bottom.plot(range(len(channels)), values, color=MUTED, linewidth=0.8,
+                    alpha=0.55 if included else 0.4,
+                    linestyle="-" if included else ":", zorder=2)
+        if not included:
+            continue
+        picked_channel = next(c.channel for c in choices if c.shank == shank)
+        depth = channels.index(picked_channel)
+        bottom.scatter([depth], [values[depth]], s=22, color="#0072B2", zorder=4)
+    bottom.set_xlabel("position within shank (0 = first channel listed)")
+    bottom.set_ylabel("mean 150-300 Hz\nenvelope")
+    bottom.set_title(
+        "collapsed onto depth within shank; one line per shank "
+        "(dotted = no sorted units, not selected from)",
+        color=INK, fontsize=9,
+    )
+    _style(bottom)
+
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_band_profile(profile, meta, choices, session_name, path: Path,
+                      params: dict) -> Path:
+    """Each band's mean envelope per channel, normalised to its own maximum.
+
+    Ripple power alone cannot distinguish the pyramidal layer from a channel
+    that is simply noisy; a noisy channel is elevated in every band at once,
+    and this panel makes that visible.
+    """
+    order = list(profile.channels)
+    x = np.arange(len(order))
+    chosen = {c.channel for c in choices}
+    fig, ax = plt.subplots(figsize=(11, 4.2))
+    styles = {"delta": (":", MUTED), "theta": ("--", "#009E73"), "ripple": ("-", "#0072B2")}
+    for name in ("delta", "theta", "ripple"):
+        if name not in profile.mean_envelope:
+            continue
+        values = profile.mean_envelope[name]
+        style, colour = styles[name]
+        low, high = profile.bands[name]
+        ax.plot(x, values / values.max(), style, color=colour, linewidth=1.1,
+                label=f"{name} ({low:g}-{high:g} Hz)")
+    picked = [i for i, c in enumerate(order) if c in chosen]
+    ax.scatter([x[i] for i in picked], np.full(len(picked), 1.04), marker="v", s=22,
+               color="#0072B2", clip_on=False, label="selected")
+    ax.set_xlabel("channel (file numbering, in shank order)")
+    ax.set_ylabel("mean envelope\n(fraction of band maximum)")
+    ax.set_xlim(-1, len(order))
+    ax.set_ylim(0, 1.1)
+    ax.legend(frameon=False, fontsize=8, ncol=4, loc="lower center",
+              bbox_to_anchor=(0.5, -0.42))
+    ax.set_title(f"{session_name}: band profiles across channels", color=INK, fontsize=10)
+    _style(ax)
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_ripple_examples(examples, rate_hz, band, session_name, channel, path: Path,
+                         params: dict) -> Path:
+    """Raw and band-passed LFP around the strongest ripple-band peaks.
+
+    ``examples`` is a list of ``(centre_time_s, raw, filtered)`` triples, each
+    trace the same length and centred on its peak. Raw sits above the filtered
+    trace in each panel at its own scale, since a 40 uV ripple on a 1 mV
+    sharp wave is invisible if the two share an axis.
+    """
+    n = len(examples)
+    columns = min(3, n)
+    rows = int(np.ceil(n / columns))
+    fig, axes = plt.subplots(rows, columns, figsize=(4.0 * columns, 2.4 * rows),
+                             squeeze=False)
+    for index, ax in enumerate(axes.ravel()):
+        if index >= n:
+            ax.axis("off")
+            continue
+        centre, raw, filtered = examples[index]
+        t = (np.arange(len(raw)) - len(raw) // 2) / rate_hz * 1000.0
+        raw = np.asarray(raw, dtype=float)
+        raw = raw - raw.mean()
+        span = max(np.abs(raw).max(), 1.0)
+        offset = -1.6 * span
+        ax.plot(t, raw, color=INK, linewidth=0.7)
+        ax.plot(t, offset + filtered * (span / max(np.abs(filtered).max(), 1e-9)) * 0.8,
+                color="#0072B2", linewidth=0.7)
+        ax.axvline(0, color=MUTED, linewidth=0.6, linestyle=":")
+        ax.set_title(f"t = {centre:.2f} s", color=INK, fontsize=8)
+        ax.set_yticks([])
+        ax.set_xlabel("ms from peak", fontsize=8)
+        if index % columns == 0:
+            ax.text(-0.02, 0.78, "raw", transform=ax.transAxes, ha="right", fontsize=7,
+                    color=INK)
+            ax.text(-0.02, 0.18, f"{band[0]:g}-{band[1]:g} Hz", transform=ax.transAxes,
+                    ha="right", fontsize=7, color="#0072B2")
+        _style(ax)
+        ax.grid(False)
+    fig.suptitle(f"{session_name}: strongest ripple-band peaks on channel {channel}",
+                 color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)
