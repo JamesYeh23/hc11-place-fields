@@ -1,9 +1,13 @@
 """Neuroscope XML parsing and memory-mapped .eeg access.
 
-Fixtures mimic the real thing: 8 shanks of 16 probe channels plus EMG and
-accelerometer channels, 136 channels in total, so that the two channel counts
-(the full stride vs the probe-only selection pool) are genuinely different
-numbers and a confusion between them cannot pass unnoticed.
+Fixtures mimic the real thing, including the part that is easy to get wrong:
+``anatomicalDescription`` groups **every** channel, auxiliary ones included,
+while ``spikeDetection`` groups only the silicon probe. Nothing in the XML
+labels the electromyogram (EMG) or accelerometer channels as such, so that
+difference is the only way to find them. The fixture has 8 probe shanks of 16
+channels plus 8 auxiliary channels, 136 in total, so the stride (136) and the
+selection pool (128) are different numbers and a confusion between them cannot
+pass unnoticed.
 """
 
 from __future__ import annotations
@@ -30,19 +34,35 @@ N_TOTAL = N_PROBE + N_AUX  # 136 -- the stride
 RATE = 1250.0
 
 
+def _group_xml(channels, skip=()):
+    lines = []
+    for c in channels:
+        flag = ' skip="1"' if c in skip else ' skip="0"'
+        lines.append(f"      <channel{flag}>{c}</channel>")
+    return (
+        "    <group>\n      <channels>\n"
+        + "\n".join(lines)
+        + "\n      </channels>\n    </group>"
+    )
+
+
 def write_xml(path, n_channels=N_TOTAL, rate=RATE, n_shanks=N_SHANKS,
-              per_shank=PER_SHANK, skip=(), omit_rate=False, omit_channels=False):
-    groups = []
-    channel = 0
-    for _ in range(n_shanks):
-        lines = []
-        for _ in range(per_shank):
-            flag = ' skip="1"' if channel in skip else ' skip="0"'
-            lines.append(f"      <channel{flag}>{channel}</channel>")
-            channel += 1
-        groups.append("    <group>\n      <channels>\n"
-                      + "\n".join(lines)
-                      + "\n      </channels>\n    </group>")
+              per_shank=PER_SHANK, skip=(), omit_rate=False, omit_channels=False,
+              omit_spike_groups=False, n_aux=N_AUX):
+    """Write a Neuroscope XML shaped like the real hc-11 ones.
+
+    The probe shanks appear in both groupings; the auxiliary channels appear
+    only in ``anatomicalDescription``, exactly as in the released files.
+    """
+    probe = [list(range(s * per_shank, (s + 1) * per_shank)) for s in range(n_shanks)]
+    first_aux = n_shanks * per_shank
+    aux = [list(range(first_aux, first_aux + n_aux))] if n_aux else []
+    groups = [_group_xml(g, skip) for g in probe + aux]
+    spike_groups = "" if omit_spike_groups else (
+        "  <spikeDetection>\n    <channelGroups>\n"
+        + "\n".join(_group_xml(g, skip) for g in probe)
+        + "\n    </channelGroups>\n  </spikeDetection>\n"
+    )
     acquisition = "".join([
         "  <acquisitionSystem>\n",
         "" if omit_channels else f"    <nChannels>{n_channels}</nChannels>\n",
@@ -61,7 +81,9 @@ def write_xml(path, n_channels=N_TOTAL, rate=RATE, n_shanks=N_SHANKS,
         + acquisition + potentials
         + "  <anatomicalDescription>\n    <channelGroups>\n"
         + "\n".join(groups)
-        + "\n    </channelGroups>\n  </anatomicalDescription>\n</parameters>\n"
+        + "\n    </channelGroups>\n  </anatomicalDescription>\n"
+        + spike_groups
+        + "</parameters>\n"
     )
     return path
 
@@ -127,6 +149,7 @@ class TestParseXml:
     def test_skipped_channels(self, tmp_path):
         path = write_xml(tmp_path / "s.xml", skip=(3, 17))
         meta = parse_xml(path)
+        # Each channel appears in both groupings; the flag must not be counted twice.
         assert meta.skipped_channels == (3, 17)
         assert 3 not in meta.good_channels(1)
         assert meta.good_channels(1) == [c for c in range(PER_SHANK) if c != 3]
@@ -146,6 +169,36 @@ class TestParseXml:
     def test_shank_channel_outside_the_file_raises(self, tmp_path):
         path = write_xml(tmp_path / "s.xml", n_channels=64)  # 128 probe channels declared
         with pytest.raises(LfpFormatError, match="outside"):
+            parse_xml(path)
+
+    def test_probe_channels_come_from_spike_detection(self, recording):
+        """The auxiliary channels are in anatomicalDescription but not spikeDetection.
+
+        This is the only thing in the file that distinguishes them: hc-11 XMLs
+        carry no name, unit or comment marking the EMG or accelerometer.
+        """
+        folder, _ = recording
+        meta = parse_xml(folder / "Testrat_01012020.xml")
+        assert meta.shank_source == "spikeDetection"
+        assert len(meta.anatomical_groups) == N_SHANKS + 1, "aux group is anatomical-only"
+        assert meta.n_shanks == N_SHANKS
+        assert meta.non_probe_channels == list(range(N_PROBE, N_TOTAL))
+
+    def test_anatomical_grouping_would_swallow_the_aux_channels(self, tmp_path):
+        """Without spikeDetection we fall back, and the aux channels look like a shank.
+
+        Recorded deliberately: this is what the obvious reading of the file
+        gives, and why spikeDetection is preferred when it exists.
+        """
+        path = write_xml(tmp_path / "s.xml", omit_spike_groups=True)
+        meta = parse_xml(path)
+        assert meta.shank_source == "anatomicalDescription"
+        assert meta.n_probe_channels == N_TOTAL
+        assert meta.non_probe_channels == [], "the EMG would be a ripple-channel candidate"
+
+    def test_no_channel_groups_at_all_raises(self, tmp_path):
+        path = write_xml(tmp_path / "s.xml", n_shanks=0, n_aux=0, omit_spike_groups=True)
+        with pytest.raises(LfpFormatError, match="channel group"):
             parse_xml(path)
 
     def test_session_name_defaults_to_the_stem(self, recording):
