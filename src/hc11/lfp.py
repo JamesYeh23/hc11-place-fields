@@ -20,11 +20,29 @@ kept as separate, differently named quantities throughout:
     advisory.
 
 ``probe_channels``
-    Only the silicon-probe channels, grouped by shank, taken from the XML's
-    ``anatomicalDescription`` / ``spikeDetection`` groups. **Channel selection
-    for ripple detection operates on these alone.** An EMG channel has no
-    pyramidal layer and no ripples, but it does have power in the 150-300 Hz
-    band, so letting one into the selection pool would quietly win.
+    Only the silicon-probe channels, grouped by shank. **Channel selection for
+    ripple detection operates on these alone.** An EMG channel has no pyramidal
+    layer and no ripples, but it does have power in the 150-300 Hz band, so
+    letting one into the selection pool would quietly win.
+
+Telling the two apart needs care, because **nothing in the hc-11 XML labels the
+EMG or accelerometer channels as such**. There is no name, no unit, no comment.
+The only thing that distinguishes them is which grouping they appear in:
+
+``anatomicalDescription/channelGroups``
+    Every channel in the file, auxiliary ones included, each in some group. In
+    Achilles_10252013 this is 16 groups covering all 134 channels.
+
+``spikeDetection/channelGroups``
+    The shanks that were spike-sorted — silicon probe only. In the same session
+    this is 14 groups covering channels 0-127, leaving 128-133 in no group at
+    all. Those six are the neck electromyogram (EMG) and head-mounted
+    accelerometer the data description mentions.
+
+So ``probe_channels`` comes from ``spikeDetection`` when it is present, and
+falls back to ``anatomicalDescription`` only when it is not. Taking the
+anatomical grouping as the probe definition — the obvious reading — silently
+puts the EMG and accelerometer into the ripple-channel contest.
 
 Neuroscope numbers channels from 0, and so do we.
 """
@@ -114,7 +132,9 @@ class LfpMetadata:
     n_bits: int
     voltage_range: float | None
     amplification: float | None
-    shanks: dict[int, list[int]] = field(default_factory=dict)  # shank -> channels
+    shanks: dict[int, list[int]] = field(default_factory=dict)  # spike-sorted shanks
+    anatomical_groups: dict[int, list[int]] = field(default_factory=dict)  # all channels
+    shank_source: str = "spikeDetection"  # which grouping `shanks` came from
     skipped_channels: tuple[int, ...] = ()  # Neuroscope "skip" flag
     path: Path | None = None
 
@@ -129,7 +149,11 @@ class LfpMetadata:
 
     @property
     def non_probe_channels(self) -> list[int]:
-        """Channels present in the file but on no shank: EMG, accelerometer, sync."""
+        """Channels in the file but on no spike-sorted shank: EMG, accelerometer, sync.
+
+        These are never candidates for ripple detection. They are identified by
+        absence from ``spikeDetection``, not by any label — the XML carries none.
+        """
         probe = set(self.probe_channels)
         return [c for c in range(self.n_channels_total) if c not in probe]
 
@@ -145,8 +169,8 @@ class LfpMetadata:
     def __str__(self) -> str:
         return (
             f"{self.session}: {self.n_channels_total} channels total "
-            f"({self.n_probe_channels} probe on {self.n_shanks} shanks, "
-            f"{len(self.non_probe_channels)} non-probe), "
+            f"({self.n_probe_channels} probe on {self.n_shanks} shanks from "
+            f"{self.shank_source}, {len(self.non_probe_channels)} non-probe), "
             f"{self.sampling_rate_hz:g} Hz, {self.n_bits}-bit"
             + (f", {len(self.skipped_channels)} skipped" if self.skipped_channels else "")
         )
@@ -183,24 +207,40 @@ def parse_xml(path: str | Path, session: str | None = None) -> LfpMetadata:
             f"{path.name}: no fieldPotentials/lfpSamplingRate; refusing to assume one"
         )
 
-    shanks: dict[int, list[int]] = {}
-    for container in ("anatomicalDescription/channelGroups", "spikeDetection/channelGroups"):
+    def _groups(container: str) -> dict[int, list[int]]:
         node = root.find(container)
         if node is None:
-            continue
+            return {}
+        out: dict[int, list[int]] = {}
         for index, group in enumerate(node.findall("group"), start=1):
             channels = [
                 int(c.text) for c in group.iter("channel") if c.text and c.text.strip()
             ]
             if channels:
-                shanks.setdefault(index, channels)
-        if shanks:
-            break  # anatomical grouping wins when both are present
+                out[index] = channels
+        return out
 
+    anatomical = _groups("anatomicalDescription/channelGroups")
+    spike_groups = _groups("spikeDetection/channelGroups")
+    # spikeDetection defines the silicon probe; the anatomical grouping also
+    # contains the auxiliary channels, so using it here would hand the EMG and
+    # accelerometer to the ripple-channel selection (see the module docstring).
+    shanks = spike_groups or anatomical
+    shank_source = "spikeDetection" if spike_groups else "anatomicalDescription"
+    if not shanks:
+        raise LfpFormatError(
+            f"{path.name}: neither spikeDetection nor anatomicalDescription lists "
+            "any channel group, so probe channels cannot be identified"
+        )
+
+    # A channel appears in both groupings, so the same skip flag is seen twice;
+    # dict.fromkeys deduplicates while keeping document order.
     skipped = tuple(
-        int(c.text)
-        for c in root.iter("channel")
-        if c.get("skip") == "1" and c.text and c.text.strip()
+        dict.fromkeys(
+            int(c.text)
+            for c in root.iter("channel")
+            if c.get("skip") == "1" and c.text and c.text.strip()
+        )
     )
 
     meta = LfpMetadata(
@@ -212,6 +252,8 @@ def parse_xml(path: str | Path, session: str | None = None) -> LfpMetadata:
         voltage_range=_first_float(root, "acquisitionSystem/voltageRange"),
         amplification=_first_float(root, "acquisitionSystem/amplification"),
         shanks=shanks,
+        anatomical_groups=anatomical,
+        shank_source=shank_source,
         skipped_channels=skipped,
         path=path,
     )
