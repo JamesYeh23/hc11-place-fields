@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
-from hc11.events import EventList, compare_events, detect_two_threshold, participation
+from hc11.events import (
+    EventList,
+    compare_events,
+    detect_two_threshold,
+    participation,
+    participation_by_shank,
+)
 
 
 def _trace(bumps, n=2000, dt=0.001, width=20):
@@ -155,3 +163,94 @@ class TestCompareEvents:
     def test_empty_lists(self):
         overlap = compare_events(_events([], []), _events([1.0], [1.1]))
         assert overlap.n_a_matched == 0 and np.isnan(overlap.fraction_a_matched)
+
+# --- participation by shank (step 6d) -------------------------------------
+
+
+def shank_session(spikes):
+    """A session whose only content is the spikes given as ``(cluster_id, time)``."""
+    spikes = sorted(spikes, key=lambda pair: pair[1])
+    ids = np.array([c for c, _ in spikes], dtype=np.int64)
+    times = np.array([t for _, t in spikes], dtype=float)
+    return SimpleNamespace(
+        name="synthetic", spike_ids=ids, spike_times=times,
+        pyr_ids=np.unique(ids),
+    )
+
+
+def one_event(start=0.0, end=1.0):
+    return EventList(
+        session="synthetic", epoch="PRE", detector="mua",
+        start=np.array([start]), peak=np.array([(start + end) / 2]),
+        end=np.array([end]), peak_z=np.array([5.0]),
+        baseline_mean=0.0, baseline_sd=1.0, state_seconds=10.0,
+    )
+
+
+def test_counts_are_distinct_cells_per_shank():
+    """Two spikes from one cell count once; the shank is the ID's hundreds digit."""
+    session = shank_session([(101, 0.1), (101, 0.2), (102, 0.3), (305, 0.4)])
+    by_shank = participation_by_shank(session, one_event(), session.pyr_ids)
+    assert by_shank.shanks.tolist() == [1, 3]
+    assert by_shank.counts.tolist() == [[2, 1]]
+    assert by_shank.n_active.tolist() == [3]
+    assert by_shank.n_shanks_active.tolist() == [2]
+
+
+def test_cells_outside_the_event_window_are_not_counted():
+    session = shank_session([(101, 0.5), (202, 5.0)])
+    by_shank = participation_by_shank(session, one_event(0.0, 1.0), session.pyr_ids)
+    assert by_shank.n_active.tolist() == [1]
+
+
+def test_concentration_is_one_when_every_cell_is_on_one_shank():
+    session = shank_session([(101, 0.1), (102, 0.2), (103, 0.3)])
+    by_shank = participation_by_shank(session, one_event(), session.pyr_ids)
+    assert by_shank.concentration.tolist() == [1.0]
+
+
+def test_concentration_is_the_busiest_shank_share():
+    session = shank_session([(101, 0.1), (102, 0.2), (103, 0.3), (201, 0.4)])
+    by_shank = participation_by_shank(session, one_event(), session.pyr_ids)
+    assert by_shank.concentration[0] == pytest.approx(0.75)
+
+
+def test_fraction_on_a_named_shank():
+    session = shank_session([(101, 0.1), (102, 0.2), (201, 0.3), (301, 0.4)])
+    by_shank = participation_by_shank(session, one_event(), session.pyr_ids)
+    assert by_shank.fraction_on(1)[0] == pytest.approx(0.5)
+    assert by_shank.fraction_on(2)[0] == pytest.approx(0.25)
+
+
+def test_fraction_on_an_absent_shank_is_zero_not_an_error():
+    session = shank_session([(101, 0.1)])
+    by_shank = participation_by_shank(session, one_event(), session.pyr_ids)
+    assert by_shank.fraction_on(99).tolist() == [0.0]
+
+
+def test_an_empty_event_has_zero_everywhere_and_does_not_divide_by_zero():
+    session = shank_session([(101, 9.0)])
+    by_shank = participation_by_shank(session, one_event(0.0, 1.0), session.pyr_ids)
+    assert by_shank.n_active.tolist() == [0]
+    assert by_shank.concentration.tolist() == [0.0]
+    assert by_shank.fraction_on(1).tolist() == [0.0]
+
+
+def test_no_events_and_no_cells_give_empty_arrays():
+    session = shank_session([(101, 0.1)])
+    empty = EventList(
+        session="synthetic", epoch="PRE", detector="mua", start=np.empty(0),
+        peak=np.empty(0), end=np.empty(0), peak_z=np.empty(0),
+        baseline_mean=0.0, baseline_sd=1.0, state_seconds=1.0,
+    )
+    assert participation_by_shank(session, empty, session.pyr_ids).counts.shape == (0, 1)
+    assert participation_by_shank(session, one_event(), np.array([])).counts.shape == (1, 0)
+
+
+def test_counts_agree_with_the_flat_participation_count():
+    """The two routines must not disagree about how many cells were active."""
+    session = shank_session([(101, 0.1), (101, 0.15), (205, 0.2), (307, 0.3), (308, 0.4)])
+    events = one_event()
+    flat = participation(session, events, session.pyr_ids)
+    by_shank = participation_by_shank(session, events, session.pyr_ids)
+    assert by_shank.n_active.tolist() == flat.n_active.tolist()

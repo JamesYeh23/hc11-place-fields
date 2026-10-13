@@ -770,3 +770,89 @@ def plot_match_by_support(support_rows, session_name, path: Path, params: dict) 
     _style(ax)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+def plot_decodable_by_variant(decode_rows, session_name, path: Path, params: dict) -> Path:
+    """Events with enough place cells to decode, full MUA set against the conjunction.
+
+    Counts, not percentages: the question this answers is what step 7 has left
+    to work with, and a percentage of a smaller set hides the cost.
+    """
+    variants = ["mua", "conjunction"]
+    labels = {"mua": "MUA (full)", "conjunction": "conjunction\n(MUA + ripple)"}
+    epochs = [e for e in EPOCH_ORDER
+              if any(r["epoch"] == e and r["variant"] in variants for r in decode_rows)]
+    fig, ax = plt.subplots(figsize=(1.8 + 1.4 * len(epochs), 3.8))
+    width = 0.36
+    x = np.arange(len(epochs))
+    for index, variant in enumerate(variants):
+        total = [
+            next((r["n_events"] for r in decode_rows
+                  if r["epoch"] == e and r["variant"] == variant), 0) for e in epochs
+        ]
+        usable = [
+            next((r["n_decodable"] for r in decode_rows
+                  if r["epoch"] == e and r["variant"] == variant), 0) for e in epochs
+        ]
+        offset = (index - 0.5) * width
+        colour = "#0072B2" if variant == "mua" else "#009E73"
+        ax.bar(x + offset, total, width * 0.92, color=colour, alpha=0.28,
+               label=f"{labels[variant]}: all events" if index == 0 else None)
+        ax.bar(x + offset, usable, width * 0.92, color=colour,
+               label=f"{labels[variant]}: enough cells to decode")
+        for position, (whole, part) in zip(x + offset, zip(total, usable, strict=True),
+                                           strict=True):
+            if whole:
+                ax.text(position, part, f"{100 * part / whole:.0f}%", ha="center",
+                        va="bottom", fontsize=7, color=INK)
+    ax.set_xticks(x)
+    ax.set_xticklabels(epochs)
+    ax.set_ylabel("events")
+    ax.set_title(
+        f"{session_name}: how many candidate events are usable\n"
+        "(pale = all events, solid = enough active place cells)",
+        color=INK, fontsize=10,
+    )
+    ax.legend(frameon=False, fontsize=7.5, loc="upper right")
+    _style(ax)
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_shank_profile(profile_rows, session_name, path: Path, params: dict) -> Path:
+    """Where the active cells sat, for MUA events with and without a ripple partner.
+
+    Each point is one shank's mean share of the active cells in an event. The
+    grey line is the share expected from how many cells each shank has, which
+    is the only thing the two series would track if the unmatched events were
+    just smaller versions of the matched ones.
+    """
+    present = {r["epoch"] for r in profile_rows}
+    epochs = [e for e in EPOCH_ORDER if e in present]
+    fig, axes = plt.subplots(1, len(epochs), figsize=(4.6 * len(epochs), 3.6),
+                             squeeze=False, sharey=True)
+    for ax, epoch in zip(axes[0], epochs, strict=True):
+        rows = sorted((r for r in profile_rows if r["epoch"] == epoch),
+                      key=lambda r: r["shank"])
+        x = np.arange(len(rows))
+        ax.plot(x, [r["expected_share"] for r in rows], color=MUTED, linewidth=1.0,
+                linestyle="--", label="expected from cell counts")
+        ax.plot(x, [r["share_matched"] for r in rows], marker="o", markersize=4,
+                linewidth=1.2, color="#0072B2", label="MUA with a ripple")
+        ax.plot(x, [r["share_unmatched"] for r in rows], marker="s", markersize=4,
+                linewidth=1.2, color="#D55E00", label="MUA without a ripple")
+        for index, row in enumerate(rows):
+            if row["is_primary_shank"]:
+                ax.axvline(index, color=GRID, linewidth=6, zorder=0)
+                ax.text(index, ax.get_ylim()[1], "detection\nshank", ha="center",
+                        va="top", fontsize=7, color=MUTED)
+        ax.set_xticks(x)
+        ax.set_xticklabels([r["shank"] for r in rows], fontsize=7)
+        ax.set_xlabel("shank")
+        ax.set_title(epoch, color=INK, fontsize=9)
+        _style(ax)
+    axes[0][0].set_ylabel("mean share of an event's active cells")
+    axes[0][-1].legend(frameon=False, fontsize=7.5)
+    fig.suptitle(f"{session_name}: where the active cells sat", color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)

@@ -1086,3 +1086,135 @@ open hypothesis in D6.3 rather than the alternative that the tracking-lost
 periods are artefact. Resolving it still needs EMG or a theta/delta ratio, both
 of which are now reachable: the EMG channels are identified (0-based 128–130)
 and the band machinery is in place.
+
+---
+
+## Step 6d — Characterising the candidate events
+
+### D6.22 — The MUA-to-ripple lead survives the smoothing sweep; it is not an artefact
+
+Step 6c reported population firing peaking about 5 ms before the ripple
+envelope peak, with the caveat that the envelope is smoothed with an 8 ms
+Gaussian and that smoothing can move a peak. `scripts/offset_vs_smoothing.py`
+sweeps the kernel from 0 to 32 ms. Median offset in ms (MUA peak minus ripple
+peak), events held fixed and peaks re-located:
+
+| | 0 ms | 1 | 2 | 4 | 8 | 16 | 32 |
+|---|---|---|---|---|---|---|---|
+| 10252013 PRE | −4.5 | −4.3 | −4.3 | −3.9 | −4.3 | −4.7 | −5.1 |
+| 10252013 POST | −4.9 | −4.7 | −4.5 | −4.9 | −5.1 | −5.3 | −5.5 |
+| 11012013 PRE | −4.9 | −4.9 | −5.0 | −4.7 | −4.7 | −5.3 | −5.9 |
+| 11012013 POST | −5.5 | −5.5 | −5.5 | −5.5 | −5.9 | −6.3 | −6.3 |
+
+Re-detecting at each width rather than holding the event set fixed gives the
+same picture (both are in `results/offset_vs_smoothing.csv`).
+
+**The offset is already there at zero smoothing.** Across the range that
+matters — 0 to 8 ms — it moves by at most 0.6 ms, which is less than one
+sample at 1250 Hz. Only at 32 ms, four times the configured kernel, does it
+grow by a consistent ~0.7 ms, in the direction a kernel would push an
+asymmetric peak. So the kernel contributes a fraction of a millisecond to a
+5 ms effect.
+
+The lead is therefore reported as a result: population firing peaks **4.5–6 ms
+before** the ripple-band envelope peak, in both sessions and both sleep epochs.
+Two limits on how hard to lean on it. The measurement granularity is 0.8 ms
+(one LFP sample), so the quantity is good to about ±1 ms, not better. And a
+distribution with an interquartile range of 15–17 ms has a median that is well
+determined but describes a broad relationship, not a fixed latency. With the
+question settled, the offset now appears in `cross_check_offsets.png`.
+
+### D6.23 — Why ~45 % of MUA events have no ripple: they are smaller, not elsewhere
+
+Three explanations were tested against the ~45 % of MUA events with no ripple
+partner. The table is Achilles_10252013 PRE; POST and the second session give
+the same pattern and are in `results/unmatched_mua_hypotheses.csv`. "rb" is the
+rank-biserial correlation, positive meaning the unmatched events score higher.
+
+| quantity | matched | unmatched | rb |
+|---|---|---|---|
+| active pyramidal cells (mean) | 25.3 | 15.3 | **−0.61** |
+| active place cells (median) | 15 | 10 | −0.58 |
+| duration (median, ms) | 82 | 57 | −0.48 |
+| peak z (median) | 4.62 | 3.78 | −0.39 |
+| shanks with an active cell (median) | 9 | 8 | −0.51 |
+| busiest-shank share (median) | 0.200 | 0.241 | +0.38 |
+| busiest-shank share, **excess over the cell-count null** | −0.007 | −0.007 | **+0.03** |
+| share on the detection channel's shank (mean) | 0.124 | 0.138 | +0.09 |
+| passes the spike-jitter null (mean) | 0.918 | 0.867 | **−0.05** |
+
+**1. Low-synchrony bursts — supported, and this is the whole story.** Unmatched
+events have about 60 % of the active cells of matched ones (15.3 against 25.3;
+10.0 against 16.3 in the other session), with a rank-biserial of −0.58 to
+−0.63. They are also shorter and weaker. This is a large effect by any
+standard and it is consistent across both sessions and both sleep epochs.
+
+**2. Events on shanks the detection channel does not cover — rejected.** The
+raw busiest-shank share *is* higher for unmatched events, which looks like
+support until the confound is removed: an event with nine active cells cannot
+occupy twelve shanks, so fewer cells forces higher concentration whatever the
+physiology. Compared against a per-event null — the same number of cells drawn
+at random, weighted by how many cells each shank actually has — the excess is
+−0.007 for both groups, rank-biserial +0.03. The prediction was that unmatched
+events would favour shanks *away* from the detection channel; the observed
+share on that shank is 0.138 against 0.124, i.e. marginally *towards* it, and
+both sit at the 0.117 expected from cell counts alone. In Achilles_11012013
+PRE the direction even reverses (rb −0.018, p = 0.28).
+`unmatched_shank_profile.png` shows the two series tracking each other and the
+cell-count expectation across all twelve shanks.
+
+**3. Detection noise — a small contribution, not the explanation.** Unmatched
+events fail the spike-jitter null more often, but only by 5–9 percentage
+points: 86.7 % of them still beat their own null against 91.8 % of matched
+events (80.0 % against 88.7 % in the second session). So the great majority of
+unmatched events are genuine co-firing, just less of it.
+
+**Conclusion.** The unmatched MUA events are the weak tail of the same
+distribution, not a separate population and not a blind spot in the LFP
+coverage. That agrees with the 6c result that multi-shank support predicts
+MUA agreement: both detectors are measuring the same underlying strength and
+disagreeing about where to put the threshold on it.
+
+Two consequences. The LFP is not adding coverage of a part of the recording the
+spikes miss, which removes the main argument for an LFP-primary or
+LFP-supplemented event set. And the conjunction is best understood as a
+*stricter threshold* on event strength rather than as a different kind of
+filter — which is what makes its cost in D6.24 the relevant number.
+
+### D6.24 — What the strict variant costs in usable events
+
+"Usable" means at least 5 active place cells and at least 10 % of the place-cell
+ensemble, the `events.decodable` criterion from step 5.
+
+| Session | Epoch | MUA events | usable | conjunction events | usable | strict keeps |
+|---|---|---|---|---|---|---|
+| 10252013 | PRE | 7046 | 5827 (83 %) | 3601 | 3433 (95 %) | **59 %** |
+| 10252013 | POST | 3955 | 3368 (85 %) | 2309 | 2201 (95 %) | **65 %** |
+| 10252013 | MAZE | 20 | 17 (85 %) | 12 | 12 (100 %) | 71 % |
+| 11012013 | PRE | 4709 | 3198 (68 %) | 2213 | 1924 (87 %) | **60 %** |
+| 11012013 | POST | 3328 | 2465 (74 %) | 1927 | 1717 (89 %) | **70 %** |
+| 11012013 | MAZE | 20 | 16 (80 %) | 13 | 11 (85 %) | 69 % |
+
+The strict variant costs **30–41 % of the usable events** and buys a rise in the
+decodable fraction from 68–85 % to 87–95 %. Given D6.23 — the events it drops
+are weak, not different in kind — that is a straightforward sensitivity knob
+rather than a correctness question, and it is why the primary stays the full
+MUA set with the conjunction reported alongside.
+
+Both counts stay comfortably above what Fig. 1C needs; even the smallest cell,
+Achilles_11012013 POST under the conjunction, is 1717 events. The real cost is
+in the tails of the score distribution, where the strict variant will have
+roughly two thirds of the events to resolve them with.
+
+### D6.25 — `results/candidate_events.csv` is the handover to step 7
+
+One row per MUA event, carrying `ripple_matched`, `ripple_peak_offset_s`,
+`n_supporting_shanks`, `n_active_pyr`, `n_active_place` and `decodable`. The
+conjunction is therefore `ripple_matched == True` applied to a column, not a
+second pipeline, and the sensitivity variants step 7 needs — full set, strict
+conjunction, decodable-only, support thresholds — are all filters on this one
+file. 19,078 rows across both sessions and all three epochs.
+
+`n_supporting_shanks` is NaN for an event with no ripple partner, which is the
+honest value: support is measured on the ripple, and an event without one was
+never measured. It must not be read as zero.
