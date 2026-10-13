@@ -584,3 +584,189 @@ def plot_ripple_examples(examples, rate_hz, band, session_name, channel, path: P
                  color=INK, fontsize=10)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+# ---------------------------------------------------------------------------
+# Ripple detection (step 6b)
+# ---------------------------------------------------------------------------
+
+#: Epochs are categorical and ordered; a sequential ramp would imply the gap
+#: between PRE and MAZE is the same kind of thing as the gap between MAZE and
+#: POST, which it is not. Three fixed Okabe-Ito hues instead.
+EPOCH_COLORS = {"PRE": "#56B4E9", "MAZE": "#E69F00", "POST": "#009E73"}
+EPOCH_ORDER = ("PRE", "MAZE", "POST")
+
+
+def plot_ripple_rate_by_epoch(summary_rows, session_name, path: Path, params: dict) -> Path:
+    """Event rate per minute of searched state, by epoch and channel ranking.
+
+    Rate per minute of *state*, never raw counts: PRE holds roughly twice the
+    non-REM of POST in these sessions, so counts would compare sleep duration
+    rather than ripple incidence.
+    """
+    rows = [r for r in summary_rows if r["session"] == session_name]
+    rankings = sorted({r["ranking"] for r in rows})
+    fig, ax = plt.subplots(figsize=(1.6 + 1.5 * len(rankings), 3.6))
+    width = 0.8 / max(len(EPOCH_ORDER), 1)
+    x = np.arange(len(rankings))
+    for index, epoch in enumerate(EPOCH_ORDER):
+        values = [
+            next((r["rate_per_min"] for r in rows
+                  if r["ranking"] == ranking and r["epoch"] == epoch), np.nan)
+            for ranking in rankings
+        ]
+        ax.bar(x + index * width - 0.4 + width / 2, values, width * 0.9,
+               color=EPOCH_COLORS[epoch], label=epoch)
+    ax.set_xticks(x)
+    ax.set_xticklabels(
+        [f"{r}\nch {next(q['channel'] for q in rows if q['ranking'] == r)}" for r in rankings],
+        fontsize=8,
+    )
+    ax.set_ylabel("events per minute of searched state")
+    ax.set_title(f"{session_name}: ripple rate by epoch", color=INK, fontsize=10)
+    ax.legend(frameon=False, fontsize=8, ncol=3)
+    _style(ax)
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_disagreement_examples(examples, rate_hz, band, session_name, channel_a, channel_b,
+                               path: Path, params: dict) -> Path:
+    """Both candidate channels around events that only one of them detected.
+
+    Each panel is the same stretch of time on both channels, so whether the
+    channel that missed the event missed a ripple or correctly ignored noise is
+    visible rather than asserted.
+    """
+    n = len(examples)
+    columns = min(3, n)
+    rows = int(np.ceil(n / columns))
+    fig, axes = plt.subplots(rows, columns, figsize=(4.2 * columns, 2.9 * rows), squeeze=False)
+    for index, ax in enumerate(axes.ravel()):
+        if index >= n:
+            ax.axis("off")
+            continue
+        example = examples[index]
+        traces = [
+            (example["raw_a"], example["filt_a"], f"ch {channel_a}", "#0072B2"),
+            (example["raw_b"], example["filt_b"], f"ch {channel_b}", "#D55E00"),
+        ]
+        spans = [max(np.abs(raw - raw.mean()).max(), 1.0) for raw, _, _, _ in traces]
+        step = 2.4 * max(spans)
+        for row, (raw, filtered, label, colour) in enumerate(traces):
+            t = (np.arange(len(raw)) - len(raw) // 2) / rate_hz * 1000.0
+            offset = -row * step
+            ax.plot(t, offset + (raw - raw.mean()), color=colour, linewidth=0.7)
+            scale = 0.45 * step / max(np.abs(filtered).max(), 1e-9)
+            ax.plot(t, offset - 0.55 * step + filtered * scale, color=colour,
+                    linewidth=0.7, alpha=0.75)
+            ax.text(-0.02, 1 - (row + 0.25) / len(traces), label, transform=ax.transAxes,
+                    ha="right", fontsize=7, color=colour)
+        ax.axvline(0, color=MUTED, linewidth=0.6, linestyle=":")
+        owner = channel_a if example["found_on"] == "a" else channel_b
+        ax.set_title(
+            f"{example['epoch']} t={example['centre']:.2f} s - only ch {owner} "
+            f"(z {example['peak_z']:.1f})",
+            color=INK, fontsize=8,
+        )
+        ax.set_yticks([])
+        ax.set_xlabel("ms from peak", fontsize=8)
+        _style(ax)
+        ax.grid(False)
+    fig.suptitle(
+        f"{session_name}: events found on one candidate channel and not the other "
+        f"(raw above, {band[0]:g}-{band[1]:g} Hz below)",
+        color=INK, fontsize=10,
+    )
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_shank_support(support_rows, session_name, path: Path, params: dict) -> Path:
+    """How many other CA1 shanks show each event, as a distribution per epoch."""
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    for row in support_rows:
+        counts = np.array([
+            row[key] for key in sorted(
+                (k for k in row if k.startswith("n_with_")),
+                key=lambda k: int(k.rsplit("_", 1)[1]),
+            )
+        ], dtype=float)
+        if counts.sum() == 0:
+            continue
+        ax.plot(np.arange(len(counts)), counts / counts.sum(), marker="o", markersize=4,
+                linewidth=1.2, color=EPOCH_COLORS.get(row["epoch"], MUTED),
+                label=f"{row['epoch']} (n={row['n_events']})")
+    ax.set_xlabel("other CA1 shanks with an elevated ripple-band envelope")
+    ax.set_ylabel("fraction of events")
+    ax.set_title(
+        f"{session_name}: multi-shank consistency of detected events",
+        color=INK, fontsize=10,
+    )
+    ax.legend(frameon=False, fontsize=8)
+    _style(ax)
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_cross_check_offsets(offsets_by_epoch, session_name, window_ms, path: Path,
+                             params: dict) -> Path:
+    """Peak-to-peak offset between matched LFP and MUA events.
+
+    Signed, LFP peak minus MUA peak, so a systematic lead or lag is visible
+    rather than folded away by taking the absolute value — the two detectors
+    measure different things and are not expected to peak at the same instant.
+    """
+    fig, ax = plt.subplots(figsize=(6.4, 3.6))
+    edges = np.linspace(-window_ms, window_ms, 41)
+    for epoch, offsets in offsets_by_epoch.items():
+        offsets = np.asarray(offsets, dtype=float)
+        if offsets.size == 0:
+            continue
+        ax.hist(offsets, bins=edges, histtype="step", linewidth=1.3, density=True,
+                color=EPOCH_COLORS.get(epoch, MUTED),
+                label=f"{epoch} (n={offsets.size}, median {np.median(offsets):+.1f} ms)")
+    ax.axvline(0, color=MUTED, linewidth=0.8, linestyle=":")
+    ax.set_xlabel("MUA peak minus ripple peak (ms)")
+    ax.set_ylabel("density")
+    ax.set_title(f"{session_name}: timing of matched events", color=INK, fontsize=10)
+    ax.legend(frameon=False, fontsize=8)
+    _style(ax)
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+def plot_match_by_support(support_rows, session_name, path: Path, params: dict) -> Path:
+    """Agreement with the MUA detector as a function of multi-shank support.
+
+    The question this answers: are the ripples that only one or two shanks see
+    the same ones the population-rate detector does not corroborate? A rising
+    curve says the two independent checks agree about which events are weak.
+    """
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    for epoch in EPOCH_ORDER:
+        rows = sorted(
+            (r for r in support_rows if r["epoch"] == epoch),
+            key=lambda r: r["n_supporting_shanks"],
+        )
+        if not rows:
+            continue
+        x = [r["n_supporting_shanks"] for r in rows]
+        y = [100 * r["fraction_matched_by_mua"] for r in rows]
+        sizes = np.array([r["n_events"] for r in rows], dtype=float)
+        ax.plot(x, y, linewidth=1.2, color=EPOCH_COLORS.get(epoch, MUTED), label=epoch,
+                zorder=2)
+        ax.scatter(x, y, s=8 + 60 * sizes / sizes.max(),
+                   color=EPOCH_COLORS.get(epoch, MUTED), zorder=3, alpha=0.85)
+    ax.set_xlabel("other CA1 shanks showing the event")
+    ax.set_ylabel("% of ripples matched by an MUA event")
+    ax.set_ylim(0, 102)
+    ax.set_title(
+        f"{session_name}: two independent checks, compared\n"
+        "(marker area is the number of events at that support level)",
+        color=INK, fontsize=10,
+    )
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    _style(ax)
+    fig.tight_layout()
+    return _save(fig, path, params)

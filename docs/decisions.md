@@ -914,3 +914,175 @@ pin the behaviour by *answer* rather than by arithmetic —
 `test_profile_finds_the_channel_carrying_ripples`, the latter planting a 190 Hz burst on
 one known channel — and a third, `test_profile_is_not_flat_across_channels`, pins the
 symptom directly.
+
+---
+
+## Step 6b — Ripple detection
+
+### D6.16 — One envelope per channel for the whole recording, then sliced by state
+
+`channel_envelope` band-passes and Hilbert-transforms a channel across the
+entire `.eeg` in chunks, and detection slices that envelope by state interval.
+The alternative — filter each state interval separately — puts a filter
+transient at the edge of every interval, and non-REM intervals here are often
+under a minute, so those edges would be a measurable fraction of the searched
+time.
+
+Chunking is exact where it matters. Internal chunk boundaries agree with a
+whole-signal transform to 3 × 10⁻⁵ of the envelope maximum; the only deviation
+is in the first and last second of the *recording*, where the FFT's periodicity
+assumption produces a wrap-around artefact whose size depends on the length
+transformed. That is a property of the signal's ends, not of chunking, and it
+is pinned in two tests — one for the interior, one placing a chunk boundary
+inside a planted ripple.
+
+Thresholds are still per state, as in the MUA detector and for the same reason:
+baseline ripple power differs between non-REM sleep and quiet waking, so one
+session-wide threshold would hand one epoch systematically more events.
+
+### D6.17 — Primary channel: level ranking, against the prior expectation
+
+The brief's instruction was to prefer the excursion ranking (99th percentile
+over median) if the two rankings disagreed materially on event quality, on the
+reasoning that mean envelope level partly measures channel noise while
+excursion measures transients against the channel's own background. That
+reasoning is sound a priori. The data does not support acting on it here, so
+the config sets `primary_ranking: level`.
+
+**The two rankings barely differ where it was expected to matter.** The best
+channels under each ranking are adjacent contacts (ch 2 vs 1, ch 3 vs 4), and
+their event sets match 94–98 % with a median peak offset of 0.0 ms. Whichever
+is chosen, the same events come out.
+
+**Where they differ by 140 µm, the level ranking is the better one.** Spike
+group 3 of Achilles_10252013 is the one shank where the rankings land seven
+contacts apart: ch 20 (level) against ch 27 (excursion).
+
+| | ch 20 (level) | ch 27 (excursion) |
+|---|---|---|
+| PRE events | 4579 | 4144 |
+| POST events | 3166 | 2969 |
+| events found only here (PRE) | 780 | 271 |
+| median other-shank support of those | 7 / 11 | 6 / 11 |
+| median other-shank support of shared events | 11 / 11 | 11 / 11 |
+| median peak z of only-here events | 3.41 | 3.41 |
+| median peak z, all events | 5.69 | 6.17 |
+
+Read together: both channels' unique events are weak ones, sitting just above
+the 3 SD threshold, and **both sets are real** — a median of 6–7 other CA1
+shanks show the same transient, against 11/11 for the events the two channels
+share. So neither ranking is manufacturing noise. The level-ranked channel
+simply finds more of the same thing, and its extra events are if anything
+better corroborated.
+
+`ripple_disagreement_shank3.png` shows why, and it is the opposite of the
+prior worry. Around events only ch 20 detects, ch 27's band-passed trace is
+oscillating more or less continuously rather than in discrete bursts: it has a
+high, near-constant 150–300 Hz background, which is what a contact away from
+*stratum pyramidale* picks up. A discrete ripple does not stand out above that
+background, and dividing by a median does not rescue a channel whose background
+is itself spiky.
+
+This is recorded as a decision rather than a result because the prior was
+reasonable and the evidence went the other way. Both rankings are detected on
+and both are in `results/ripple_channel_comparison.csv`; `primary_ranking` is
+one config line, so the sensitivity is a re-run rather than a rewrite.
+
+### D6.18 — Multi-shank support, measured per event and not filtered on
+
+For every event on the primary channel, `shank_support` reports the largest
+ripple-band envelope z-score within ±20 ms on each of the other 11 CA1 shanks'
+chosen channels, against that channel's own baseline in the same state. A
+shank counts as supporting at z ≥ 2. Nothing is excluded on that basis — the
+count travels with the event in `ripple_events.csv`.
+
+The distributions are strongly bimodal towards full agreement. In
+Achilles_10252013 POST, 2366 of 3284 events are seen on all 11 other shanks and
+only 13 on none; PRE and the other session are the same shape. Median support
+is 11/11 in five of the six session × epoch combinations and 10/11 in the
+sixth.
+
+Two implementation notes, both of which were bugs first:
+
+- The comparison channels' baselines come from a sample of the same state, not
+  a full-recording pass. Eleven extra passes cost about four minutes per
+  session and a baseline is a summary statistic.
+- When no interval is long enough to sample — MAZE immobility is fragments of
+  under a second — the state itself is used instead, capped at the same total
+  duration. Without that fallback the baseline is NaN, every z is NaN, and
+  **"no other shank saw this event" is indistinguishable from "this was never
+  measured"**. The first run reported exactly that: all 18 MAZE events with
+  zero support. With the fallback they have a median of 10/11.
+
+### D6.19 — Cross-check: the LFP and MUA detectors agree, and agree about which events are weak
+
+| Session | Epoch | ripples | matched by MUA | MUA events | matched by a ripple | offset (MUA − ripple) |
+|---|---|---|---|---|---|---|
+| 10252013 | PRE | 4761 | 80.1 % | 7046 | 51.1 % | −4.3 ms (IQR 17.2) |
+| 10252013 | MAZE | 18 | 72.2 % | 20 | 60.0 % | −5.9 ms (IQR 30.7) |
+| 10252013 | POST | 3284 | 76.9 % | 3955 | 58.4 % | −5.1 ms (IQR 14.6) |
+| 11012013 | PRE | 3324 | 69.5 % | 4709 | 47.0 % | −4.7 ms (IQR 16.0) |
+| 11012013 | MAZE | 25 | 56.0 % | 20 | 65.0 % | −5.5 ms (IQR 25.0) |
+| 11012013 | POST | 2869 | 72.0 % | 3328 | 57.9 % | −5.9 ms (IQR 15.1) |
+
+The offset is consistent across every epoch and both sessions: population
+firing peaks about 5 ms **before** the ripple envelope peak, with an
+interquartile range of 15–17 ms. Part of that is physiology and part may be
+ours — the envelope is smoothed with an 8 ms Gaussian before thresholding,
+which can shift its peak. The sign and the tightness are the result; the exact
+5 ms should not be quoted without re-running at a smaller smoothing kernel.
+
+The more useful result is the cross-tabulation the brief asked for. Agreement
+with the MUA detector rises monotonically with multi-shank support:
+
+| other shanks showing the event | matched by MUA, 10252013 PRE | POST |
+|---|---|---|
+| 0 | 37 % | 38 % |
+| ≤ 2 | 53 % | 52 % |
+| ≥ 9 | 85 % | 80 % |
+| 11 | 87 % | 82 % |
+
+The two checks are independent — one is the field at other recording sites, the
+other is spiking at the same site — and they pick out the same events as weak.
+That is the strongest evidence so far that the low-support events are a real
+category and not an artefact of either method.
+
+### D6.20 — Recommendation: MUA primary, ripples as corroboration
+
+For the Fig. 1C candidate-event set, the MUA detector should be primary and
+ripple matching should ride along as a per-event property. Three reasons, in
+order of weight:
+
+1. **Coverage.** LFP exists locally for 2 of the 8 sessions. Each one is a
+   9.3–9.7 GB download and about 12 GB extracted. An LFP-primary pipeline
+   cannot run on the full dataset without another ~76 GB; an MUA-primary one
+   runs today on all eight, with the LFP available as a check on two.
+2. **The sequence analysis is a spike analysis.** Scores are computed from the
+   decoded posterior over spikes. A candidate-event definition drawn from the
+   same signal keeps the detection and the measurement on one instrument.
+3. **Ripples are close to a subset.** 70–80 % of ripples have an MUA partner,
+   against 47–58 % the other way, so taking MUA as primary discards less.
+
+Chen et al. use the conjunction — ripple-band power *combined with* multi-unit
+activity above mean + 3 SD — and that remains available as the strict variant,
+since every ripple event now carries its MUA match and every MUA event can be
+asked for a ripple. The three candidate sets (MUA, LFP, conjunction) differ by
+enough to matter and the Fig. 1C distributions should be reported for the
+primary with at least the conjunction as a sensitivity row.
+
+What this does **not** settle: ~45 % of MUA events have no ripple. They may be
+lower-synchrony population bursts, events on a shank the primary channel does
+not cover, or detection noise. That is worth a look in 6d, where the
+per-event participation numbers are already to hand.
+
+### D6.21 — MAZE events are few, but they are real ripples
+
+MAZE yields 18 and 25 events over 0.4 min of scored immobility in the two
+sessions — the immobility problem of D6.3, unchanged. What is new is that these
+events are not junk: median multi-shank support is 10/11 and 11/11, and 56–72 %
+have an MUA partner, both comparable to sleep. So the shortage is a shortage of
+*detected immobility*, not of awake sharp-wave ripples, and it supports the
+open hypothesis in D6.3 rather than the alternative that the tracking-lost
+periods are artefact. Resolving it still needs EMG or a theta/delta ratio, both
+of which are now reachable: the EMG channels are identified (0-based 128–130)
+and the band machinery is in place.

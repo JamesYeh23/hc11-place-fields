@@ -268,6 +268,48 @@ events:
     n_jitter_repeats: 5            # [PROVISIONAL]
 
   # What counts as an event worth decoding in step 7.
+  # --- Sharp-wave ripple detection from the LFP (step 6b) ---
+  ripples:
+    # Chen et al. screen candidate events on "hippocampal LFP ripple band
+    # (150-300 Hz) power combined with hippocampal multi-unit activity
+    # (threshold > mean + 3SD)". The band and the high threshold are theirs.
+    band: [150.0, 300.0]           # [CHEN2016]
+    threshold_high_sd: 3.0         # [CHEN2016]
+    # The envelope is smoothed before thresholding: a single cycle's trough can
+    # otherwise split one ripple into two events. 8 ms is about 1.5 ripple
+    # cycles at 190 Hz, short enough not to blur event boundaries.
+    smoothing_sigma_ms: 8.0        # [PROVISIONAL]
+    # Boundaries extend out to 1 SD, as in the MUA detector, so that duration
+    # describes the whole event rather than the part above the peak threshold.
+    threshold_low_sd: 1.0          # [PROVISIONAL] matches events.mua
+    # Chen et al. give SPW-R duration as 50-400 ms. The floor here is lower
+    # because it applies at the 1 SD boundary, not at the ripple itself.
+    min_duration_ms: 20            # [PROVISIONAL]
+    max_duration_ms: 400           # [CHEN2016]
+    merge_gap_ms: 15               # [PROVISIONAL]
+    # Which ranking from step 6a-2 supplies the primary detection channel.
+    # Level, i.e. mean envelope: it is the criterion Chen et al. state, and
+    # where the two rankings differ most it is the marginally better of the
+    # two. See D6.17 for the evidence; the difference is small either way.
+    primary_ranking: level         # [PROVISIONAL] see D6.17
+    # Shanks whose two rankings land more than this many channels apart are
+    # detected on separately: that is where the ranking could change what is
+    # found rather than move it by one contact (20 um).
+    stress_gap_channels: 2         # [PROVISIONAL]
+    # Two events count as the same event if they overlap or peak within this.
+    match_window_ms: 50.0          # [PROVISIONAL] matches the 6c cross-check
+    # --- multi-shank consistency (reported per event, never filtered on) ---
+    # A real sharp-wave ripple appears across neighbouring recording sites
+    # within a few ms; a local artifact does not.
+    support_window_ms: 20.0        # [PROVISIONAL]
+    support_z: 2.0                 # [PROVISIONAL]
+    # Comparison channels' baselines are estimated from a sample of the same
+    # state rather than from a full-recording pass: a baseline is a summary
+    # statistic and 11 extra full passes buy nothing.
+    baseline_window_s: 15.0        # [PROVISIONAL]
+    baseline_n_windows: 40         # [PROVISIONAL]
+    example_pad_ms: 250.0          # [PROVISIONAL]
+
   decodable:
     min_active_cells: 5            # [PROVISIONAL]
     min_active_fraction: 0.10      # [PROVISIONAL]

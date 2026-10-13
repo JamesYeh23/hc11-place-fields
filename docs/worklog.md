@@ -467,3 +467,91 @@ structural, not a patch: explicit `axis=0`, a per-channel loop over 1-D arrays, 
 `sosfiltfilt` instead of `filtfilt`.
 
 **Time**: ~3 h, of which about half was the extraction and the bug above.
+
+## 2026-10-13 — Steps 6b and 6c: ripple detection and the MUA cross-check
+
+**Done**
+
+- `src/hc11/ripples.py`: whole-recording chunked ripple-band envelope, two-threshold
+  detection per state through the shared `hc11.events` machinery, per-event multi-shank
+  support, and the windowed z-score measurement behind it.
+  `scripts/detect_ripples.py` (6b) and `scripts/cross_check_events.py` (6c).
+  Config section `events.ripples`. Decisions D6.16–D6.21. 23 new tests (381 total,
+  3 skipped).
+- Detected on both candidate channels in both sessions, plus both channels of spike
+  group 3 of Achilles_10252013, where the two rankings land 140 µm apart.
+
+**Results**
+
+- Event rates, primary channel: PRE 28.3 and 32.0 per minute of non-REM, POST 36.6 and
+  39.3, MAZE 44.5 and 63.6 per minute of (very little) immobility. Median duration
+  54–64 ms. Rates are per minute of searched state throughout, never counts.
+- **The two channel rankings are interchangeable at the primary**: the best channels are
+  adjacent contacts and their event sets match 94–98 % at 0.0 ms median offset.
+- **Where they differ by seven contacts, the level ranking wins** (D6.17). Both channels'
+  unique events are weak but real — median 6–7 of 11 other shanks show them, against
+  11/11 for shared events — and the level-ranked channel finds more of them. The
+  disagreement figure shows the excursion-ranked channel oscillating near-continuously
+  in the ripple band rather than in discrete bursts. Config set to `primary_ranking:
+  level`, against the brief's suggested default, with the evidence in D6.17.
+- **Multi-shank support is strongly bimodal towards agreement**: median 11/11 in five of
+  six session × epoch combinations. In Achilles_10252013 POST, 2366 of 3284 events are on
+  all 11 other shanks and 13 on none.
+- **Cross-check**: 70–80 % of ripples have an MUA partner, 47–58 % the other way. The
+  population-rate peak leads the ripple envelope peak by about 5 ms in every epoch of
+  both sessions (IQR 15–17 ms), part of which may be the 8 ms envelope smoothing.
+- **The two independent checks agree about which events are weak.** Agreement with the
+  MUA detector rises monotonically with multi-shank support: 37–38 % at zero support,
+  52–53 % at ≤ 2, 80–85 % at ≥ 9.
+- Recommendation (D6.20): **MUA primary, ripple matching as a per-event property**, with
+  Chen et al.'s conjunction available as the strict variant. LFP exists for 2 of 8
+  sessions; the sequence analysis is a spike analysis; and ripples are close to a subset
+  of the MUA set.
+
+**Throughput and extraction — what it actually costs**
+
+Correcting an earlier assumption. The 70 MB/s figure recorded in D6.10 is the **write**
+throughput of the connected folder. Reads are about 35× faster:
+
+| operation | measured |
+|---|---|
+| sequential read from the connected folder | 2.0–2.6 GB/s |
+| write to the connected folder | ~70 MB/s |
+| local VM scratch disk | 5.6 GB free — too small for one `.eeg` |
+| one channel across a whole 11.7 GB `.eeg` (memory-mapped, strided) | ~5 s |
+| band-pass + Hilbert envelope of one whole channel | ~15 s |
+| **a full single-channel pass, end to end** | **~20 s** |
+| extracting one `.eeg` from its archive (write-bound) | ~170 s |
+
+So a second pass over the full LFP is cheap *if it is a read*. Twelve channels is about
+four minutes per session; all 134 would be about 45 minutes. What is expensive is writing
+— which is why extraction is resumable (D6.10) and why nothing else writes a large file
+to that folder.
+
+Two environment constraints shape the code and are not visible in it:
+
+- **Background jobs do not survive.** Work started with `&`, `nohup` or `setsid` is killed
+  at the end of the call that started it, silently and part-way. Two 12 GB extractions
+  died that way leaving 4.6 and 3.5 GB fragments with no error. Every long operation must
+  therefore finish inside a single ≤180 s call, which is why `eeg_archive.extract` takes a
+  deadline and resumes.
+- **The local scratch disk cannot hold one recording**, so nothing can be staged whole.
+
+What this means for later steps: the streaming approach that was used for channel
+selection (decompress the archive and keep only sampled windows, ~75 s per session) is no
+longer needed now that the files are extracted, and the memory map is both simpler and
+faster. If the remaining six sessions' LFP is wanted, budget ~9.5 GB download and ~170 s
+extraction each, about 76 GB in total, and the analysis time is minutes, not hours.
+
+**Open**
+
+- ~45 % of MUA events have no ripple. Worth characterising in 6d — they may be
+  lower-synchrony bursts, events on shanks the primary channel does not cover, or noise.
+- The 5 ms MUA-to-ripple lead should be re-measured with a smaller smoothing kernel
+  before it is quoted as physiology.
+- D6.3 (MAZE immobility) is unchanged but better supported: the few MAZE events that are
+  detected look like real awake ripples (median support 10–11 of 11), so the shortage is
+  of detected immobility rather than of events. EMG channels 128–130 are now identified
+  and the band machinery exists, so a theta/delta or EMG state score is reachable.
+
+**Time**: ~2 h.
