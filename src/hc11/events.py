@@ -171,6 +171,81 @@ def participation(
     return Participation(n_active=n_active, n_spikes=n_spikes, n_cells=len(cluster_ids))
 
 
+@dataclass(frozen=True)
+class ShankParticipation:
+    """Which shanks the cells active in each event sat on.
+
+    ``counts`` is ``(n_events, n_shanks)``: distinct active cells per shank.
+    The shank of a cell is the hundreds digit of its cluster ID (see
+    :func:`hc11.io.shank_of`), so this needs no electrode geometry.
+
+    This exists to separate two reasons an event might be seen by one detector
+    and not another. An event whose active cells are spread over every shank is
+    a global population event; one whose cells sit on two or three shanks is
+    local, and a detector reading a single channel elsewhere on the probe would
+    not be expected to see it.
+    """
+
+    counts: np.ndarray  # (n_events, n_shanks) distinct active cells
+    shanks: np.ndarray  # (n_shanks,) shank numbers, the column labels
+
+    @property
+    def n_active(self) -> np.ndarray:
+        return self.counts.sum(axis=1)
+
+    @property
+    def n_shanks_active(self) -> np.ndarray:
+        """Per event: shanks contributing at least one cell."""
+        return (self.counts > 0).sum(axis=1)
+
+    def fraction_on(self, shank: int) -> np.ndarray:
+        """Per event: share of active cells sitting on one shank."""
+        total = self.n_active
+        hits = np.flatnonzero(self.shanks == shank)
+        if hits.size == 0:
+            return np.zeros(self.counts.shape[0])
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return np.where(total > 0, self.counts[:, hits[0]] / total, 0.0)
+
+    @property
+    def concentration(self) -> np.ndarray:
+        """Per event: share of active cells on the single busiest shank.
+
+        1.0 means every active cell was on one shank; 1/n_shanks means they
+        were spread evenly. Scale-free, so it compares events of different
+        sizes -- which matters here, because the hypothesis being tested is
+        about *where* the cells are, not how many.
+        """
+        total = self.n_active
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return np.where(total > 0, self.counts.max(axis=1) / total, 0.0)
+
+
+def participation_by_shank(
+    session: Session, events: EventList, cluster_ids: np.ndarray
+) -> ShankParticipation:
+    """Distinct active cells per shank, for each event."""
+    from hc11.io import shank_of
+
+    cluster_ids = np.asarray(cluster_ids)
+    shanks = np.unique(shank_of(cluster_ids)) if cluster_ids.size else np.empty(0, dtype=int)
+    counts = np.zeros((len(events), shanks.size), dtype=np.int64)
+    if cluster_ids.size == 0 or len(events) == 0:
+        return ShankParticipation(counts=counts, shanks=shanks)
+
+    wanted = np.isin(session.spike_ids, cluster_ids)
+    times = session.spike_times[wanted]
+    ids = session.spike_ids[wanted]
+    column = {int(s): i for i, s in enumerate(shanks)}
+    for i, (start, end) in enumerate(zip(events.start, events.end, strict=True)):
+        lo, hi = np.searchsorted(times, [start, end])
+        if hi <= lo:
+            continue
+        for cluster in np.unique(ids[lo:hi]):
+            counts[i, column[int(shank_of(cluster))]] += 1
+    return ShankParticipation(counts=counts, shanks=shanks)
+
+
 # ---------------------------------------------------------------------------
 # Comparing two event lists (the 6c cross-check)
 # ---------------------------------------------------------------------------

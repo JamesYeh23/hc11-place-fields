@@ -555,3 +555,81 @@ extraction each, about 76 GB in total, and the analysis time is minutes, not hou
   and the band machinery exists, so a theta/delta or EMG state score is reachable.
 
 **Time**: ~2 h.
+
+## 2026-10-13 (later) — Step 6d: characterisation, and the three loose ends
+
+**Done**
+
+- `scripts/offset_vs_smoothing.py`: sweeps the envelope smoothing kernel from 0 to 32 ms
+  and re-measures the MUA-to-ripple offset, both with the event set held fixed and
+  re-detecting at each width.
+- `scripts/characterise_events.py`: per-epoch characterisation of each candidate-event
+  set, the decodability comparison between the full MUA set and the strict conjunction,
+  and the three-way test on the unmatched MUA events.
+- `hc11.events.participation_by_shank` and `ShankParticipation`, with the concentration
+  and per-shank share measures the shank-coverage hypothesis needs. 9 new tests
+  (390 total, 3 skipped). Decisions D6.22–D6.24.
+
+**1. The offset is real.** Median MUA-minus-ripple offset barely moves across kernel
+widths — −4.5 ms at zero smoothing against −4.3 ms at the configured 8 ms in
+Achilles_10252013 PRE, and the same flatness in all four session × epoch combinations.
+Only at 32 ms, four times the configured kernel, does it grow by a consistent ~0.7 ms.
+So the kernel contributes a fraction of a millisecond to a 5 ms effect. Reported as a
+result: population firing peaks 4.5–6 ms before the ripple envelope peak. Good to about
+±1 ms — one LFP sample is 0.8 ms — and the IQR of 15–17 ms means it describes a broad
+relationship, not a latency. With the question settled the offset now appears in
+`cross_check_offsets.png`.
+
+**2. The unmatched MUA events are smaller, not elsewhere.**
+
+- *Low-synchrony bursts*: **supported, and it is the whole story.** Unmatched events
+  carry about 60 % of the active cells of matched ones (mean 15.3 against 25.3), with a
+  rank-biserial of −0.58 to −0.63 across both sessions. They are also shorter (57 against
+  82 ms) and weaker (peak z 3.78 against 4.62).
+- *Shank coverage*: **rejected.** Raw concentration is higher for unmatched events, but
+  that is the cell-count confound — fewer cells forces higher concentration. Against a
+  per-event null drawing the same number of cells at random, weighted by each shank's cell
+  count, the excess is −0.007 for both groups (rb +0.03). The prediction was that the
+  active cells would sit *away* from the detection channel's shank; the observed share on
+  that shank is 0.138 against 0.124 and the expected share from cell counts is 0.117, so
+  both groups are at chance.
+- *Detection noise*: **a small contribution.** Unmatched events fail the spike-jitter null
+  5–9 points more often (86.7 % pass against 91.8 %), so most of them are still genuine
+  co-firing.
+
+This agrees with the 6c finding that multi-shank support predicts MUA agreement. Both
+detectors measure the same underlying strength and put the threshold in different places.
+Consequence for the plan: the LFP is not covering a part of the recording the spikes
+miss, so there is no coverage argument for an LFP-primary set, and the conjunction is a
+stricter threshold rather than a different filter.
+
+**3. What the strict variant costs.**
+
+| Session | Epoch | MUA usable | conjunction usable | strict keeps |
+|---|---|---|---|---|
+| 10252013 | PRE | 5827 / 7046 (83 %) | 3433 / 3601 (95 %) | 59 % |
+| 10252013 | POST | 3368 / 3955 (85 %) | 2201 / 2309 (95 %) | 65 % |
+| 11012013 | PRE | 3198 / 4709 (68 %) | 1924 / 2213 (87 %) | 60 % |
+| 11012013 | POST | 2465 / 3328 (74 %) | 1717 / 1927 (89 %) | 70 % |
+
+30–41 % of usable events, for a rise in the decodable fraction from 68–85 % to 87–95 %.
+Even the smallest cell is 1717 events, so both variants are workable for Fig. 1C; the
+cost falls on the tails of the score distribution.
+
+**Also worth noting**
+
+- Achilles_11012013 has a markedly lower decodable fraction than Achilles_10252013 (68–74 %
+  against 83–85 %) on the full MUA set. It has fewer place cells, and its events have
+  fewer active cells (median 14–15 against 21–22). Not a problem, but it means the two
+  sessions will not contribute equally to any pooled distribution.
+- MAZE still yields 20 events per session. Unchanged from D6.3 and still waiting on a
+  state score from EMG or theta/delta.
+
+**Open for step 7**
+
+- Primary candidate-event set: full MUA, with `ripple_matched` and `n_supporting_shanks`
+  carried per event so the conjunction is a filter rather than a re-run.
+- Whether to pool the two sessions or report them separately, given the participation
+  difference above.
+
+**Time**: ~1.5 h.
