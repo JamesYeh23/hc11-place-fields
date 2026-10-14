@@ -192,6 +192,44 @@ output:
   random_seed: 20160310            # [PROVISIONAL] (Science publication date)
 
 # ---------------------------------------------------------------------------
+# Sequence scores for candidate events (Phase 2, step 7)
+# ---------------------------------------------------------------------------
+sequences:
+  # Decoding bin for candidate events. Chen et al. bin quiet-waking and
+  # slow-wave-sleep candidate events at 20 ms.
+  time_bin_s: 0.02               # [CHEN2016]
+  # Bins with no spikes are dropped before scoring (their posterior describes
+  # the place fields, not the animal), so this is a floor on *kept* bins.
+  # Chen et al. require more than five bins.
+  min_bins: 5                    # [CHEN2016]
+  # Shuffles per event per shuffle kind. 500 gives the z-score a null with a
+  # standard error of about 3% of its own standard deviation, which is finer
+  # than the differences being compared.
+  n_shuffles: 500                # [PROVISIONAL]
+  shuffle_seed: 20160310         # [PROVISIONAL] (Science publication date)
+  # Rate floor for the Poisson decoder, as in step 5b: one spike from a cell
+  # whose estimated rate is zero somewhere must not veto that position.
+  rate_floor_hz: 0.01            # [PROVISIONAL] matches decoding
+  # A running direction needs this many laps before its place fields are used
+  # as a decoding template. Achilles_11012013's "pos" direction has one lap;
+  # see D7.3 for why a noise template is worse than no template here.
+  min_laps_per_direction: 5      # [PROVISIONAL]
+  # Identity-shuffle control: permute which cell owns which place field.
+  identity_shuffle_seed: 7351    # [PROVISIONAL]
+  # MAZE running positive control. At ~30 cm/s a window matched to an event
+  # (about 200 ms) covers roughly one position bin, so it cannot show a
+  # trajectory whatever the decoder does; both lengths are reported.
+  running_window_s: [0.2, 2.0]   # [PROVISIONAL]
+  # Significance threshold quoted alongside the distributions. Chen et al. use
+  # a one-sided z of 1.65 for their sequence score.
+  significance_z: 1.65           # [CHEN2016]
+  # PRE-vs-POST test: subsample PRE to POST's event count this many times and
+  # report the spread, so the unequal-n objection is answered rather than
+  # argued.
+  n_subsamples: 200              # [PROVISIONAL]
+  subsample_seed: 11012013       # [PROVISIONAL]
+
+# ---------------------------------------------------------------------------
 # Local field potential (LFP) files
 # ---------------------------------------------------------------------------
 lfp:
