@@ -633,3 +633,76 @@ cost falls on the tails of the score distribution.
   difference above.
 
 **Time**: ~1.5 h.
+
+## 2026-10-14 — Step 7: sequence scores and the Fig. 1C comparison
+
+**Done**
+
+- `src/hc11/sequences.py`: event binning, decoding against each direction's fields, the
+  weighted correlation over the whole posterior (vectorised over a leading shuffle axis),
+  both shuffle kinds, and `rZ`. `scripts/score_events.py` (7a, 7b, plus the
+  `--identity-shuffle` control), `scripts/validate_sequences.py` (both controls),
+  `scripts/replay_comparison.py` (7c). Config section `sequences`. Decisions D7.1–D7.8.
+  28 new tests (418 total, 3 skipped).
+
+**The headline: POST exceeds PRE in all eight cells of the design** — two sessions × two
+shuffle kinds × two event sets. Median `rZ` differences +0.197 to +0.525, rank-biserial
++0.071 to +0.189, p from 0.026 to 6e−08. Subsampling PRE to POST's event count 200 times
+returns the same difference to three decimals. Per minute of searched state the margin is
+wider still: POST has about half the non-REM of PRE and produces more significant events
+per minute (2.01 → 2.69 and 0.83 → 1.58 in one session, 0.45 → 0.81 and 0.70 → 1.72 in
+the other).
+
+**Both controls pass.** Identity-shuffled place fields collapse the PRE/POST gap to
+−0.005, −0.033, +0.049 and +0.071 against real gaps of +0.302, +0.220, +0.197 and +0.433.
+MAZE running at 2 s windows scores a median `rZ` of +7.5 to +13.2 with 82–95 % above 1.65,
+so the scoring works on a trajectory that is known.
+
+**Three things found along the way that mattered more than expected**
+
+1. *A one-lap template was costing the whole effect.* Achilles_11012013's "pos" direction
+   has one lap of 226 samples against 75 laps for "neg". Because the score maximises over
+   directions, a noise template gives the *shuffles* the same extra freedom, the null
+   rises, and every event's score falls. Removing it moved that session's medians from
+   −0.060 to +0.110 (PRE) and +0.148 to +0.307 (POST) — a shift the size of the effect
+   being measured. Now a five-lap floor in config (D7.3).
+2. *The absolute level of `rZ` is not interpretable.* With place fields detached from
+   cells, median `rZ` is still +0.59 under column-cycle. The column-cycle shuffle spreads
+   posterior mass uniformly over position, so it rewards an event whose decoded position
+   is merely localised, sequence or not. Time-permutation preserves each bin's posterior
+   and is the cleaner test, but it is not zero either (+0.25). Only the PRE/POST
+   difference survives the control, and no claim here rests on "x % of events exceed
+   1.65" (D7.6).
+3. *A 200 ms window of real running scores zero.* At ~30 cm/s it covers under one 10 cm
+   position bin, so it cannot contain a trajectory whatever the decoder does. That is why
+   the running control is reported at two lengths, and it sets the method's sensitivity
+   ceiling (D7.7).
+
+**The uncomfortable number**: the five-bin floor at 20 ms needs a 100 ms event, and our
+events have a median duration of 55–68 ms, so **only 15–24 % of candidate events are
+scored**. That is a larger loss than every other filter combined, and it traces back to
+the MUA detector's 1 SD boundaries rather than to anything in step 7. Lowering the floor
+to three bins would mean fitting a correlation to three points, which is not an estimate.
+Recorded in D7.5 rather than tuned.
+
+**Measured, worth keeping**
+
+- During events a 20 ms bin carries 5–6 spikes from the place-cell ensemble, not the ~1
+  spike step 5 found during running, and under 1 % of bins are empty. The posteriors are
+  sharper than the brief anticipated.
+- Forward and reverse traversals split 49–52 % in every epoch of both sessions, with no
+  consistent score asymmetry.
+- The conjunction event set gives a *larger* PRE/POST effect than the full set in all four
+  comparisons, consistent with D6.23's finding that it is a stricter threshold on event
+  strength.
+
+**Open**
+
+- The effect is consistent but small: rank-biserial +0.07 to +0.19 is a 54–59 % chance
+  that a random POST event outscores a random PRE event. Before the magnitude can be
+  compared against the paper's, D7.5 (scoring rate) and D7.6 (uninterpretable level)
+  would both have to be addressed.
+- Longer candidate events would address D7.5 directly. That means revisiting the MUA
+  boundary definition — a step-6 change, not a step-7 one.
+
+**Time**: ~2.5 h.

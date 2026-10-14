@@ -1218,3 +1218,202 @@ file. 19,078 rows across both sessions and all three epochs.
 `n_supporting_shanks` is NaN for an event with no ripple partner, which is the
 honest value: support is measured on the ripple, and an event without one was
 never measured. It must not be read as zero.
+
+---
+
+## Step 7 — Sequence scores and the Fig. 1C comparison
+
+### D7.1 — The score is a weighted correlation over the whole posterior
+
+No position is read off the posterior. The decoded distribution is used as a
+weight on each `(position, time)` pair and the ordinary Pearson correlation is
+taken under those weights (formula in the `hc11.sequences` docstring). A bin
+whose posterior is spread over half the track contributes its spread rather
+than a point estimate, which matters because a maximum-a-posteriori trajectory
+through broad posteriors is mostly noise.
+
+Measured during events, a 20 ms bin carries **5–6 spikes** from the place-cell
+ensemble, not the ~1 spike step 5 found during running. That is the difference
+between a 15 cm/s animal and a population burst, and it means the posteriors
+are sharper than expected. Fewer than 1 % of bins are empty.
+
+### D7.2 — Maximising over field direction, and paying for it in the null
+
+On a linear track the fields are directional, so an event is scored against
+each direction's templates and the larger `|r|` kept. This inflates the raw
+correlation and the inflation is not small.
+
+It is harmless for `rZ` **only** because the same maximisation runs inside the
+null: one shuffle realisation is applied to both directions' posteriors and the
+same maximum taken. Shuffling the directions independently would give the null
+more freedom than the observation had and would push every score up.
+`test_the_null_takes_the_same_maximum_over_directions` pins this. Raw `r` is
+reported but must not be compared against a nominal significance level.
+
+### D7.3 — A direction needs five laps before its fields are used
+
+Achilles_11012013 is a circular maze run one way. Its "pos" direction holds
+**exactly one lap of 226 samples**, against 75 laps and 11,730 samples for
+"neg". A template built from one lap is noise.
+
+A noise template is worse here than no template, and the reason is D7.2: the
+score maximises over directions, so the shuffles get the same extra freedom,
+the null rises, and *every* event's normalised score falls. Removing it moved
+that session's median `rZ` from −0.060 to +0.110 in PRE and from +0.148 to
++0.307 in POST — a change of the same size as the PRE/POST effect being
+measured, from a template nobody would have defended if asked.
+
+Floor set at five laps. Achilles_10252013 has 40 and 42.
+
+### D7.4 — Circular position: maximise over the origin
+
+On the circular maze, position has no origin, and a trajectory crossing the
+seam of the linearisation scores near zero despite being a perfect sequence
+(`test_a_wrapping_trajectory_scores_near_zero_on_a_linear_axis`: 0.75 linear
+against 0.98 circular on the same posterior). The correlation is therefore
+evaluated at every circular offset of the position axis and the best taken —
+"is there an origin that makes this trajectory linear in time", which is the
+question that has meaning on a ring. The maximisation runs inside the shuffles
+too, for the same reason as D7.2. Linear tracks take the same code path with a
+single offset.
+
+### D7.5 — The five-bin floor is the largest attrition step in the pipeline
+
+Bins with no spikes are dropped before scoring: the memoryless Poisson decoder
+returns `-dt * sum_i f_i(x)` for an empty bin, which describes where the
+ensemble is quiet, not where the animal is. Chen et al. require more than five
+bins, so the floor is five *kept* bins.
+
+At 20 ms that needs a 100 ms event, and our events are shorter than that:
+
+| | median duration | ≥3 bins | ≥4 | **≥5** | ≥6 |
+|---|---|---|---|---|---|
+| 10252013 PRE | 68 ms | 62 % | 37 % | **24 %** | 17 % |
+| 10252013 POST | 62 ms | 54 % | 32 % | **21 %** | 16 % |
+| 11012013 PRE | 57 ms | 46 % | 25 % | **15 %** | 10 % |
+| 11012013 POST | 58 ms | 47 % | 28 % | **19 %** | 13 % |
+
+So 15–24 % of candidate events are scored, and this is a larger loss than every
+other filter in the pipeline combined. It is stated rather than tuned away:
+lowering the floor to three bins would mean estimating a correlation from three
+time points, which is not an estimate. The real cause is upstream — the MUA
+detector's 1 SD boundaries give a median event of 55–68 ms, where the replay
+literature usually works with events twice that — and it is a candidate for
+revisiting if step 7's effects turn out to be marginal.
+
+The surviving events are the longer ones, which also carry more cells. The
+PRE/POST comparison is unaffected, since the same filter applies to both, but
+the absolute rate of significant events is a rate within a selected subset.
+
+### D7.6 — The two shuffles answer different questions, and the difference is measurable
+
+**Column-cycle** rolls each time bin's posterior independently. It destroys the
+position-time relationship and keeps each bin's posterior shape — but it also
+spreads the posterior mass uniformly across position, which raises the variance
+of position in the null. Any event whose decoded position is merely *localised*
+across bins therefore scores above this null, sequence or no sequence.
+
+**Time-bin permutation** reorders the bins. It preserves the set of posteriors
+exactly, so the position variance is unchanged and only the covariance moves.
+It isolates sequence from localisation.
+
+The identity-shuffle control (D7.7) shows this is not a theoretical worry. With
+place fields detached from cells, median `rZ` is still **+0.59** under
+column-cycle in Achilles_10252013, because the same cells firing across
+neighbouring bins still produce a localised posterior. Under time-permutation
+it is +0.25. Neither is zero.
+
+**Consequence: the absolute level of `rZ` is not interpretable, and no claim
+should rest on "x % of events exceed z = 1.65".** The PRE/POST *difference* is
+what survives the control, and that is what the Fig. 1C comparison reports.
+
+### D7.7 — Both controls pass
+
+**Negative control: identity-shuffled place fields.** Permuting which cell owns
+which field, leaving the events, bins, spikes and shuffles identical. Median
+`rZ`, POST minus PRE:
+
+| Session | shuffle | real fields | identity-shuffled |
+|---|---|---|---|
+| 10252013 | column cycle | **+0.302** | −0.005 |
+| 10252013 | time permutation | **+0.220** | −0.033 |
+| 11012013 | column cycle | **+0.197** | +0.049 |
+| 11012013 | time permutation | **+0.433** | +0.071 |
+
+The level survives identity shuffling (D7.6); the PRE/POST gap does not. Three
+of four shuffled gaps are under a sixth of the real one, and one is zero.
+
+**Positive control: MAZE running.** Real trajectories, decoded the same way with
+leave-one-lap-out templates as in step 5b:
+
+| Session | window | shuffle | n | median rZ | above 1.65 |
+|---|---|---|---|---|---|
+| 10252013 | 2.0 s | column cycle | 62 | **+13.23** | 95 % |
+| 10252013 | 2.0 s | time permutation | 62 | **+10.68** | 94 % |
+| 11012013 | 2.0 s | column cycle | 145 | **+7.50** | 82 % |
+| 11012013 | 2.0 s | time permutation | 145 | **+7.91** | 85 % |
+| 10252013 | 0.2 s | column cycle | 984 | −0.10 | 11 % |
+| 11012013 | 0.2 s | column cycle | 1606 | −0.67 | 2 % |
+
+The scoring works: a known trajectory scores an order of magnitude above
+anything in sleep.
+
+The 0.2 s rows are not a failure and are the reason both lengths are reported.
+At roughly 30 cm/s, 200 ms of running covers about 6 cm — **under one 10 cm
+position bin**. Such a window cannot contain a trajectory however good the
+decoder is, so its score is uninformative by construction. That sleep events of
+that duration score at all is the point: replay is time-compressed, so 60 ms of
+replay traverses what takes the animal a second or more. It also sets the
+sensitivity ceiling: the method can only see a sequence when the decoded
+position actually moves across bins.
+
+### D7.8 — The result: POST exceeds PRE, in every cell of the design
+
+Median `rZ`, PRE against POST, with the rank-biserial effect size and the
+Mann-Whitney p. "matched-n" repeats the test 200 times with PRE cut at random
+to POST's event count.
+
+| Session | Event set | Shuffle | PRE | POST | diff | rb | p | matched-n diff |
+|---|---|---|---|---|---|---|---|---|
+| 10252013 | all | column cycle | +0.548 | +0.850 | **+0.302** | +0.114 | 3.4e−06 | +0.302 (100 % of draws p<0.05) |
+| 10252013 | all | time permutation | +0.188 | +0.407 | **+0.220** | +0.131 | 1.2e−07 | +0.217 (100 %) |
+| 10252013 | conjunction | column cycle | +0.529 | +0.873 | **+0.344** | +0.136 | 5.4e−07 | +0.336 (100 %) |
+| 10252013 | conjunction | time permutation | +0.188 | +0.438 | **+0.250** | +0.147 | 6.0e−08 | +0.248 (100 %) |
+| 11012013 | all | column cycle | +0.110 | +0.307 | **+0.197** | +0.071 | 0.026 | +0.197 (77 %) |
+| 11012013 | all | time permutation | +0.291 | +0.723 | **+0.433** | +0.178 | 3.1e−08 | +0.433 (100 %) |
+| 11012013 | conjunction | column cycle | +0.129 | +0.350 | **+0.221** | +0.091 | 0.0091 | +0.221 (100 %) |
+| 11012013 | conjunction | time permutation | +0.251 | +0.776 | **+0.525** | +0.189 | 6.4e−08 | +0.516 (100 %) |
+
+Eight of eight positive. The subsampled tests return the same difference to
+three decimals, which is what one expects when the difference is in the
+distributions rather than in the sample sizes.
+
+Per minute of searched state, rather than per event:
+
+| Session | shuffle | PRE | POST |
+|---|---|---|---|
+| 10252013 | column cycle | 2.01 /min | 2.69 /min |
+| 10252013 | time permutation | 0.83 /min | 1.58 /min |
+| 11012013 | column cycle | 0.45 /min | 0.81 /min |
+| 11012013 | time permutation | 0.70 /min | 1.72 /min |
+
+POST wins on a rate basis by a wider relative margin than on medians, which is
+the stronger form of the claim: POST has roughly half the non-REM of PRE and
+still produces more significant events per minute.
+
+**How much to make of it.** The effect is consistent — two sessions, two
+shuffles, two event sets, all positive, with the subsampling and the identity
+control both closing the obvious objections — but it is *small*. A rank-biserial
+of +0.07 to +0.19 means that drawing one PRE and one POST event at random, POST
+scores higher about 54–59 % of the time. The direction replicates; the
+magnitude is modest, and D7.5's 15–24 % scoring rate and D7.6's uninterpretable
+absolute level are the two things that would have to be fixed before the
+magnitude could be compared against the paper's.
+
+Forward and reverse traversals split about evenly (49–52 % forward in every
+epoch of both sessions) and score similarly, with no consistent asymmetry
+between them.
+
+The conjunction set gives a *larger* effect than the full set in all four
+comparisons, which fits D6.23: it is a stricter threshold on event strength, and
+stronger events carry more sequence.
