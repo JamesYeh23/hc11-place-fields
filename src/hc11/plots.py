@@ -856,3 +856,43 @@ def plot_shank_profile(profile_rows, session_name, path: Path, params: dict) -> 
     fig.suptitle(f"{session_name}: where the active cells sat", color=INK, fontsize=10)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+def plot_sequence_cdf(scores, session_name, set_label, threshold, path: Path,
+                      params: dict) -> Path:
+    """Cumulative distribution of rZ by epoch, one panel per shuffle kind.
+
+    A cumulative distribution rather than a histogram: the comparison is a
+    question about whether one distribution sits to the right of another, and
+    a CDF answers it by eye without a bin width to argue about. Medians are
+    marked because the test reported alongside is on medians and ranks.
+    """
+    kinds = [k for k in ("column_cycle", "time_permutation")
+             if f"rz_{k}" in scores.columns]
+    fig, axes = plt.subplots(1, len(kinds), figsize=(5.4 * len(kinds), 4.0),
+                             squeeze=False, sharey=True)
+    for ax, kind in zip(axes[0], kinds, strict=True):
+        for epoch in EPOCH_ORDER:
+            values = scores[scores.epoch == epoch][f"rz_{kind}"].dropna().to_numpy()
+            if values.size < 2:
+                continue
+            ordered = np.sort(values)
+            fraction = np.arange(1, ordered.size + 1) / ordered.size
+            colour = EPOCH_COLORS[epoch]
+            ax.plot(ordered, fraction, linewidth=1.4, color=colour,
+                    label=f"{epoch} (n={ordered.size}, median {np.median(values):+.2f})")
+            median = float(np.median(values))
+            ax.plot([median], [0.5], marker="o", markersize=5, color=colour, zorder=4)
+        ax.axvline(threshold, color=MUTED, linewidth=0.8, linestyle=":")
+        ax.text(threshold, 0.02, f" z={threshold:g}", fontsize=7, color=MUTED,
+                ha="left", va="bottom")
+        ax.set_xlabel("sequence score rZ")
+        ax.set_xlim(-3, 8)
+        ax.set_title(kind.replace("_", " "), color=INK, fontsize=9)
+        ax.legend(frameon=False, fontsize=7.5, loc="lower right")
+        _style(ax)
+    axes[0][0].set_ylabel("cumulative fraction of events")
+    fig.suptitle(f"{session_name}: sequence scores, {set_label} events",
+                 color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)
