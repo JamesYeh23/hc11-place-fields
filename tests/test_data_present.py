@@ -2,15 +2,22 @@
 
 These are skipped automatically when the data has not been downloaded, so the
 suite still passes on a fresh clone.
+
+The skip comes from ``conftest.requires_data``, which is a real ``skipif``.
+``pytest.mark.requires_data`` on its own is a *registered but inert* marker: it
+labels the tests and does nothing else, so before this import these tests would
+have failed rather than skipped on a clone with no data -- the opposite of what
+the docstring above promises.
 """
 
 from __future__ import annotations
 
 import pytest
 
+from conftest import requires_data
 from hc11 import config
 
-pytestmark = pytest.mark.requires_data
+pytestmark = requires_data
 
 #: HDF5 superblock signature. In a MATLAB v7.3 file it sits after a 512-byte
 #: userblock that holds a human-readable description string.
