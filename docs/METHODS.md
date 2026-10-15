@@ -1,0 +1,547 @@
+# Methods
+
+How the pipeline works and why, in the order it runs. This is the narrative version:
+[`decisions.md`](decisions.md) is the decision log, numbered D1.1 to D7.8 and referenced
+throughout here; [`worklog.md`](worklog.md) is the running diary;
+[`data_schema.md`](data_schema.md) documents the raw file format field by field. Results
+and effect sizes are in the [README](../README.md).
+
+Every parameter named below lives in `config/params.yaml` and carries a provenance tag
+there:
+
+- **[CHEN2016]** — stated in Chen, Grosmark, Penagos & Wilson (2016), *Sci. Rep.* 6:32193,
+  which describes the same recordings and is the only published source of concrete
+  numbers available to this project.
+- **[GB2016]** — stated in the main text of Grosmark & Buzsáki (2016), *Science* 351:1440.
+- **[DATA]** — measured from the files themselves.
+- **[PROVISIONAL]** — our choice. The Science paper's full methods are in an online
+  supplement that was not available, so wherever it would have supplied a number, we
+  chose one and recorded the reasoning.
+
+Abbreviations are spelled out at first use in the README; the frequent ones here are LFP
+(local field potential), MUA (multi-unit activity), NREM (non-rapid-eye-movement sleep),
+SPW-R (sharp-wave ripple) and rZ (the standardised sequence score).
+
+---
+
+## 1. Loading — `hc11.io`, `hc11.validate`, `hc11.preprocess`
+
+### What it does
+
+Each session is one MATLAB v7.3 file, which is HDF5 with a 512-byte userblock in front of
+the magic number. `read_matlab` reads it generically and `Session` assembles the hc-11
+structure on top: spike times and cluster identities, putative pyramidal and interneuron
+ID lists, two-dimensional and linearised position, the PRE/MAZE/POST epoch boundaries,
+and the scored sleep states.
+
+Two rules make the rest trustworthy.
+
+**The loader never modifies data (D2.3).** `Session` is immutable, holds exactly what the
+file contains, and clips, interpolates and truncates nothing. Anything that needs fixing
+is fixed in `hc11.preprocess`, by analysis code, visibly.
+
+**Arrays are transposed unconditionally, never by shape (D2.1).** MATLAB and h5py disagree
+about axis order, and a shape-dependent transpose silently does the wrong thing on any
+array that happens to be square or one-dimensional. Every array is `h5py_array.T`, always.
+
+`validate()` returns a list of severity-tagged issues rather than raising (D2.4), so a
+caller sees every problem at once instead of the first one.
+
+### Parameters
+
+| | Value | Source |
+|---|---|---|
+| position sample rate | 39.0625 Hz | [DATA] — an exact, gap-free 25.6 ms grid in all 8 sessions |
+| spike time units | seconds on the session clock | [DATA] |
+| truncate to `sessDuration` | yes | [PROVISIONAL], D3.1 |
+| drop zero-length state intervals | yes | [PROVISIONAL], D3.2 |
+
+### Validation
+
+- Cross-checked against an independent MATLAB reader on every field (D2.6).
+- Two sessions carry anomalies, both reported as warnings and resolved in the analysis
+  layer: Gatsby_08022013 has 263,976 spikes (4.67 %) after `sessDuration`, truncated per
+  D3.1; Achilles_11012013 has one zero-length REM interval, dropped per D3.2.
+- A finding that closed off a planned quality metric: **the minimum inter-spike interval
+  within a cluster is exactly 0.85 ms in all eight sessions** (D3.5). That is not a
+  coincidence — a refractory censoring step was applied before release — so
+  ISI-violation measures of cluster quality measure the upstream cleaning, not the
+  isolation. Unit quality would have to come from waveform data this project does not
+  download.
+
+---
+
+## 2. Behaviour and place fields — `hc11.behavior`, `hc11.laps`, `hc11.fields`, `hc11.track`
+
+### What it does
+
+**Running periods** are the intersection of two criteria (D3.4). Stage 1 is the authors'
+own `OneDLocation` variable being defined. Stage 2 is speed above 15 cm/s, computed by
+differentiating the two-dimensional position and then smoothing — in that order, with a
+NaN-aware kernel, so lost tracking does not leak into neighbouring samples.
+
+The two stages are kept separate on purpose. `OneDLocation` marks *being on the linearised
+track*, not running, and how strictly it was curated varies between sessions: the speed
+filter removes 3.3 % of its samples in one session and 51.9 % in another. In the first
+three sessions the mask is short blocks the length of a single traversal; in the other
+five it contains blocks of up to 23–59 s with genuine mid-track pauses. Treating stage 2
+as a formality would mean accepting a definition of running that silently differs by
+session.
+
+**Laps** are segmented on the authors' mask-level continuous runs, *before* the speed
+filter is applied, never after (D4.1) — a lap is a behavioural unit, and chopping it at
+every deceleration would invent laps. Direction comes from hysteresis on unwrapped
+position, with no assumption that directions alternate (D4.2). On a circular track one lap
+is one circuit, split at the reward site (D4.3).
+
+**Rate maps** smooth the occupancy map and the spike-count map separately and then divide,
+which is the order that keeps a briefly visited bin from inventing a high rate. Bins
+visited for under `min_occupancy_s` become NaN rather than 0 Hz, since a 0 Hz estimate
+would bias both the spatial information and the decoder.
+
+**Place cells** must satisfy all of: at least 50 spikes while running in that direction, a
+peak rate of at least 1 Hz, spatial information significant against a shuffle null at
+α = 0.05, at least one detected field, and split-half stability (odd against even laps)
+r ≥ 0.3. A cell counts once per session if it qualifies in either direction (D5.1).
+
+The shuffle is a **circular shift in compressed running time** (D4.4): the selected
+running samples are numbered 0…n−1 and the spike train is rotated within that numbering,
+which preserves each cell's rate and the animal's trajectory while destroying the
+spike-to-position relationship. Rotating in wall-clock time instead would mostly move
+spikes into periods the cell was not being measured in.
+
+### Parameters
+
+| | Value | Source |
+|---|---|---|
+| speed threshold | 15 cm/s | [CHEN2016] |
+| speed smoothing σ | 0.1 s | [PROVISIONAL] — ~4 samples; suppresses chatter across the threshold |
+| bridge short dips / minimum run | 0.2 s / 0.5 s | [PROVISIONAL] |
+| spatial bin | 10 cm | [CHEN2016] |
+| rate-map smoothing σ | 1 bin | [PROVISIONAL] — Chen et al. describe smoothing over ~5 bins, read as kernel support |
+| minimum occupancy | 0.1 s | [PROVISIONAL] |
+| place cell: min spikes / peak rate / α / stability | 50 / 1 Hz / 0.05 / 0.3 | [PROVISIONAL], D4.6, D5.3 |
+| maximum field width | 0.75 of track extent | [PROVISIONAL], D5.2 |
+
+The field-width cap is a fraction rather than a fixed length because a fixed 120 cm was
+75 % of the 1.6 m track but only 41 % of the circular one, so the same cell shape was
+judged differently by which maze it was recorded on (D5.2).
+
+### Validation
+
+- **The speed threshold barely changes the place fields** (D4.5), which is the reassuring
+  direction: the stage-1/stage-2 split matters for how much data is used, not for what the
+  fields look like.
+- Lap segmentation on circular tracks was wrong in an early version — laps spanned
+  multiple circuits, giving coverage of 2.0 and 3.0 — and was caught by a unit test
+  written for the wrap, not by inspection. Fixed by splitting constant-direction runs at
+  every crossing of the reward site (D4.3).
+- The shuffle degenerates when laps are perfectly periodic: a circular shift becomes a
+  rotation of the rate map and preserves the spatial information. Pinned as a test
+  (`test_stereotyped_running_weakens_the_shuffle`) rather than hidden.
+
+### Outcome
+
+**304 place cells** across the eight sessions, against the paper's 491. The gap is a
+finding, not a tuning target; see *Known limitations* below and D5.4.
+
+---
+
+## 3. Position decoder — `hc11.decode`
+
+### What it does
+
+A memoryless Poisson decoder with a uniform prior, in log space (D5.6):
+
+```
+log P(x | n) = Σᵢ nᵢ log fᵢ(x) − Δ Σᵢ fᵢ(x) + const
+```
+
+normalised with a log-sum-exp. The `−Δ Σᵢ fᵢ(x)` term is what makes *too few* spikes
+evidence *against* a high-rate position, and it is easy to drop by accident; it has its
+own test. Tuning curves are floored at 0.01 Hz so that one spike from a cell whose
+estimated rate is zero somewhere cannot veto that position outright.
+
+Cross-validation is **leave-one-lap-out** (D5.7), with the templates precomputed once per
+session so the chance baseline and the ensemble-size sweep reuse them. The chance baseline
+permutes tuning curves between cells, which preserves the shape of the population's
+tuning while destroying the correspondence to position (D5.8).
+
+### Parameters
+
+| | Value | Source |
+|---|---|---|
+| time bins | 250 ms primary, 20 ms secondary | [CHEN2016] |
+| rate floor | 0.01 Hz | [PROVISIONAL] |
+| prior | uniform | [PROVISIONAL] |
+
+### Validation
+
+Median error on held-out laps, 250 ms bins, each direction against its own fields:
+
+| Session | Cells | Median error | Chance |
+|---|---|---|---|
+| Achilles_10252013 | 77 | 4.7–5.1 cm | 40–43 cm |
+| Achilles_11012013 | 73 | 4.9 cm | 67 cm |
+| Buddy_06272013 | 16 | 8.8 cm | 36–45 cm |
+| Cicero_09012014 | 16 | 10.6 cm | 38–53 cm |
+| Cicero_09102014 | 36 | 4.9 cm | 71 cm |
+| Cicero_09172014 | 25 | 9.0–9.3 cm | 49–63 cm |
+| Gatsby_08022013 | 30 | 6.6–7.9 cm | 38–43 cm |
+| Gatsby_08282013 | 31 | 5.4 cm | 68 cm |
+
+**This is better than the "low tens of centimetres" expected, and it was checked for
+leakage before being believed** (D5.9). Three explanations, all of which hold: the
+cross-validation checks pass (honest 5.18 cm against a deliberately leaky 4.56 cm;
+occupancy and spikes partition exactly between held-in and held-out laps; three separate
+leakage tests); the spatial bin is 10 cm and the decoder returns a bin centre, so even
+perfect bin identification gives a median error near 2.5 cm; and a 1.6 m linear track with
+77 cells is a far easier problem than the two-dimensional open fields where Chen et al.
+report 8.5–12.5 cm with 49 neurons.
+
+Two further results worth keeping: the directional split is worth 6–34 % of accuracy
+against a direction-merged template (D5.10), and 20 ms bins cost roughly a factor of two
+in median error and more than that in the tail (D5.11) — which is why 20 ms is used only
+where it must be, inside candidate events.
+
+---
+
+## 4. Candidate events — `hc11.events`, `hc11.mua`, `hc11.lfp`, `hc11.ripple_channels`, `hc11.ripples`
+
+### What it does
+
+Two detectors, deliberately sharing one rule.
+
+**The shared rule (D6.1).** A candidate must peak above a high threshold (3 standard
+deviations above the state's own baseline); its boundaries extend outward to where the
+signal falls back below a low threshold (1 SD), so duration describes the whole event
+rather than the part that cleared the peak; candidates closer than a merge gap are joined;
+survivors are filtered on duration. Thresholds are computed **within a brain state, never
+session-wide** (D6.2) — baseline population rate and ripple power both differ between NREM
+sleep and quiet waking, so one session-wide threshold would hand one epoch systematically
+more events and make the PRE/POST comparison meaningless.
+
+**MUA detector** (`hc11.mua`): the smoothed population firing rate of the pyramidal
+ensemble, binned at 1 ms and smoothed with a 10 ms Gaussian.
+
+**Ripple detector** (`hc11.ripples`): the 150–300 Hz amplitude envelope of one CA1
+pyramidal-layer channel. The envelope is computed once across the whole recording in
+overlapping chunks and then sliced by state (D6.16), because filtering each state interval
+separately would put a filter transient at the edge of every one and NREM intervals are
+often under a minute. Internal chunk boundaries agree with a whole-signal transform to
+3 × 10⁻⁵ of the envelope maximum.
+
+**Choosing the ripple channel** (`hc11.ripple_channels`, D6.13): the highest mean 150–300 Hz
+envelope over a fixed, deterministic 10-minute sample of scored NREM, on each shank that
+carries sorted units. Two things make this harder than it sounds and both are handled
+explicitly:
+
+- **Two channel counts, never one variable** (D6.7). `n_channels_total` (134) is the file
+  stride and includes the EMG and accelerometer channels; `probe_channels` (128) is the
+  selection pool. An off-by-one in the stride does not merely misreport the duration, it
+  shifts every frame by one channel so each "channel" becomes a drifting mixture of the
+  real ones — plausible amplitudes, plausible spectra, no error anywhere. `check_size` is
+  therefore strict rather than advisory (D6.8).
+- **Nothing in the hc-11 XML labels the EMG or accelerometer channels.** The only thing
+  separating them from the probe is that `anatomicalDescription` contains every channel
+  while `spikeDetection` contains the spike-sorted shanks alone. Taking the anatomical
+  grouping as the probe definition — the obvious reading — puts the EMG into the
+  ripple-channel contest, where it would have outranked two of the fourteen spike groups
+  on ripple-band power.
+
+**The handover** (D6.25): `results/candidate_events.csv`, one row per MUA event carrying
+`ripple_matched`, `n_supporting_shanks`, `n_active_place` and `decodable`. The strict
+conjunction is a filter on a column, not a second pipeline. `n_supporting_shanks` is NaN,
+not zero, for an event with no ripple partner — support is measured on the ripple, and an
+event without one was never measured.
+
+### Parameters
+
+| | Value | Source |
+|---|---|---|
+| ripple band | 150–300 Hz | [CHEN2016] |
+| peak threshold | mean + 3 SD | [CHEN2016] |
+| boundary threshold | mean + 1 SD | [PROVISIONAL] |
+| MUA bin / smoothing | 1 ms / 10 ms | [PROVISIONAL] |
+| ripple envelope smoothing | 8 ms | [PROVISIONAL] |
+| duration limits | 30–400 ms (MUA), 20–400 ms (ripple) | 400 ms [CHEN2016], floors [PROVISIONAL] |
+| minimum cell activation | ≥ 5 cells and ≥ 10 % of the ensemble | [CHEN2016] |
+| channel profiling sample | 40 windows × 15 s of NREM | [PROVISIONAL] |
+| multi-shank support | max envelope z within ±20 ms, supporting at z ≥ 2 | [PROVISIONAL] |
+
+### Validation
+
+- **File geometry.** Both `.eeg` files are a whole number of 268-byte frames with
+  remainder zero, and both durations match `sessDuration` to +0.000 s (D6.11). 134 is the
+  only plausible channel count that divides either file exactly, so the stride is
+  confirmed by the data and not only by the XML.
+- **Channel grouping against the dataset's own `Channel_Orderings.pdf`** (D6.12): 12 CA1
+  shanks of 10 channels, two four-channel "extra channel" groups, EMG on 128–130 and
+  accelerometer on 131–133, every line matching. Two independent confirmations: the EMG
+  channels carry 9.8–21.8 of ripple-band envelope against 2.4–5.0 for the accelerometer
+  (muscle is broadband, an accelerometer is not), and the extra-channel groups carry no
+  sorted units and the lowest ripple-band power on the probe.
+- **The channel selection tracks anatomy, not noise** (D6.14), on three grounds that are
+  not the margin: each shank's depth profile is smooth and single-peaked; theta and delta
+  peak several channels *deeper* than the ripple band, which is the CA1 depth signature;
+  and seven of twelve shanks select the identical channel in two sessions a week apart.
+- The per-shank margins are only 1–14 %, and ranking by excursion (99th percentile over
+  median) instead of level moves the choice by one contact on most shanks and by seven on
+  one. Both rankings were detected on. Where they differ most, the level ranking is
+  marginally better, and the config says so against the prior expectation (D6.17).
+
+### Outcome
+
+Event rates of 28–39 per minute of NREM, median duration 54–64 ms. 70–80 % of ripples have
+an MUA partner and 47–58 % the other way, with population firing peaking 4.5–6 ms before
+the ripple envelope (D6.19, D6.22).
+
+---
+
+## 5. Sequence scores — `hc11.sequences`
+
+### What it does
+
+Each candidate event is binned at 20 ms, every bin decoded against the place fields, and
+the resulting `(time, position)` posterior scored by a **weighted correlation**: the
+posterior is a weight on each `(position, time)` pair and the ordinary Pearson correlation
+is taken under those weights (D7.1).
+
+```
+E[x] = Σ P(x,t)·x / Σ P        E[t] = Σ P(x,t)·t / Σ P
+r    = (E[xt] − E[x]E[t]) / sqrt( (E[x²] − E[x]²)(E[t²] − E[t]²) )
+```
+
+No position is read off the posterior. A bin whose posterior is spread over half the track
+contributes its spread rather than a point estimate — which matters, because a
+maximum-a-posteriori trajectory through broad posteriors is mostly noise.
+
+The score is standardised against 500 within-event shuffles, giving **rZ**. Two shuffle
+kinds are run and both reported, because they answer different questions (D7.6):
+
+- **column cycle** rolls each time bin's posterior independently. It destroys the
+  position–time relationship and keeps each bin's posterior shape — but it also spreads
+  posterior mass uniformly across position, raising the variance of position in the null,
+  so any event whose decoded position is merely *localised* scores above it.
+- **time-bin permutation** reorders the bins. It preserves the set of posteriors exactly,
+  so position variance is unchanged and only the covariance moves. It isolates sequence
+  from localisation.
+
+Three maximisations are involved, and **all three are applied identically to the
+observation and to every shuffle**, which is the only reason rZ is interpretable:
+
+1. **Field direction** (D7.2). An event is scored against each running direction's
+   templates and the larger `|r|` kept. One shuffle realisation is applied to both
+   directions and the same maximum taken; shuffling them independently would give the null
+   more freedom than the observation had.
+2. **Circular position** (D7.4). On the circular maze, position has no origin and a
+   trajectory crossing the seam of the linearisation scores near zero despite being a
+   perfect sequence. The correlation is evaluated at every circular offset and the best
+   kept — "is there an origin that makes this linear in time", the question that has
+   meaning on a ring. Linear tracks take the same code path with one offset.
+3. The same applies to taking `|r|` rather than signed `r`, so that forward and reverse
+   replay do not cancel. Traversal direction is recorded separately as the sign.
+
+**Empty bins are dropped** before scoring (D7.5). A bin with no spikes still has a
+posterior — the memoryless decoder returns `−Δ Σᵢ fᵢ(x)`, which favours positions where
+the ensemble is quiet — and that describes the place fields, not the animal.
+
+### Parameters
+
+| | Value | Source |
+|---|---|---|
+| time bin | 20 ms | [CHEN2016] |
+| minimum bins kept | 5 | [CHEN2016] |
+| shuffles per event per kind | 500 | [PROVISIONAL] |
+| minimum laps for a directional template | 5 | [PROVISIONAL], D7.3 |
+| significance threshold quoted | z = 1.65 | [CHEN2016] |
+| PRE subsamples | 200 | [PROVISIONAL] |
+
+### Validation
+
+Both controls are in the README with their numbers; the short version is that
+identity-permuted place fields collapse the PRE/POST gap to approximately zero while real
+running scores a median rZ of +7.5 to +13.2.
+
+### Measured along the way
+
+- **During events a 20 ms bin carries 5–6 spikes** from the place-cell ensemble, not the
+  ~1 spike found during running, and under 1 % of bins are empty. The posteriors are
+  sharper than anticipated — a 15 cm/s animal and a population burst are different
+  regimes.
+- Forward and reverse traversals split 49–52 % in every epoch of both sessions, with no
+  consistent difference in score.
+- The conjunction event set gives a *larger* PRE/POST effect than the full set in all four
+  comparisons, consistent with it being a stricter threshold on event strength rather than
+  a different kind of filter (D6.23).
+
+---
+
+## Controls and validation, in one place
+
+| Control | Question | Result | Where |
+|---|---|---|---|
+| Leave-one-lap-out decoding | Does the decoder work without seeing the lap? | Median error 4.7–10.6 cm against 36–71 cm chance | D5.9 |
+| Leakage checks on the decoder | Is the low error leakage? | Honest 5.18 cm against leaky 4.56 cm; occupancy and spikes partition exactly; three tests | D5.9 |
+| Tuning-curve permutation | What is chance for this ensemble? | 36–71 cm | D5.8 |
+| Flat-Poisson threshold check | Does the 3 SD rule produce events on noise? | Yes, 0.35–0.68/s — so event *count* alone proves nothing | D6.4 |
+| **Spike-jitter null** | Is the population synchrony real? | 84–90 % of events exceed the 95th percentile of their own null; participation 1.7× the null | D6.5 |
+| **Multi-shank support vs MUA agreement** | Do two independent checks pick out the same weak events? | Agreement rises monotonically, 37 % at zero support to 87 % at eleven | D6.19 |
+| Cell-count-matched shank null | Are unmatched MUA events on shanks the detector misses? | No — concentration excess over the null is identical for matched and unmatched | D6.23 |
+| Smoothing-kernel sweep | Is the 5 ms MUA-to-ripple lead an artifact of smoothing? | No — flat from 0 to 8 ms, less than one sample | D6.22 |
+| **Identity-shuffled place fields** | Is the PRE/POST difference replay? | Gap collapses from +0.197…+0.433 to −0.033…+0.071 | D7.7 |
+| **MAZE running positive control** | Can the scoring recognise a known trajectory? | Median rZ +7.5 to +13.2, 82–95 % above 1.65 | D7.7 |
+
+The four in bold are the ones the headline result depends on.
+
+### Four bugs that failed silently, and how each was caught
+
+A methods document that does not say what nearly went wrong is less useful than one that
+does. None of these raised an exception; each produced plausible numbers.
+
+**1. Band-passing across the probe instead of across time (D6.15).** The first
+channel-power analysis indexed `data[channel]` — a single time point across 134 channels —
+instead of `data[:, channel]`. A 150–300 Hz filter happily runs on a 134-sample "signal"
+and returns a few tens of units, slightly different per channel, so the output was a flat
+profile reading as "all channels are equivalent" rather than as a fault. Only the 1–4 Hz
+band complained, and it complained with NaN rather than an error, because a narrow
+low-frequency Butterworth in transfer-function form is unstable at that length. *Caught
+by* the result being implausible — a uniform 44–46 on every one of 134 channels — followed
+by several hours spent verifying the recording before the fault was located in the
+analysis. *Prevented now by* explicit `axis=0` on every filter call, a per-channel loop
+over one-dimensional arrays where the axis cannot be ambiguous, `sosfiltfilt` instead of
+`filtfilt`, and three tests that pin the behaviour by *answer* rather than by arithmetic —
+including one that plants a 190 Hz burst on a known channel and asserts that channel is
+the one selected.
+
+**2. "No shank saw this event" that actually meant "never measured" (D6.18).** Multi-shank
+support needs a baseline per comparison channel, sampled from the same brain state. MAZE
+immobility comes in fragments under a second, too short to sample from, so the baseline
+was NaN, every z-score was NaN, and the count of supporting shanks came out as a clean
+zero for all 18 MAZE events. *Caught by* the result being too clean — exactly zero on
+every event, where real data is never that tidy. *Prevented now by* a fallback that uses
+the state itself when no window fits, and by a warning when nothing finite was measured.
+With the fallback, MAZE support is a median of 10 of 11.
+
+**3. A duration confound in the jitter null (D6.5).** Comparing the median participation of
+*re-detected* null events against observed suggested the null was *more* synchronous — 22
+cells against 18. It is an artifact of detection: jittering smooths the rate trace, so null
+events are nearly twice as long (124 ms against 68 ms) and simply accumulate more distinct
+cells over their longer span. Normalised for duration the observed events are denser (2.50
+against 1.85 active cells per 10 ms). *Prevented now by* the rule that any comparison of
+participation between two event sets must control for duration — which is why the
+decisive comparison recounts participation inside the *observed* windows.
+
+**4. A cell-count confound in the shank-concentration test (D6.23).** Testing whether
+unmatched MUA events have their active cells concentrated on particular shanks, the raw
+concentration *was* higher for unmatched events — which looks like confirmation. But an
+event with nine active cells cannot occupy twelve shanks, so fewer cells forces higher
+concentration whatever the physiology, and unmatched events have fewer cells. *Prevented
+now by* comparing against a per-event null that draws the same number of cells at random,
+weighted by how many cells each shank actually has. Against that null the excess is
+identical for both groups and the hypothesis is rejected.
+
+A fifth near-miss is not a bug but belongs in the same list: **a one-lap directional
+template** on the circular session (D7.3) depressed that session's sequence scores by as
+much as the effect being measured, because the score maximises over directions and a noise
+template hands the shuffles the same freedom. It was caught by checking lap counts per
+direction before trusting the output, not by any test.
+
+---
+
+## Known limitations and open questions
+
+### The place-cell shortfall: 304 against 491
+
+**What would settle it:** the Science supplementary methods, which would state the actual
+inclusion criteria; or the authors' own linearisation over all MAZE time rather than the
+released `OneDLocation`.
+
+Applying only Chen et al.'s stated criterion — peak rate above 1 Hz, nothing else — still
+gives 392, so this is not a threshold we have mis-set (D5.4). Widening the measurement base
+to our own linearisation of the raw position raises the linear-track yield from 47 % to
+59 % of pyramidal cells, so the restricted released mask is a real contributor, but 59 %
+is still short of 87 % (D5.5). The remainder is unexplained. Our population is a
+conservative subset of theirs, and every downstream result is built on that subset.
+
+### Circular-track extent does not match the documented platform
+
+**What would settle it:** the authors' linearisation procedure, or the raw tracking
+calibration.
+
+`OneDLocation` spans 2.84–2.90 m on the circular sessions, while a documented 1 m-diameter
+platform implies a 3.14 m circumference and the median two-dimensional radius implies
+2.82–3.34 m (D3.3). The cause is unknown: the linearisation may cover only the arc the
+animal ran, may be scaled to a nominal rather than measured radius, or may exclude the
+reward zone. The code takes the extent from the observed range per session rather than
+from an assumed circumference, because an assumed 3.14 m would misplace every bin edge and
+put the wrap discontinuity where the animal never was.
+
+### Roughly 45 % of MUA events have no ripple partner
+
+**Settled, and recorded here because the answer constrains what the LFP adds.** Three
+explanations were tested (D6.23). They are *smaller*, not elsewhere: unmatched events carry
+about 60 % of the active cells of matched ones (rank-biserial −0.58 to −0.63), are shorter
+and weaker. The shank-coverage explanation is rejected against the cell-count-matched null
+above. Detection noise contributes a little — they fail the jitter null 5–9 points more
+often — but 80–87 % of them still beat it. They are the weak tail of one distribution.
+
+The consequence: the LFP is not covering events the spikes miss, so there is no coverage
+argument for an LFP-primary event set, and the conjunction is best understood as a
+stricter threshold.
+
+### POST has less NREM sleep than PRE
+
+**What would settle it:** more sessions, or sleep-pressure measurements the dataset does
+not contain.
+
+168.5 → 89.7 and 104.0 → 73.0 minutes (D6.6). The proportion falls in one session and the
+other's REM collapses instead. The likely reason — the animal has already slept some five
+hours before POST begins — cannot be tested here. Every rate is normalised by searched
+time and the PRE/POST test is reported both on all events and on PRE subsampled to POST's
+count.
+
+### Only 15–24 % of candidate events are long enough to score
+
+**What would settle it:** a longer candidate event, which means revisiting the MUA
+detector's boundary threshold — a step-4 change, not a step-5 one.
+
+The five-bin floor at 20 ms needs a 100 ms event and ours run 55–68 ms (D7.5). This is a
+larger loss than every other filter combined. It is recorded rather than tuned: a
+three-bin floor would mean fitting a correlation to three points. The same filter applies
+to PRE and POST so the comparison is unaffected, but any absolute rate is a rate within a
+selected subset, and the surviving events are systematically the longer ones with more
+cells.
+
+### Quiet wakefulness on the maze is undefined
+
+**What would settle it:** the theta/delta ratio or the EMG channel of the LFP, both of
+which are now reachable — the EMG channels are identified as 128–130 and the band
+machinery exists.
+
+Chen et al.'s speed-below-2 cm/s criterion yields 0.4 minutes of searchable time out of
+34–45 (D6.3). The sub-threshold samples are turnaround zero-crossings with a median run of
+0.18 s, not pauses. The genuinely quiet periods are plausibly the 7.6–8.7 minutes of lost
+tracking, when the animal sits at a reward site with its head-mounted light occluded. The
+elevated population rate during those periods is *ambiguous*, not disqualifying: awake
+sharp-wave ripples at a reward site would produce exactly that signature. The few MAZE
+events that are detected look like real ripples — median support 10–11 of 11 other shanks
+— which supports the hypothesis rather than the alternative (D6.21).
+
+### The absolute level of rZ carries a bias
+
+**What would settle it:** a shuffle that preserves both each bin's posterior and the
+population's positional localisation. Time-bin permutation is closer than column cycling
+but is not zero either.
+
+Identity-permuted fields still give a median rZ of +0.59 under column cycling (D7.6).
+Threshold-crossing fractions are therefore not reported as results anywhere in this
+repository, and only the PRE/POST difference — which the control collapses — is treated as
+information.
+
+### Two sessions, one animal
+
+Event detection and sequence scoring need the LFP, which is roughly 9.5 GB compressed per
+session; two were downloaded, both from the rat named Achilles. Steps 1–3 above run on all
+eight sessions. The two are reported separately as the primary result because they are
+different mazes with different place-cell yields; pooling them is a secondary result only.
