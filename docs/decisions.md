@@ -1417,3 +1417,198 @@ between them.
 The conjunction set gives a *larger* effect than the full set in all four
 comparisons, which fits D6.23: it is a stricter threshold on event strength, and
 stronger events carry more sequence.
+
+---
+
+## Step 8a — audit before scaling to eight sessions
+
+### D8.1 — Which parameters are session-general, and which are an Achilles-only assumption
+
+Everything in `config/params.yaml` has been *applied* to whatever sessions its stage ran
+on. The question here is narrower: for each parameter, has its value been **checked**
+against more than the two Achilles sessions?
+
+| Parameter | Value | Provenance | Checked on | Verdict |
+|---|---|---|---|---|
+| `place_fields.bin_size_cm` | 10 cm | [CHEN2016] | 8 | session-general |
+| `criteria.max_field_width_frac` | 0.75 | [PROVISIONAL] | 8 (`place_cell_sensitivity.csv`) | session-general **by construction** — it replaced a fixed 120 cm precisely because that was 75 % of one maze and 41 % of another (D5.2) |
+| `criteria.min_spikes` / `min_peak_rate_hz` / `alpha` / `min_stability_r` | 50 / 1 Hz / 0.05 / 0.3 | [PROVISIONAL] | 8 | applied to 8, but the *yield* ranges 29–79 % of pyramidal cells, so the criteria are uniform and their consequences are not |
+| `behavior.speed_threshold_cm_s` | 15 | [CHEN2016] | 8, with a sensitivity run on Achilles_10252013 **and Cicero_09012014** | session-general; the one sensitivity check that already includes a non-Achilles session |
+| `sequences.min_laps_per_direction` | 5 | [PROVISIONAL] | 2 | **not Achilles-specific — it is a circular/linear discriminator** (below) |
+| `events.mua.threshold_high_sd` | 3.0 | [CHEN2016], but stated there for the *ripple envelope*, not for a population rate | 2 | **untested on 6** |
+| `events.mua.threshold_low_sd`, `min/max_duration_ms`, `merge_gap_ms` | 1.0, 30/400 ms, 30 ms | [PROVISIONAL] | 2 | **untested on 6** |
+| `events.ripples.*` | band [CHEN2016], rest [PROVISIONAL] | 2 | **untested on 6** |
+| `lfp.channel_selection.*` | 40 × 15 s NREM, bands | [PROVISIONAL] | 2 | **untested on 6, and the probe geometry differs** (D8.2) |
+| `sequences.min_bins` | 5 | [CHEN2016] | 2 | **the riskiest parameter in the config** (D8.3) |
+| `events.decodable` | ≥ 5 cells and ≥ 10 % of the ensemble | [CHEN2016] | 2 | binds far harder on a 16-cell ensemble than on a 77-cell one (D8.3) |
+
+**The five-lap floor is not an Achilles artefact.** Laps per direction across all eight
+sessions: every linear session has 24–44 in both directions; every circular session has 0
+or 1 in the direction the animal did not run (Achilles_11012013: 1 and 75;
+Cicero_09102014: 0 and 19; Gatsby_08282013: 1 and 79). The floor therefore separates
+circular from linear with a margin of 23 laps on one side and 4 on the other. It was
+*discovered* on the one circular session we happened to run, but it generalises, and it
+will fire on exactly the two circular sessions still to come.
+
+**Nothing hard-codes a channel count or a session name in `src/hc11/`** (checked): the
+only occurrences are docstrings describing Achilles as an example. Eleven scripts default
+to a two-session list, which 8b must widen. That is a default, not a method.
+
+### D8.2 — There are two probe geometries in this dataset, not one
+
+From `Channel_Orderings.pdf`, read for all four animals rather than only the one we had
+processed:
+
+| Animal | Probe | CA1 shanks | Channels/shank | Extra-channel groups | Misc. channels | Total | Skipped (1-based) |
+|---|---|---|---|---|---|---|---|
+| Achilles | BUZ64SP 6-shank × 2 | 12 | 10 | 2 × 4 | EMG 129–131, accel 132–134 | 134 | none |
+| Cicero | BUZ64SP 6-shank × 2 | 12 | 10 | 2 × 4 | EMG 129–131, accel 132–134 | 134 | none |
+| Buddy | BUZ64 8-shank × 2 | **16** | **8** | **none** | **accel 129–131, EMG 132** | **132** | **24, 27, 58** |
+| Gatsby | BUZ64 8-shank × 2 | **16** | **8** | **none** | EMG 129–131, accel 132–134 | 134 | **35, 45, 47** (session 2 only) |
+
+Four consequences, none of which requires a methodological change but all of which
+change what the step-6 output will look like:
+
+1. **The channel count is not 134 for every session.** Buddy is 132. The code takes it
+   from the XML and `require_consistent_size` would catch any mismatch, so this is a
+   prediction to verify rather than a risk.
+2. **The "extra channel" exclusion has nothing to exclude on Buddy and Gatsby.** Our
+   filter keeps spike groups that carry sorted units (D6.13), which is data-driven and
+   adapts; on Buddy and Gatsby all 16 groups are genuine CA1 shanks and the filter will
+   simply drop the ones without units.
+3. **The multi-shank support denominator varies by session.** Shanks carrying units:
+   Achilles 12 and 12, Cicero 11/12/9, Gatsby 8 and 6, Buddy 10. Support was reported as
+   "of 11 other CA1 shanks" on Achilles; on Gatsby_08282013 it will be "of 5". The
+   *distribution* is therefore not comparable across sessions without normalising to a
+   fraction, and 8b should report the fraction alongside the count.
+4. **The XML skip flag has never run on real data.** Achilles has no skipped channels, so
+   `parse_xml`'s skip handling and `good_channels()` have only ever been exercised by
+   unit tests. Buddy and Gatsby_08282013 will exercise them for the first time. If the
+   skipped channels do not appear in the XML with `skip="1"` the code will silently
+   include three bad channels in the selection pool — worth checking explicitly in 8b
+   against the three numbers above rather than trusting it.
+
+### D8.3 — The two validated sessions are the two best-case sessions in the dataset
+
+This is the finding that matters most before committing to 64 GB of download. Achilles
+has the two largest place-cell ensembles of the eight. From `results/decoding_summary.csv`,
+at the **20 ms bin the sequence scoring uses**, measured during running:
+
+| Session | Place cells | Median spikes per 20 ms bin | Empty bins | Median error (20 ms) |
+|---|---|---|---|---|
+| **Achilles_10252013** | **77** | **3–4** | **5–9 %** | 10.0–10.4 cm |
+| **Achilles_11012013** | **73** | **2** | **13 %** | 10.6 cm |
+| Cicero_09102014 | 36 | 1 | 38 % | 12.2 cm |
+| Gatsby_08282013 | 31 | 1 | 42 % | 17.8 cm |
+| Gatsby_08022013 | 30 | 1 | 27–36 % | 14.2–16.0 cm |
+| Cicero_09172014 | 25 | 1 | 42–43 % | 19.2–21.2 cm |
+| Buddy_06272013 | 16 | 0–1 | **47–51 %** | 18.0–18.6 cm |
+| Cicero_09012014 | 16 | 0 | **58–60 %** | 19.2–19.9 cm |
+
+**What this predicts for step 7 on the six unseen sessions.** Spike density inside events
+runs 1.6–2.4× the running density (Achilles: 5.55 and 4.88 in-event against 3–4 and 2
+running), and under 1 % of in-event bins were empty on Achilles. Scaling that ratio, the
+six unseen sessions should see roughly 0–2.5 spikes per in-event bin and an empty-bin
+fraction in the tens of percent rather than under one.
+
+The five-bin floor counts **non-empty** bins. On Achilles it was effectively "≥ 5 raw
+bins", i.e. a 100 ms event, and it already discarded 76–85 % of candidates. On a session
+where 30 % of in-event bins are empty, an event needs about 7 raw bins — 140 ms — to
+yield 5 scorable ones, and the ≥ 7-bin fraction on Achilles was 10–17 %. On Buddy and
+Cicero_09012014, with 16 place cells each, the scorable fraction could be low single
+digits.
+
+Separately, `events.decodable` requires ≥ 5 active place cells. On a 16-cell ensemble
+that is 31 % of the ensemble active in a single event; on Achilles's 77 it is 6 %. The
+same criterion is a far stronger filter on the small sessions.
+
+**This is a prediction, not a result, and it is not a reason to change anything.** It is a
+reason to expect that two to four of the six new sessions may return too few scorable
+events for a PRE/POST comparison, and to plan to report that as the outcome rather than
+treat it as a failure. If a session returns fewer than roughly 100 scorable events per
+epoch, its individual PRE/POST test will be underpowered and should be reported with its
+n rather than as a negative result.
+
+### D8.4 — The circular sessions belong in a separate column, and the reason is the score, not the decoder
+
+Of the six sessions still to come, **two are circular** (Cicero_09102014,
+Gatsby_08282013), not three; the third circular session, Achilles_11012013, is one of the
+two already analysed. The final split is five linear and three circular.
+
+**The decoder is fine on circular tracks.** At 250 ms the circular sessions decode to
+4.9, 4.9 and 5.4 cm median error against chance baselines of 67–72 cm — as good as the
+linear sessions. The approximate linearisation of D5.5 (r = 0.972–0.997 against the
+authors' `OneDLocation`, where our linear reconstruction is r = 1.0000) does **not** enter
+any primary result: every primary analysis uses the authors' own `OneDLocation`, and our
+reconstruction was built only for the measurement-base diagnostic. The unresolved extent
+mismatch (D3.3: `OneDLocation` spans 2.84–2.90 m where a 1 m-diameter platform implies
+3.14 m) shifts the absolute scale of position but not the decoder's accuracy in bins,
+because `Track` takes the extent from the observed range per session.
+
+**The sequence score is not on the same scale between geometries, and that is a
+methodological consequence of D7.4.** On a ring the weighted correlation is maximised over
+all circular offsets of the position axis; on a linear track there is one offset. The null
+gets the same freedom, so `rZ` stays calibrated — but a null maximised over 28–29 offsets
+is systematically broader than one maximised over a single offset, which compresses `rZ`
+for the same quality of sequence. The two sessions we have already show the signature:
+
+| | column cycle PRE → POST | time permutation PRE → POST |
+|---|---|---|
+| Achilles_10252013 (linear) | +0.548 → +0.850 | +0.188 → +0.407 |
+| Achilles_11012013 (circular) | +0.110 → +0.307 | +0.291 → +0.723 |
+
+The circular session's column-cycle medians are roughly a fifth of the linear session's
+while its time-permutation medians are nearly double. That is a scale difference between
+geometries interacting with the two shuffles, not a difference in biology, and it means
+**absolute `rZ` must not be pooled across geometries**.
+
+Recommendation for 8c, to be applied regardless of how the numbers come out:
+
+- Report linear and circular sessions in separate columns throughout.
+- Pool the **direction** of the PRE/POST effect — how many of eight sessions show
+  POST > PRE — because a sign is scale-free and that count is the headline the brief
+  asks for.
+- Pool **magnitudes** only within a geometry, and say so wherever a pooled median `rZ`
+  appears. A pooled median across five linear and three circular sessions is a mixture of
+  two scales and should not be quoted as one number.
+
+### D8.5 — Runtime and disk for the eight-session run
+
+Expected `.eeg` size is `sessDuration × 1250 Hz × n_channels × 2 bytes`. The model
+reproduces both known files to the byte (11.68 and 12.27 GB), and `sessDuration` equals
+the POST epoch end in all eight sessions, so there is no truncation ambiguity in the
+prediction — including for Gatsby_08022013, whose anomaly is spikes *past* `sessDuration`
+(D3.1), not a short recording.
+
+| Session | Channels | Predicted `.eeg` | Archive (≈ 0.79 ×) |
+|---|---|---|---|
+| Buddy_06272013 | 132 | 6.95 GB | ~5.5 GB |
+| Cicero_09012014 | 134 | 11.64 GB | ~9.2 GB |
+| Cicero_09102014 | 134 | 12.23 GB | ~9.7 GB |
+| Cicero_09172014 | 134 | 11.24 GB | ~8.9 GB |
+| Gatsby_08022013 | 134 | 10.19 GB | ~8.1 GB |
+| Gatsby_08282013 | 134 | 11.84 GB | ~9.4 GB |
+| **six-session total** | | **64.1 GB** | **~51 GB** |
+
+Disk: 197 GB free on the data volume, 45 GB already in use by the two Achilles sessions.
+Peak requirement is ~115 GB if the archives are kept alongside the extracted files, which
+fits with ~80 GB to spare. Deleting each archive after extraction would hold the peak at
+~64 GB.
+
+Compute, scaled from measured Achilles timings:
+
+| Stage | Per session | Six sessions |
+|---|---|---|
+| extraction (write-bound, ~70 MB/s) | 100–175 s | ~13 min |
+| channel selection | ~40 s | ~4 min |
+| MUA detection (recomputes place cells) | ~35 s | ~4 min |
+| spike-jitter null (5 repeats) | ~60 s | ~6 min |
+| ripple detection + multi-shank support | ~80 s | ~8 min |
+| cross-check, characterisation | ~35 s | ~4 min |
+| sequence scoring (+ identity-shuffle control) | ~20 s | ~2 min |
+| running positive control | ~60 s | ~6 min |
+| **total** | **~7–8 min** | **~45–50 min** |
+
+Plus re-running the two Achilles sessions through any stage whose output table is written
+whole rather than per session, and the pooled 8c analysis, which is seconds. Call it an
+hour of compute once the data is on disk, spread over the 180 s call limit.
