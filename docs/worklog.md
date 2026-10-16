@@ -706,3 +706,67 @@ Recorded in D7.5 rather than tuned.
   boundary definition — a step-6 change, not a step-7 one.
 
 **Time**: ~2.5 h.
+
+## 2026-10-16 — Step 8a: audit before scaling to eight sessions
+
+**Done.** No analysis run and no parameter changed. Everything below comes from results
+already in the repo, plus a read of `Channel_Orderings.pdf` for the three animals we had
+not processed. Decisions D8.1–D8.5.
+
+**The parameter audit (D8.1).** Place-field criteria, the 10 cm bin and the 15 cm/s speed
+threshold have all been applied to eight sessions, and the field-width fraction was
+introduced *because* a fixed centimetre value was maze-dependent — those are
+session-general. Everything downstream of place fields has only ever been checked on two
+sessions: the MUA thresholds and duration limits, every ripple parameter, the channel
+selection sample, the five-bin scoring floor and the decodability criterion.
+
+The five-lap floor turns out not to be an Achilles artefact: lap counts per direction are
+24–44 on every linear session and 0 or 1 on the unused direction of every circular one, so
+it separates the two geometries with a wide margin either side. It will fire on exactly
+the two circular sessions still to come.
+
+**Two probe geometries, not one (D8.2).** Achilles and Cicero use a BUZ64SP with 12 CA1
+shanks of 10 channels plus two four-channel "extra channel" groups. Buddy and Gatsby use a
+BUZ64 with **16 shanks of 8 and no extra groups**; Buddy has **132** channels, not 134,
+and its accelerometer and EMG are in the opposite order with a single EMG channel. Three
+consequences for step 6: the multi-shank support denominator varies from 5 to 11 across
+sessions, so the count must be reported as a fraction too; and **the XML skip flag has
+never run on real data** — Achilles skips nothing, while Buddy skips 1-based 24, 27, 58
+and Gatsby_08282013 skips 35, 45, 47. If those do not come through as `skip="1"` the code
+will silently keep three bad channels in the selection pool, so 8b should check against
+those numbers rather than trust it.
+
+**The two validated sessions are the two best-case sessions (D8.3).** Achilles has the
+largest two ensembles in the dataset, 77 and 73 place cells; the rest have 16 to 36. At
+the 20 ms bin the scoring uses, measured during running, Achilles carries 2–4 spikes per
+bin with 5–13 % of bins empty, while Buddy and Cicero_09012014 carry a median of **zero**
+with 47–60 % empty. Since the five-bin floor counts non-empty bins and already discarded
+76–85 % of candidate events on Achilles, the scorable fraction on the weakest sessions
+could be low single digits. Prediction, not result, and not a reason to change anything —
+but a reason to expect two to four of the six new sessions to return too few scorable
+events for a meaningful PRE/POST test, and to plan on reporting that with its n rather
+than as a negative finding.
+
+**Circular sessions need their own column (D8.4).** Only **two** of the six remaining are
+circular (Cicero_09102014, Gatsby_08282013), not three — the third, Achilles_11012013, is
+already analysed; the final split is five linear, three circular. The decoder is not the
+problem: the circular sessions decode to 4.9–5.4 cm at 250 ms, as good as the linear ones,
+and the approximate linearisation never enters a primary result because every primary
+analysis uses the authors' own `OneDLocation`. The problem is the score. On a ring the
+weighted correlation is maximised over all 28–29 circular offsets and on a line over one,
+so the circular null is broader and `rZ` is compressed for the same quality of sequence.
+The two sessions already in hand show it: the circular session's column-cycle medians are
+about a fifth of the linear session's while its time-permutation medians are nearly
+double. Absolute `rZ` must not be pooled across geometries; the *count* of sessions with
+POST > PRE can be, because a sign has no scale.
+
+**Cost (D8.5).** Predicted `.eeg` sizes from `sessDuration × 1250 × n_channels × 2`
+reproduce both known files to the byte, so the six remaining come to **64.1 GB extracted,
+~51 GB of archives**. 197 GB free; peak ~115 GB if archives are kept. Compute is about
+7–8 minutes per session, ~45–50 minutes for six, an hour all in.
+
+**One code change 8b will need**, flagged rather than made: eleven scripts default to a
+two-session list. Widening a default is not a methodological change, but it is a change,
+so it belongs in 8b's commit rather than this one.
+
+**Time**: ~45 min.
