@@ -223,6 +223,18 @@ class ShankSupport:
     def n_channels(self) -> int:
         return len(self.channels)
 
+    @property
+    def fraction_supporting(self) -> np.ndarray:
+        """Per event: supporting channels as a fraction of those available.
+
+        The count alone is not comparable between sessions. The number of CA1
+        shanks carrying sorted units runs from 6 to 12 across hc-11, so "7 of
+        11" and "7 of 7" are different claims about the same event.
+        """
+        if self.n_channels == 0:
+            return np.zeros(self.z.shape[0])
+        return self.n_supporting / self.n_channels
+
     def distribution(self) -> np.ndarray:
         """Counts of events by number of supporting shanks, length ``n+1``."""
         return np.bincount(self.n_supporting, minlength=self.n_channels + 1)

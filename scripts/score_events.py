@@ -39,7 +39,7 @@ from place_fields import prepare  # noqa: I001  (sibling script)
 
 log = logging.getLogger("sequences")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "MAZE", "POST")
 
 

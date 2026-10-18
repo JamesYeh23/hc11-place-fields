@@ -49,7 +49,7 @@ from hc11.preprocess import truncate_to_session
 
 log = logging.getLogger("offset")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "POST")  # MAZE has ~20 events; the offset there is not estimable
 KERNELS_MS = (0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0)
 

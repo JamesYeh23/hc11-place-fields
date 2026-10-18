@@ -34,10 +34,11 @@ from hc11.io import load_session
 from hc11.lfp import open_session_lfp
 from hc11.mua import state_intervals_for_epoch
 from hc11.preprocess import truncate_to_session
+from hc11.results import write_session_table
 
 log = logging.getLogger("ripples")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "MAZE", "POST")
 
 
@@ -121,6 +122,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sessions", nargs="*", default=SESSIONS)
     parser.add_argument("--no-figures", action="store_true")
+    # The stress-pair sensitivity re-detects on both channels of every shank
+    # where the two rankings disagree, and measures multi-shank support for
+    # each side's unique events. On a session with five such shanks that is
+    # most of the runtime, so it can be deferred to its own pass. Splitting it
+    # changes nothing about what is computed, only when.
+    parser.add_argument("--no-stress", action="store_true",
+                        help="skip the stress-pair sensitivity entirely")
+    parser.add_argument("--stress-only", action="store_true",
+                        help="run only the stress-pair sensitivity; "
+                             "writes results/ripple_stress_pairs.csv and nothing else")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -140,7 +151,8 @@ def main() -> None:
     event_rows, summary_rows, comparison_rows, support_rows = [], [], [], []
     stress_rows = []
 
-    for name in args.sessions or SESSIONS:
+    names = args.sessions or SESSIONS
+    for name in names:
         log.info("\n=== %s", name)
         session = load_session(name)
         if params["preprocess"]["truncate_to_session"]:
@@ -159,11 +171,14 @@ def main() -> None:
 
         runs = {}
         envelopes = {}
-        for label, channel in (("level", picked["level"]), ("excursion", picked["excursion"])):
-            envelopes[label], runs[label] = detect_on(
-                lfp, session, channel, label, params, intervals
-            )
-        for shank, level_channel, excursion_channel in picked["stress"]:
+        if not args.stress_only:
+            for label, channel in (("level", picked["level"]),
+                                   ("excursion", picked["excursion"])):
+                envelopes[label], runs[label] = detect_on(
+                    lfp, session, channel, label, params, intervals
+                )
+        stress = [] if args.no_stress else picked["stress"]
+        for shank, level_channel, excursion_channel in stress:
             for label, channel in (
                 (f"shank{shank}-level", level_channel),
                 (f"shank{shank}-excursion", excursion_channel),
@@ -173,8 +188,8 @@ def main() -> None:
                 )
 
         # --- comparison of the two rankings, per epoch ---
-        pairs = [("level", "excursion")] + [
-            (f"shank{s}-level", f"shank{s}-excursion") for s, _, _ in picked["stress"]
+        pairs = ([] if args.stress_only else [("level", "excursion")]) + [
+            (f"shank{s}-level", f"shank{s}-excursion") for s, _, _ in stress
         ]
         for first, second in pairs:
             for epoch in EPOCHS:
@@ -213,7 +228,7 @@ def main() -> None:
         # channel was too far from the layer to see, or noise. Multi-shank
         # support tells those apart without appealing to the trace.
         primary_per_shank = picked[f"per_shank_{cfg['primary_ranking']}"]
-        for shank, _, _ in picked["stress"]:
+        for shank, _, _ in stress:
             for first, second in ((f"shank{shank}-level", f"shank{shank}-excursion"),
                                   (f"shank{shank}-excursion", f"shank{shank}-level")):
                 for epoch in EPOCHS:
@@ -263,6 +278,9 @@ def main() -> None:
                     )
 
         # --- multi-shank support for the primary channel ---
+        if args.stress_only:
+            lfp.close()
+            continue
         primary_label = cfg["primary_ranking"]
         per_shank = picked[f"per_shank_{primary_label}"]
         primary_channel = picked[primary_label]
@@ -283,15 +301,17 @@ def main() -> None:
                     "comparison channels in this state", epoch,
                 )
             log.info(
-                "  %s shank support (of %d other CA1 shanks): median %d, "
-                "distribution %s",
-                epoch, support.n_channels, int(np.median(support.n_supporting)),
-                counts.tolist(),
+                "  %s shank support: median %d of %d other CA1 shanks "
+                "(%.0f%%), distribution %s",
+                epoch, int(np.median(support.n_supporting)), support.n_channels,
+                100 * float(np.median(support.fraction_supporting)), counts.tolist(),
             )
             support_rows.append({
                 "session": name, "epoch": epoch, "channel": primary_channel,
                 "n_events": len(events), "n_comparison_shanks": support.n_channels,
                 "median_supporting": float(np.median(support.n_supporting)),
+                "median_fraction_supporting": float(np.median(support.fraction_supporting)),
+                "mean_fraction_supporting": float(support.fraction_supporting.mean()),
                 "mean_supporting": float(support.n_supporting.mean()),
                 "fraction_zero_support": float((support.n_supporting == 0).mean()),
                 "fraction_majority_support": float(
@@ -308,6 +328,8 @@ def main() -> None:
                     "duration_ms": 1000 * events.duration[index],
                     "peak_z": events.peak_z[index],
                     "n_supporting_shanks": int(support.n_supporting[index]),
+                    "fraction_supporting_shanks": float(support.fraction_supporting[index]),
+                    "n_comparison_shanks": support.n_channels,
                     "median_support_z": (
                         float(np.nanmedian(support.z[index]))
                         if np.isfinite(support.z[index]).any() else float("nan")
@@ -357,15 +379,23 @@ def main() -> None:
                 )
         lfp.close()
 
-    pd.DataFrame(event_rows).to_csv(out_root / "ripple_events.csv", index=False)
-    pd.DataFrame(summary_rows).round(4).to_csv(out_root / "ripple_summary.csv", index=False)
-    pd.DataFrame(comparison_rows).round(4).to_csv(
-        out_root / "ripple_channel_comparison.csv", index=False
+    if args.stress_only:
+        if stress_rows:
+            write_session_table(
+                out_root / "ripple_stress_pairs.csv", stress_rows, names, round_to=4
+            )
+        log.info("\nwrote %s",
+                 (out_root / "ripple_stress_pairs.csv").relative_to(config.repo_root()))
+        return
+    write_session_table(out_root / "ripple_events.csv", event_rows, names)
+    write_session_table(out_root / "ripple_summary.csv", summary_rows, names, round_to=4)
+    write_session_table(
+        out_root / "ripple_channel_comparison.csv", comparison_rows, names, round_to=4
     )
-    pd.DataFrame(support_rows).round(4).to_csv(out_root / "shank_support.csv", index=False)
+    write_session_table(out_root / "shank_support.csv", support_rows, names, round_to=4)
     if stress_rows:
-        pd.DataFrame(stress_rows).round(4).to_csv(
-            out_root / "ripple_stress_pairs.csv", index=False
+        write_session_table(
+            out_root / "ripple_stress_pairs.csv", stress_rows, names, round_to=4
         )
     (out_root / "ripple_summary.json").write_text(json.dumps(stamp, indent=2) + "\n")
     log.info("\nwrote %s", (out_root / "ripple_summary.csv").relative_to(config.repo_root()))

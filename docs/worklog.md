@@ -770,3 +770,102 @@ two-session list. Widening a default is not a methodological change, but it is a
 so it belongs in 8b's commit rather than this one.
 
 **Time**: ~45 min.
+
+## 2026-10-17 — Step 8b (part 1): four sessions through the pipeline, and a blocked fifth
+
+**Scope.** Five sessions, not eight: Buddy_06272013, Cicero_09172014 and Gatsby_08282013
+have no LFP downloaded, for storage reasons rather than methodological ones. Recorded in
+`config.LFP_SESSIONS` and `config.LFP_OMITTED` so any result table can say what is
+missing. Four of the five are now through; Gatsby_08022013 is blocked on a decision
+(below).
+
+**Infrastructure, no methodology.**
+
+- `config.LFP_SESSIONS` replaces the two-session default hard-coded in ten scripts.
+- `src/hc11/results.py`: `write_session_table` merges per-session result tables instead
+  of rewriting them. Every script wrote its whole CSV, so running one session would have
+  silently deleted the other seven — and it made a five-session run impossible to split
+  across the 180 s call limit. 8 new tests (426 total, 3 skipped).
+- `detect_ripples.py` gains `--no-stress` / `--stress-only`. The stress-pair sensitivity
+  re-detects on both channels of every shank where the two rankings disagree;
+  Cicero_09012014 has five such shanks and the analysis alone takes 2m45s. Splitting it
+  changes what runs when, not what is computed.
+- Multi-shank support is now reported as a fraction as well as a count, since the
+  denominator ranges from 10 to 12 across these sessions and would otherwise make "7 of
+  10" and "7 of 12" look like the same number.
+
+**Channel selection replicates.** Both Cicero sessions pick **channel 68 on shank 8** —
+the same channel, nine days apart, as Achilles picked the same channels a week apart.
+Margins are slightly wider than Achilles (1.03–1.16 against 1.01–1.09). The EMG warning
+from D6.12 is much sharper here: in Cicero_09012014 the EMG channel scores **35.1** of
+ripple-band envelope, higher than six of the eleven shank winners (29.07–33.88). Had the
+non-probe channels not been excluded, the EMG would have been selected over half the
+probe.
+
+**Cross-check replicates.** 67–75 % of ripples have an MUA partner against 46–57 % the
+other way; population firing leads the ripple envelope by 2.9–7.8 ms; and agreement rises
+monotonically with multi-shank support (31–36 % at ≤ 2 shanks, 78–83 % at ≥ 9) in both
+sessions, exactly as on Achilles.
+
+**Two session-level surprises.**
+
+- **Cicero_09102014 has more non-REM in POST than PRE** (138.9 against 92.8 min) — the
+  opposite of both Achilles sessions, where POST had roughly half of PRE. The PRE/POST
+  normalisation by searched time matters in both directions, and this session is the
+  check that it is not quietly encoding "POST is shorter".
+- **Cicero_09012014 has 7.1 minutes of searchable MAZE immobility**, against 0.4 minutes
+  on each Achilles session, and 279 MAZE events against 20. Its MAZE epoch is 92.7 min,
+  more than twice the others. D6.3's immobility problem is therefore not universal: it is
+  severe where the MAZE epoch is short, and this session gives the first MAZE column with
+  enough events to be worth looking at.
+
+**The scoring floor behaves as 8a predicted, and the limit session shows the limit.**
+
+| Session | Place cells | Spikes/bin in events | Empty bins | Scored PRE / POST |
+|---|---|---|---|---|
+| Achilles_10252013 | 77 | 5.55 | 1 % | 1646 (23 %) / 825 (21 %) |
+| Achilles_11012013 | 73 | 4.88 | 0 % | 695 (15 %) / 605 (18 %) |
+| Cicero_09102014 | 36 | 3.28 | 3 % | 562 (15 %) / 836 (14 %) |
+| Cicero_09012014 | 16 | 1.84 | 28 % | 310 (6 %) / 435 (9 %) |
+
+The 8a prediction was that in-event density would be 1.6–2.4× the running density and the
+scorable fraction would fall; both held. Cicero_09012014 scores 6–9 % of its events, but
+310 and 435 events are still enough to test.
+
+**Every comparison so far is POST > PRE in sign — sixteen of sixteen** across four
+sessions, two shuffles and two event sets. Significance is not uniform: Cicero_09012014's
+full-set tests are p = 0.091 and 0.15 while its conjunction tests are p = 0.005 and
+0.0072, and Cicero_09102014's conjunction column-cycle test is p = 0.61 with a
+rank-biserial of +0.019.
+
+**The controls are no longer unanimous.**
+
+| Session | shuffle | real POST−PRE | identity-shuffled | ratio |
+|---|---|---|---|---|
+| Achilles_10252013 | column cycle | +0.302 | −0.005 | — |
+| Achilles_10252013 | time permutation | +0.220 | −0.033 | — |
+| Cicero_09012014 | column cycle | +0.202 | **−0.369** | — |
+| Cicero_09012014 | time permutation | +0.185 | −0.114 | — |
+| Achilles_11012013 | column cycle | +0.197 | +0.049 | 0.25 |
+| Achilles_11012013 | time permutation | +0.433 | +0.071 | 0.16 |
+| **Cicero_09102014** | column cycle | +0.209 | **+0.087** | **0.42** |
+| **Cicero_09102014** | time permutation | +0.230 | **+0.060** | **0.26** |
+
+The automated verdict calls Cicero_09102014 a failure, on a threshold (residual under a
+quarter of the real gap) that we invented in step 7 and that has no external standing.
+What is not arbitrary is the pattern: **the two linear sessions leave zero or negative
+residual, and the two circular sessions leave +0.05 to +0.09.** That is consistent with
+D8.4 — on a ring the score maximises over 28–29 position offsets, which gives the
+observed data more freedom to find apparent structure that permuting cell identities does
+not remove. It is a reason to weight the circular sessions' PRE/POST differences less, and
+a reason the geometries must not be pooled.
+
+**The positive control degrades with ensemble size**, which is the honest reading of the
+limit session. Median rZ for 2 s running windows: Achilles +13.2 and +7.5,
+Cicero_09102014 +5.6, **Cicero_09012014 +1.8** with only 52 % of windows above 1.65. With
+16 place cells the scoring can still recognise a known trajectory, but barely.
+
+**Blocked: Gatsby_08022013.** Its XML says 141 channels; the `.eeg` is 134. See D8.6. No
+work done on it pending a decision.
+
+**Time**: ~2 h.

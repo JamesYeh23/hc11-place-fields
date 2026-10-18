@@ -27,6 +27,31 @@ SESSIONS: tuple[str, ...] = (
     "Gatsby_08282013",
 )
 
+#: The sessions whose local field potential (LFP) was downloaded, and so the
+#: only ones that can carry event detection and sequence scoring.
+#: Buddy_06272013, Cicero_09172014 and Gatsby_08282013 are omitted for storage
+#: reasons, not methodological ones: the LFP runs 7-12 GB per session. The five
+#: below span the ensemble-size range deliberately rather than favourably --
+#: 77 and 73 place cells (Achilles), 36 (Cicero_09102014, circular), 30
+#: (Gatsby_08022013, the BUZ64 probe and the session with data past
+#: sessDuration) and 16 (Cicero_09012014, the worst case). Any result from
+#: these five is five of eight, never "the dataset".
+LFP_SESSIONS: tuple[str, ...] = (
+    "Achilles_10252013",
+    "Achilles_11012013",
+    "Cicero_09012014",
+    "Cicero_09102014",
+    "Gatsby_08022013",
+)
+
+#: Sessions with no LFP, and why, so a reader of any event or sequence result
+#: can see what is missing without going to the worklog.
+LFP_OMITTED: dict[str, str] = {
+    "Buddy_06272013": "LFP not downloaded (storage); 16 place cells, 1.6 m linear",
+    "Cicero_09172014": "LFP not downloaded (storage); 25 place cells, 2 m linear",
+    "Gatsby_08282013": "LFP not downloaded (storage); 31 place cells, circular",
+}
+
 #: Animal each session belongs to.
 SESSION_ANIMAL: dict[str, str] = {s: s.split("_")[0] for s in SESSIONS}
 

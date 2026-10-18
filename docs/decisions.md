@@ -1612,3 +1612,87 @@ Compute, scaled from measured Achilles timings:
 Plus re-running the two Achilles sessions through any stage whose output table is written
 whole rather than per session, and the pooled 8c analysis, which is seconds. Call it an
 hour of compute once the data is on disk, spread over the 180 s call limit.
+
+### D8.6 — Gatsby_08022013: the XML says 141 channels, the recording is 134 **(blocked)**
+
+The file-size check refuses this session, and the refusal is correct. What it refuses is
+worth stating precisely, because the obvious reading of the evidence is the wrong one.
+
+**What the XML says.** `acquisitionSystem/nChannels` is **141**. The anatomical grouping
+holds 18 groups: 16 CA1 shanks of 8 channels (0–127) and two groups of three (134–136,
+137–139). `spikeDetection` holds 16 groups covering 127 channels — shank 8 has seven,
+omitting channel 59. Channels 128–133 and 140 appear in no grouping at all.
+
+**What the data description says.** `Channel_Orderings.pdf` gives Gatsby 128 probe
+channels, EMG on 1-based 129–131 and accelerometer on 132–134: **134 total**, with the
+auxiliary block immediately after the probe. The XML's auxiliary groups sit at 0-based
+134–139, six channels further on.
+
+**What the file says.** 10,720,804,000 bytes. At 134 channels that is exactly 40,003,000
+frames with no remainder. At 141 it is 38,017,035 frames with **130 bytes left over** —
+under half a frame.
+
+The durations point opposite ways, which is what makes this worth a decision rather than
+a fix:
+
+| | frames | duration | against `sessDuration` (30,413.5 s) |
+|---|---|---|---|
+| 134 channels | 40,003,000 exactly | 32,002.4 s | **+1,588.9 s (26.5 min too long)** |
+| 141 channels | 38,017,035 + 130 B | 30,413.6 s | **+0.1 s** |
+
+So 141 matches the session clock and leaves a partial frame; 134 divides exactly and runs
+26 minutes long. Taken on arithmetic alone, 141 looks right.
+
+**It is not.** A direct stride test on 60 MB of the recording, 150 s in, settles it:
+
+| | per-channel s.d. (ch 0–7) | s.d. range over ch 0–127 | neighbour correlation (ch 0–63) | ch 0 vs ch 60 |
+|---|---|---|---|---|
+| **stride 134** | 422, 448, 454, 464, 1362, 507, 474, 580 | 85–2543 | median **+0.925**, min +0.169 | +0.343 |
+| stride 141 | 624, 623, 624, 624, 625, 624, 625, 623 | 620–626 | median +0.513, **min +0.509** | +0.187 |
+
+At 134 the channels differ in amplitude the way real electrodes do, one channel is
+visibly hot (s.d. 1362 among neighbours near 450), neighbours on a shank correlate at
+0.93 and distant channels much less. At 141 every channel has the same s.d. to within
+1 %, and every neighbour pair the same correlation to within 0.004. That uniformity is
+the signature D6.7 describes: at the wrong stride each "channel" is the same drifting
+mixture of the real ones, so they all end up with identical statistics.
+
+**The 26 extra minutes are not an anomaly, they are the known one.** D3.1 records that
+this session alone carries 263,976 spikes (4.67 % of its total) after `sessDuration`.
+4.67 % of 8.89 h is 25 minutes. The recording is 8.89 h, the authors defined the session
+as the first 8.4482 h of it, and both the spike file and the LFP run past that mark. We
+already truncate spikes at `sessDuration`; all three epochs end at or before it, so the
+extra time is never read.
+
+**Conclusion: the `.eeg` is 134 channels and 8.89 h, and the XML's `nChannels` does not
+describe it.** We cannot tell from the released files why — the XML may describe a
+wideband acquisition that was reduced before the LFP was written.
+
+**This is blocked rather than fixed, because every way forward is a change.** Using the
+session needs two of them:
+
+1. **Override the channel count for this session**, against its own XML. Everything in
+   `hc11.lfp` takes the stride from the XML on purpose (D6.7), and a per-session override
+   is exactly the kind of exception that makes a pipeline untrustworthy — unless it is
+   declared in config, justified by the table above, and applied to nothing else.
+2. **Accept a recording longer than `sessDuration`.** `require_consistent_size` currently
+   treats any disagreement beyond 1 s as fatal. A file *shorter* than the session is
+   dangerous; a file *longer* is not, because every analysis window ends at
+   `sessDuration`. Separating the two is defensible on its own merits, but it is still a
+   change made while looking at a session that fails.
+
+The alternative is to drop Gatsby_08022013 and report four sessions. That costs the only
+BUZ64-probe session in the analysis and the only test of the
+data-past-`sessDuration` path, both of which were reasons it was chosen.
+
+**One amendment resolves itself here.** The brief asked for an assertion on the parsed
+skip set for Gatsby_08022013, on the understanding that it was the only downloaded
+session exercising the XML skip flag. It has **no skip flags at all** — and neither does
+the PDF show any for this session; the red channels are Buddy's (24, 27, 58) and
+Gatsby_08282013's (35, 45, 47), both now omitted. Gatsby_08022013 excludes its bad
+channel by a different mechanism: channel 59 is simply **absent from shank 8's
+spikeDetection group**, which gives it seven channels instead of eight. That is the
+mechanism channel selection actually uses — it iterates `meta.shanks[shank]` — so the
+channel is correctly excluded whatever the skip flag says. The consequence to record is
+that **no session in this analysis exercises the `skip="1"` path**, and it remains
+covered only by unit tests.

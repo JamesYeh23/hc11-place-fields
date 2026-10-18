@@ -37,7 +37,7 @@ from hc11 import config, plots, sequences
 
 log = logging.getLogger("replay")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "MAZE", "POST")
 EVENT_SETS = {
     "all": lambda table: table,

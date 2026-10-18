@@ -31,7 +31,7 @@ from hc11.io import load_session
 from hc11.mua import detect_mua_events, jitter_spikes
 from hc11.preprocess import truncate_to_session
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "POST")  # MAZE has almost no searchable time (D6.3)
 
 

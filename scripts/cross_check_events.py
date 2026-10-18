@@ -36,10 +36,11 @@ import pandas as pd
 
 from hc11 import config, plots
 from hc11.events import EventList, compare_events
+from hc11.results import write_session_table
 
 log = logging.getLogger("crosscheck")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "MAZE", "POST")
 
 
@@ -82,7 +83,8 @@ def main() -> None:
     }
     rows, support_rows, offset_store = [], [], {}
 
-    for name in args.sessions or SESSIONS:
+    names = args.sessions or SESSIONS
+    for name in names:
         log.info("\n=== %s", name)
         for epoch in EPOCHS:
             lfp_events = event_list(ripples_table, name, epoch, "lfp")
@@ -162,10 +164,8 @@ def main() -> None:
                     here, name, folder / "cross_check_by_support.png", sidecar
                 )
 
-    pd.DataFrame(rows).round(4).to_csv(out_root / "event_cross_check.csv", index=False)
-    pd.DataFrame(support_rows).round(4).to_csv(
-        out_root / "cross_check_by_support.csv", index=False
-    )
+    write_session_table(out_root / "event_cross_check.csv", rows, names, round_to=4)
+    write_session_table(out_root / "cross_check_by_support.csv", support_rows, names, round_to=4)
     (out_root / "event_cross_check.json").write_text(json.dumps(stamp, indent=2) + "\n")
     log.info("\nwrote %s", (out_root / "event_cross_check.csv").relative_to(config.repo_root()))
 

@@ -27,11 +27,12 @@ from hc11.io import load_session
 from hc11.laps import DIRECTIONS, segment_laps_from_config
 from hc11.mua import detect_mua_events
 from hc11.preprocess import truncate_to_session
+from hc11.results import write_session_table
 from hc11.track import Track
 
 log = logging.getLogger("mua")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "MAZE", "POST")
 THRESHOLD_SWEEP = (2.5, 3.0, 4.0, 5.0)
 
@@ -161,9 +162,9 @@ def main() -> None:
                 name, out / "mua_participation.png", meta)
 
     results = config.results_dir()
-    pd.DataFrame(summary).round(4).to_csv(results / "mua_summary.csv", index=False)
-    pd.DataFrame(per_event).round(6).to_csv(results / "mua_events.csv", index=False)
-    pd.DataFrame(sweep).round(4).to_csv(results / "mua_threshold_sensitivity.csv", index=False)
+    write_session_table(results / "mua_summary.csv", summary, names, round_to=4)
+    write_session_table(results / "mua_events.csv", per_event, names, round_to=6)
+    write_session_table(results / "mua_threshold_sensitivity.csv", sweep, names, round_to=4)
     (results / "mua_summary.json").write_text(json.dumps({
         "script": "scripts/detect_mua_events.py", "git_commit": config.git_commit(),
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),

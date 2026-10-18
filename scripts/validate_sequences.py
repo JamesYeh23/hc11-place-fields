@@ -47,7 +47,7 @@ from score_events import place_cell_ids  # noqa: I001  (sibling script)
 
 log = logging.getLogger("validate")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "POST")
 
 

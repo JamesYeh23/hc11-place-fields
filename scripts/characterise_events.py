@@ -50,10 +50,11 @@ from hc11 import config, plots
 from hc11.events import EventList, participation, participation_by_shank
 from hc11.io import load_session, shank_of
 from hc11.preprocess import truncate_to_session
+from hc11.results import write_session_table
 
 log = logging.getLogger("characterise")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 EPOCHS = ("PRE", "MAZE", "POST")
 #: Monte Carlo draws for the per-event concentration null.
 N_NULL_DRAWS = 400
@@ -188,7 +189,8 @@ def main() -> None:
     char_rows, decode_rows, hypothesis_rows, shank_profile_rows = [], [], [], []
     candidate_rows = []
 
-    for name in args.sessions or SESSIONS:
+    names = args.sessions or SESSIONS
+    for name in names:
         log.info("\n=== %s", name)
         session = load_session(name)
         if params["preprocess"]["truncate_to_session"]:
@@ -388,16 +390,13 @@ def main() -> None:
                     profile_here, name, folder / "unmatched_shank_profile.png", sidecar
                 )
 
-    pd.DataFrame(candidate_rows).round(6).to_csv(
-        out_root / "candidate_events.csv", index=False)
-    pd.DataFrame(char_rows).round(4).to_csv(
-        out_root / "event_characterisation.csv", index=False)
-    pd.DataFrame(decode_rows).round(4).to_csv(
-        out_root / "event_decodability.csv", index=False)
-    pd.DataFrame(hypothesis_rows).round(5).to_csv(
-        out_root / "unmatched_mua_hypotheses.csv", index=False)
-    pd.DataFrame(shank_profile_rows).round(5).to_csv(
-        out_root / "unmatched_shank_profile.csv", index=False)
+    write_session_table(out_root / "candidate_events.csv", candidate_rows, names, round_to=6)
+    write_session_table(out_root / "event_characterisation.csv", char_rows, names, round_to=4)
+    write_session_table(out_root / "event_decodability.csv", decode_rows, names, round_to=4)
+    write_session_table(out_root / "unmatched_mua_hypotheses.csv", hypothesis_rows,
+                        names, round_to=5)
+    write_session_table(out_root / "unmatched_shank_profile.csv", shank_profile_rows,
+                        names, round_to=5)
     (out_root / "event_characterisation.json").write_text(json.dumps(stamp, indent=2) + "\n")
     log.info("\nwrote %s and %s",
              (out_root / "candidate_events.csv").relative_to(config.repo_root()),

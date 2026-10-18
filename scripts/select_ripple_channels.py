@@ -22,7 +22,6 @@ import logging
 from datetime import datetime, timezone
 
 import numpy as np
-import pandas as pd
 
 from hc11 import config, plots
 from hc11 import ripple_channels as rc
@@ -30,10 +29,11 @@ from hc11.io import load_session, shank_of
 from hc11.lfp import open_session_lfp
 from hc11.mua import state_intervals_for_epoch
 from hc11.preprocess import truncate_to_session
+from hc11.results import write_session_table
 
 log = logging.getLogger("ripple_channels")
 
-SESSIONS = ["Achilles_10252013", "Achilles_11012013"]
+SESSIONS = list(config.LFP_SESSIONS)
 
 
 def sleep_intervals(session, params) -> np.ndarray:
@@ -178,7 +178,8 @@ def main() -> None:
     out_root = config.results_dir()
     rows, profile_rows = [], []
 
-    for name in args.sessions or SESSIONS:
+    names = args.sessions or SESSIONS
+    for name in names:
         log.info("\n=== %s", name)
         result = profile_session(name, params)
         meta, profile = result["meta"], result["profile"]
@@ -248,8 +249,8 @@ def main() -> None:
                 )
         result["lfp"].close()
 
-    pd.DataFrame(rows).to_csv(out_root / "ripple_channels.csv", index=False)
-    pd.DataFrame(profile_rows).to_csv(out_root / "channel_profiles.csv", index=False)
+    write_session_table(out_root / "ripple_channels.csv", rows, names)
+    write_session_table(out_root / "channel_profiles.csv", profile_rows, names)
     (out_root / "ripple_channels.json").write_text(json.dumps(stamp, indent=2) + "\n")
     log.info("\nwrote %s", (out_root / "ripple_channels.csv").relative_to(config.repo_root()))
 
