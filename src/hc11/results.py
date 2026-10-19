@@ -21,6 +21,37 @@ import pandas as pd
 SESSION_COLUMN = "session"
 
 
+#: Columns whose value spans orders of magnitude, where fixed-decimal rounding
+#: destroys the information: a p-value of 3.4e-06 rounds to 0.0 at five places.
+SIGNIFICANCE_COLUMNS = ("p", "p_value")
+
+
+def round_for_csv(
+    frame: pd.DataFrame,
+    decimals: int = 5,
+    *,
+    sig_figs: int = 3,
+    sig_columns=SIGNIFICANCE_COLUMNS,
+) -> pd.DataFrame:
+    """Round for a readable CSV without flattening small p-values to zero.
+
+    ``frame.round(5)`` writes 0.0 for every p-value below 5e-6, which erases the
+    difference between "significant" and "overwhelming" in the saved table while
+    the printed report still shows it. Columns named in ``sig_columns`` are
+    rounded to ``sig_figs`` significant figures instead of to a fixed number of
+    decimal places; everything else is rounded as usual.
+    """
+    out = frame.round(decimals)
+    for column in sig_columns:
+        if column not in frame.columns:
+            continue
+        out[column] = [
+            value if not pd.notna(value) else float(f"{float(value):.{sig_figs}g}")
+            for value in frame[column]
+        ]
+    return out
+
+
 def write_session_table(
     path: str | Path,
     rows,
@@ -71,7 +102,7 @@ def write_session_table(
                  if c in merged.columns]
         merged = merged.sort_values(order, kind="stable").reset_index(drop=True)
     if round_to is not None:
-        merged = merged.round(round_to)
+        merged = round_for_csv(merged, round_to)
     path.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(path, index=False)
     return merged

@@ -870,7 +870,7 @@ work done on it pending a decision.
 
 **Time**: ~2 h.
 
-## 2026-10-19 — Step 8b (part 2): Gatsby_08022013 unblocked
+## 2026-10-19 — Step 8b (part 2) and 8c: the fifth session, and the five-session comparison
 
 **Gatsby_08022013 unblocked (D8.7).** Both changes D8.6 identified were authorised and
 made. The channel count for this one session comes from the data (134) rather than its XML
@@ -890,10 +890,55 @@ parameter and no epoch boundary. 11 new tests in `test_lfp.py`.
 no `skip="1"` flags at all — it excludes channel 59 by leaving it out of shank 8's
 `spikeDetection` group, which is the mechanism channel selection actually uses. The two
 sessions whose XML does carry skip flags are both omitted for storage. **No session in this
-analysis exercises the skip-flag path**; it is covered by unit tests and nothing else. It
-goes into METHODS.md with the step-8c write-up.
+analysis exercises the skip-flag path**; it is covered by unit tests and nothing else. Now
+in METHODS.md.
 
 **Gatsby in numbers.** 30 place cells, 8 of 16 spike groups carrying units (support
 denominator 7, the lowest in the set), 671 PRE and 408 POST scorable events.
 
-**Tests**: 436 passing, 3 skipped.
+**8c: five sessions, 20 comparisons, all positive.** Every session shows POST > PRE under
+both shuffles and both event sets — 20/20 — with 3, 3, 4 and 4 of the five significant at
+p < 0.05 in the four cells. Normalising by searched non-REM minutes gives the same 20/20.
+Pooled magnitudes within geometry: linear +0.137 to +0.298 (rb +0.083 to +0.120, p ≤ 4.2 ×
+10⁻⁶), circular +0.177 to +0.333 (rb +0.050 to +0.126, p 0.045 to 4.2 × 10⁻⁷).
+
+**The clean geometry story from part 1 did not survive the fifth session (D8.8).** With
+four sessions the identity-shuffle residual looked like a circular-track artefact: linear
+sessions left nothing, circular left a sixth to a quarter. Gatsby_08022013 is linear and
+leaves **+0.121 against a real gap of +0.195 — 62 %, the largest in the set**. Both
+circular sessions still leave +16 % to +42 % in all four of their readings, so the circular
+caution stands; but geometry is not sufficient as an explanation, and whether the residual
+and the circular rZ compression of D8.4 share a cause is now recorded as an open question
+rather than guessed at. The residual is printed beside every effect size and quoted in the
+README; the invented 25 % pass/fail threshold is gone from `validate_sequences.py`.
+
+Two ratios in that table are uninterpretable and are flagged as such: Gatsby's −180 % and
+Cicero_09012014's −183 % are percentages of a near-zero or oppositely-signed denominator.
+
+**Sensitivity floor as a figure in its own right.** `scripts/sensitivity_floor.py` and
+`plots.plot_sensitivity_floor` write `results/sensitivity_floor.png` and `.csv`: median rZ
+for 2 s windows of real running against place-cell count — +13.2 at 77 cells, +7.5 at 73,
++5.6 at 36, +3.3 at 30, +1.8 at 16, where half of that last session's windows fall below
+z = 1.65. Circular sessions are drawn hollow because rZ is not comparable across geometry
+(D8.4), and ensemble size and geometry are confounded in these five sessions, so the figure
+is a floor rather than a calibration curve. 2 new tests.
+
+**Other findings worth keeping.** Cicero_09102014 has *more* non-REM in POST than PRE
+(138.9 vs 92.8 min), reversing both Achilles sessions — the "POST is half of PRE"
+observation from step 7 is an Achilles fact, not a dataset fact. Cicero_09012014 has 7.1
+min of searchable MAZE immobility and 279 MAZE events, so D6.3's MAZE immobility problem is
+not universal either; MAZE remains underpowered in the other four (1–5 scorable events).
+
+**Write-up.** README and METHODS.md now carry the five-session result in place of the
+two-session one, name the three omitted sessions and the storage reason wherever the scope
+appears, and state the skip-flag coverage gap.
+
+**A reporting bug found while checking the write-up.** `results/replay_comparison.csv`
+rounded every column to five decimals, so a p-value of 3.4 × 10⁻⁶ was written as `0.0` —
+73 of the 90 rows of `unmatched_mua_hypotheses.csv` were affected the same way. The printed
+report was right and the saved table was not, which is the worse of the two failure modes.
+`results.round_for_csv` now rounds p-value columns to three significant figures and
+everything else to the fixed places, and `write_session_table` uses it, so every table
+written through it is fixed at once. 4 new tests; the affected tables were regenerated.
+
+**Tests**: 442 passing, 3 skipped. **Time**: ~2.5 h.

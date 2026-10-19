@@ -25,6 +25,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.lines import Line2D  # noqa: E402
 
 #: Fixed categorical hues for running direction (Okabe-Ito).
 DIRECTION_COLORS = {"pos": "#0072B2", "neg": "#D55E00"}
@@ -894,5 +895,73 @@ def plot_sequence_cdf(scores, session_name, set_label, threshold, path: Path,
     axes[0][0].set_ylabel("cumulative fraction of events")
     fig.suptitle(f"{session_name}: sequence scores, {set_label} events",
                  color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)
+
+
+
+def plot_sensitivity_floor(rows, path: Path, params: dict) -> Path:
+    """Positive-control score against ensemble size — where the method stops working.
+
+    Each point is one session's median rZ for 2 s windows of *real running*, a
+    trajectory the animal demonstrably ran and the decoder demonstrably
+    recovers. It is the cleanest statement in the project of how much the
+    method depends on how many cells it has: the question is not whether these
+    windows contain a sequence, it is whether the scoring can still see one.
+
+    Plotted against place cells rather than against session identity, because
+    the ensemble is the variable that moves. Circular sessions are drawn hollow:
+    a ring maximises the correlation over 28-29 position offsets where a line
+    maximises over one, so the circular null is broader and rZ compressed
+    (D8.4). Ensemble size and geometry are therefore not fully separable in
+    these five sessions, and the trend should be read as a floor, not a
+    calibration curve.
+    """
+    fig, ax = plt.subplots(figsize=(6.8, 4.4))
+    for kind, colour, marker in (("column_cycle", "#0072B2", "o"),
+                                 ("time_permutation", "#D55E00", "s")):
+        here = sorted((r for r in rows if r["shuffle"] == kind),
+                      key=lambda r: r["n_place_cells"])
+        if not here:
+            continue
+        x = [r["n_place_cells"] for r in here]
+        y = [r["median_rz"] for r in here]
+        ax.plot(x, y, linewidth=1.4, color=colour, zorder=2,
+                label=kind.replace("_", " "))
+        for r in here:
+            circular = str(r.get("geometry", "")).lower().startswith("circ")
+            ax.plot(r["n_place_cells"], r["median_rz"], marker=marker,
+                    markersize=6.5, color=colour, zorder=3,
+                    markerfacecolor="white" if circular else colour,
+                    markeredgecolor=colour, markeredgewidth=1.4)
+    labelled = sorted((r for r in rows if r["shuffle"] == "column_cycle"),
+                      key=lambda r: r["n_place_cells"])
+    for i, r in enumerate(labelled):
+        crowded = any(abs(o["n_place_cells"] - r["n_place_cells"]) < 10
+                      for j, o in enumerate(labelled) if j < i)
+        ax.annotate(r["session"].replace("_", "\n"),
+                    (r["n_place_cells"], r["median_rz"]), textcoords="offset points",
+                    xytext=(0, -26 if crowded else 12), fontsize=6.5, color=MUTED,
+                    ha="center", va="bottom" if not crowded else "bottom")
+    ax.axhline(1.65, color=MUTED, linewidth=0.8, linestyle=":", zorder=1)
+    ax.margins(x=0.09, y=0.12)
+    ax.text(ax.get_xlim()[1], 1.65, " z = 1.65 ", fontsize=7, color=MUTED,
+            ha="right", va="bottom")
+    ax.set_xlabel("place cells in the decoding ensemble")
+    ax.set_ylabel("median rZ, 2 s windows of real running")
+    ax.set_title(
+        "Where the sequence score stops working\n"
+        "positive control against ensemble size, five sessions",
+        color=INK, fontsize=10,
+    )
+    handles = [Line2D([], [], color="#0072B2", marker="o", markersize=6.5,
+                      linewidth=1.4, label="column cycle"),
+               Line2D([], [], color="#D55E00", marker="s", markersize=6.5,
+                      linewidth=1.4, label="time permutation"),
+               Line2D([], [], color=MUTED, marker="o", markersize=6.5, linewidth=0,
+                      markerfacecolor="white", markeredgecolor=MUTED,
+                      label="circular track (rZ compressed, D8.4)")]
+    ax.legend(handles=handles, frameon=False, fontsize=7.5, loc="upper left")
+    _style(ax)
     fig.tight_layout()
     return _save(fig, path, params)

@@ -224,7 +224,7 @@ def main() -> None:
         out_root / "sequence_running_scores.csv", index=False)
 
     # The verdict the controls exist to give, stated rather than left to the reader.
-    log.info("\n--- verdict ---")
+    log.info("\n--- negative control: how much of each difference survives ---")
     for name in args.sessions or SESSIONS:
         for kind in sequences.SHUFFLES:
             rows_here = table[(table.session == name) & (table.shuffle == kind)
@@ -233,12 +233,17 @@ def main() -> None:
                         - median_rz(rows_here, "real fields", "PRE"))
             null_gap = (median_rz(rows_here, "identity-shuffled", "POST")
                         - median_rz(rows_here, "identity-shuffled", "PRE"))
+            # No pass/fail. The threshold this once used was invented here and
+            # has no external standing, and a cutoff turns a graded quantity
+            # into a binary one. The residual is reported as a fraction of the
+            # real difference and the reader judges.
+            share = (100 * null_gap / real_gap
+                     if np.isfinite(real_gap) and real_gap else float("nan"))
             log.info(
-                "%s %-18s POST-PRE: real %+0.3f, identity-shuffled %+0.3f -- %s",
+                "%s %-18s POST-PRE: real %+0.3f, identity-shuffled %+0.3f "
+                "(%s of the real difference)",
                 name, kind, real_gap, null_gap,
-                "control passes" if abs(null_gap) < 0.25 * abs(real_gap) or
-                np.sign(null_gap) != np.sign(real_gap)
-                else "CONTROL FAILS: the gap survives identity shuffling",
+                f"{share:.0f}%" if np.isfinite(share) else "n/a",
             )
 
     (out_root / "sequence_validation.json").write_text(json.dumps({

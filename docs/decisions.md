@@ -1437,10 +1437,17 @@ against more than the two Achilles sessions?
 | `sequences.min_laps_per_direction` | 5 | [PROVISIONAL] | 2 | **not Achilles-specific — it is a circular/linear discriminator** (below) |
 | `events.mua.threshold_high_sd` | 3.0 | [CHEN2016], but stated there for the *ripple envelope*, not for a population rate | 2 | **untested on 6** |
 | `events.mua.threshold_low_sd`, `min/max_duration_ms`, `merge_gap_ms` | 1.0, 30/400 ms, 30 ms | [PROVISIONAL] | 2 | **untested on 6** |
-| `events.ripples.*` | band [CHEN2016], rest [PROVISIONAL] | 2 | **untested on 6** |
+| `events.ripples.*` | 150–300 Hz, 3/1 SD | band [CHEN2016], rest [PROVISIONAL] | 2 | **untested on 6** |
 | `lfp.channel_selection.*` | 40 × 15 s NREM, bands | [PROVISIONAL] | 2 | **untested on 6, and the probe geometry differs** (D8.2) |
 | `sequences.min_bins` | 5 | [CHEN2016] | 2 | **the riskiest parameter in the config** (D8.3) |
 | `events.decodable` | ≥ 5 cells and ≥ 10 % of the ensemble | [CHEN2016] | 2 | binds far harder on a 16-cell ensemble than on a 77-cell one (D8.3) |
+
+**Postscript, written after step 8c.** The rows marked "untested on 6" have since run
+unchanged on five sessions, not two; none was adjusted to make a session work, and the one
+session that would not run under them was blocked and resolved as a file-geometry question
+instead (D8.6, D8.7). Three sessions remain untested, for storage reasons (D8.9). The
+`events.decodable` row's warning held: Cicero_09012014's 16-cell ensemble scores 6–9 % of
+its events against 14–23 % elsewhere (D8.9).
 
 **The five-lap floor is not an Achilles artefact.** Laps per direction across all eight
 sessions: every linear session has 24–44 in both directions; every circular session has 0
@@ -1783,3 +1790,147 @@ So the skip-flag parser is covered by unit tests and by nothing else. It is corr
 synthetic XML and has never been run against a real session that uses it. This is stated
 in `docs/METHODS.md` as a limitation rather than left to be discovered.
 
+## Step 8c — the five-session comparison
+
+### D8.8 — The identity-shuffle residual is a primary result, and it does not split by geometry
+
+The identity shuffle recomputes the whole PRE/POST comparison with place fields detached
+from the cells that own them: the same events, the same bins, the same scoring, but each
+cell is given another cell's field. Anything that survives it is not replay. It is a
+control on the *difference*, not a null the score is standardised against, so a non-zero
+residual does not invalidate a session — it bounds how much of the gap can be attributed
+to cells carrying their own fields.
+
+With four sessions the reading looked clean: linear sessions left nothing, circular
+sessions left a sixth to a quarter. **The fifth session breaks that story, and it breaks it
+in the direction that matters.**
+
+| Session | geometry | shuffle | real POST−PRE | identity-shuffled | residual as % of real |
+|---|---|---|---|---|---|
+| Achilles_10252013 | linear | column cycle | +0.302 | −0.005 | **−2 %** |
+| Achilles_10252013 | linear | time permutation | +0.220 | −0.034 | **−15 %** |
+| Cicero_09012014 | linear | column cycle | +0.202 | −0.369 | −183 % |
+| Cicero_09012014 | linear | time permutation | +0.185 | −0.114 | −61 % |
+| **Gatsby_08022013** | **linear** | column cycle | +0.195 | **+0.121** | **+62 %** |
+| Gatsby_08022013 | linear | time permutation | +0.014 | −0.025 | −180 % |
+| Achilles_11012013 | circular | column cycle | +0.197 | +0.049 | **+25 %** |
+| Achilles_11012013 | circular | time permutation | +0.433 | +0.071 | **+16 %** |
+| Cicero_09102014 | circular | column cycle | +0.209 | +0.087 | **+42 %** |
+| Cicero_09102014 | circular | time permutation | +0.230 | +0.060 | **+26 %** |
+
+Three readings follow, and only the first two are safe.
+
+1. **Both circular sessions leave a substantial positive residual**, in all four of their
+   readings, in a narrow band (+16 % to +42 %). No circular effect size should be quoted
+   without it.
+2. **Geometry is not the whole explanation.** Gatsby_08022013 is a linear track and leaves
+   the largest positive residual in the set: +0.121 against a real gap of +0.195. Whatever
+   produces a residual is available to a linear session too.
+3. **A ratio against a near-zero denominator carries no information.** Gatsby's
+   time-permutation "−180 %" is −0.025 against a real difference of +0.014 — a session
+   with essentially no effect on that shuffle (p = 0.52), where the percentage is noise
+   over noise. The same caution applies to Cicero_09012014's −183 %: a negative residual
+   means the identity-shuffled difference runs the *other* way, which is reassuring rather
+   than alarming, but its size is not interpretable.
+
+**Whether the circular residual and the circular rZ compression of D8.4 share a cause is an
+open question.** Both would follow naturally from maximising the correlation over 28–29
+position offsets instead of one: more freedom to find apparent structure in data whose
+cell–field correspondence has been destroyed, and a broader null. That is a plausible
+mechanism, not a demonstrated one, and two circular sessions against three linear — with a
+linear session showing the same residual — cannot separate geometry from ensemble size,
+event count, or the session itself. It is recorded as open.
+
+**Two consequences for reporting, both applied.**
+
+* The residual is carried in `results/replay_comparison.csv` as `identity_residual` and
+  `residual_fraction`, printed beside every per-session effect size, and quoted in the
+  README table. It is not a footnote.
+* The headline leans on the linear sessions, where the control is cleanest in two of three.
+  The circular sessions are reported in full, in their own pooled row, with the residual
+  attached.
+
+**The 25 % pass/fail threshold is removed.** `scripts/validate_sequences.py` used to print
+a verdict when the residual exceeded a quarter of the real difference. That threshold was
+invented in step 7, has no external standing, and — on these five sessions — would have
+called one session a failure and said nothing about a linear session leaving 62 %. The
+script now reports the residual as a percentage and leaves the judgement to the reader.
+
+### D8.9 — The five-session result, and the sensitivity floor it has to be read against
+
+**Scope.** Five of the eight hc-11 sessions are analysed: Achilles_10252013,
+Achilles_11012013, Cicero_09012014, Cicero_09102014 and Gatsby_08022013.
+**Buddy_06272013, Cicero_09172014 and Gatsby_08282013 are omitted because their LFP was
+not downloaded, for local storage reasons — not because of anything in the data or the
+method.** All eight contribute to the place-field stage (304 place cells); only five reach
+candidate-event detection, which needs the LFP. This is five of eight, never "the dataset",
+and the three names and the reason belong wherever the result is quoted.
+
+**The headline is a count of signs, because a sign is scale-free.**
+
+| Event set | Shuffle | sessions with POST > PRE | of those, p < 0.05 |
+|---|---|---|---|
+| all | column cycle | **5 / 5** | 3 |
+| all | time permutation | **5 / 5** | 3 |
+| conjunction | column cycle | **5 / 5** | 4 |
+| conjunction | time permutation | **5 / 5** | 4 |
+
+Twenty of twenty comparisons point the same way. Significance is not uniform, and the
+sessions that fall short are named in the README rather than averaged away:
+Cicero_09012014's full-set tests (p = 0.091, 0.15), Cicero_09102014's conjunction
+column-cycle test (p = 0.61, rank-biserial +0.019) and Gatsby_08022013's full-set
+time-permutation test (p = 0.52, difference +0.014).
+
+Normalised by searched time rather than by event — the epochs differ by up to a factor of
+two in non-REM minutes, and in Cicero_09102014 POST holds *more* non-REM than PRE (138.9
+vs 92.8 min), reversing both Achilles sessions — the count is also 20 / 20 in favour of
+POST, though Cicero_09102014's column-cycle margin is 0.396 against 0.388 per minute.
+
+**Magnitudes are pooled only within a geometry** (D8.4), and the pooled rows are reported
+with the per-session rows intact, not instead of them:
+
+| Pool | Event set | Shuffle | PRE | POST | difference | rb | p |
+|---|---|---|---|---|---|---|---|
+| linear (3) | all | column cycle | +0.493 | +0.728 | +0.235 | +0.088 | 1.1 × 10⁻⁶ |
+| linear (3) | all | time permutation | +0.206 | +0.342 | +0.137 | +0.083 | 4.2 × 10⁻⁶ |
+| linear (3) | conjunction | column cycle | +0.520 | +0.818 | +0.298 | +0.116 | 1.3 × 10⁻⁸ |
+| linear (3) | conjunction | time permutation | +0.198 | +0.407 | +0.209 | +0.120 | 4.5 × 10⁻⁹ |
+| circular (2) | all | column cycle | +0.058 | +0.256 | +0.198 | +0.055 | 0.013 |
+| circular (2) | all | time permutation | +0.280 | +0.565 | +0.285 | +0.112 | 4.6 × 10⁻⁷ |
+| circular (2) | conjunction | column cycle | +0.126 | +0.303 | +0.177 | +0.050 | 0.045 |
+| circular (2) | conjunction | time permutation | +0.268 | +0.601 | +0.333 | +0.126 | 4.2 × 10⁻⁷ |
+
+**The positive control is the context every one of those numbers needs.** Median rZ for 2 s
+windows of *real running* — a trajectory the animal demonstrably ran and the decoder
+demonstrably recovers, so a low score is a failure of the scoring and not an absence of
+sequence:
+
+| Session | place cells | geometry | column cycle | time permutation |
+|---|---|---|---|---|
+| Achilles_10252013 | 77 | linear | +13.23 (95 % above z = 1.65) | +10.68 (94 %) |
+| Achilles_11012013 | 73 | circular | +7.50 (82 %) | +7.91 (85 %) |
+| Cicero_09102014 | 36 | circular | +5.63 (91 %) | +6.67 (96 %) |
+| Gatsby_08022013 | 30 | linear | +3.30 (69 %) | +2.24 (61 %) |
+| Cicero_09012014 | 16 | linear | +1.80 (52 %) | +1.50 (46 %) |
+
+`results/sensitivity_floor.png`, written by `scripts/sensitivity_floor.py`, is this table.
+It is a headline figure in its own right: it says that with 16 place cells the scoring can
+still recognise a known trajectory but barely — half its windows fall below z = 1.65 — and
+that the method's power varies by nearly an order of magnitude across sessions that are
+otherwise treated identically. A replay effect size from Cicero_09012014 and one from
+Achilles_10252013 are not measurements on the same instrument.
+
+Ensemble size and geometry are confounded in these five sessions (the two circular sessions
+sit at 73 and 36 cells, in the middle), so the figure is a floor, not a calibration curve.
+It does not support correcting one session's rZ by another's.
+
+**What the five sessions establish, and what they do not.**
+
+* Established: the **direction** of the published effect, in every session, under both
+  shuffles, both event sets, and whether events or minutes are the denominator; and that it
+  survives the identity-shuffle control in the linear sessions where that control is
+  cleanest.
+* Not established: the **magnitude**. The paper reports Figure 1C graphically with no effect
+  size, median or denominator, so there is no published number to compare against; the
+  identity-shuffle residual is large in three of five sessions (D8.8); and the method's
+  sensitivity varies across sessions by the amount the table above shows.

@@ -69,3 +69,27 @@ def test_heatmap_shows_only_place_cells(real_sessions, tmp_path):
     out = plots.plot_rate_map_heatmap(cells, track, s.name, "pos", tmp_path / "h.png", {})
     assert out.exists()
     assert n_pc < len(cells), "fixture should include some non-place cells"
+
+
+def test_sensitivity_floor_marks_circular_sessions_hollow(tmp_path):
+    """The floor figure must distinguish geometry: rZ is not comparable across it."""
+    rows = [
+        {"session": "A_1", "n_place_cells": 70, "geometry": "linear",
+         "shuffle": "column_cycle", "median_rz": 12.0},
+        {"session": "A_1", "n_place_cells": 70, "geometry": "linear",
+         "shuffle": "time_permutation", "median_rz": 10.0},
+        {"session": "B_2", "n_place_cells": 20, "geometry": "circular",
+         "shuffle": "column_cycle", "median_rz": 2.0},
+        {"session": "B_2", "n_place_cells": 20, "geometry": "circular",
+         "shuffle": "time_permutation", "median_rz": 1.5},
+    ]
+    out = plots.plot_sensitivity_floor(rows, tmp_path / "floor.png", {"window_s": 2.0})
+    assert out.exists()
+    sidecar = json.loads(out.with_suffix(".json").read_text())
+    assert sidecar["window_s"] == 2.0
+
+
+def test_sensitivity_floor_survives_one_shuffle_kind(tmp_path):
+    rows = [{"session": "A_1", "n_place_cells": 70, "geometry": "linear",
+             "shuffle": "column_cycle", "median_rz": 12.0}]
+    assert plots.plot_sensitivity_floor(rows, tmp_path / "one.png", {}).exists()

@@ -6,15 +6,22 @@ raw MATLAB session files through place fields, a Bayesian position decoder and
 candidate-event detection, to the sequence-score distributions of the paper's Figure 1C.
 
 **The direction of the published effect replicates: sequence scores are higher in
-post-experience sleep than in pre-experience sleep, in both sessions analysed, under
-both shuffle procedures and both candidate-event definitions — eight comparisons out of
-eight.** The magnitude is not established: the effect is small, the paper reports no
-comparable effect size, and two measurement limitations described below would have to be
-resolved before the sizes could be compared at all.
+post-experience sleep than in pre-experience sleep, in every session analysed, under both
+shuffle procedures and both candidate-event definitions — twenty comparisons out of
+twenty.** The magnitude is not established: the effect is small, the paper reports no
+comparable effect size, the method's sensitivity varies nearly tenfold across these
+sessions, and a negative control leaves a substantial residual in three of the five.
+
+**Five of the eight hc-11 sessions are analysed** — Achilles_10252013, Achilles_11012013,
+Cicero_09012014, Cicero_09102014 and Gatsby_08022013. Buddy_06272013, Cicero_09172014 and
+Gatsby_08282013 are omitted because their local field potential recordings were not
+downloaded, for local storage reasons rather than anything in the data or the method. All
+eight sessions contribute to the place-field and decoding stages; only five reach
+candidate-event detection, which needs the LFP. This is five of eight, not "the dataset".
 
 ![Cumulative distributions of sequence score by epoch](docs/figures/replay_cdf.png)
 
-*Sequence score (rZ) for candidate events in Achilles_10252013, by epoch. POST sleep
+*Sequence score (rZ) for candidate events in Achilles_10252013 — one of the five sessions, all of which are tabulated below — by epoch. POST sleep
 (green) sits to the right of PRE sleep (blue) across the whole distribution, not only in
 the tail. The two panels are two different shuffle procedures; both are reported because
 they answer different questions (see below). MAZE has only three scorable events and is
@@ -43,27 +50,82 @@ Candidate events were detected in each epoch, decoded at 20 ms resolution agains
 place fields, and scored by how well decoded position tracks time within the event. The
 score is standardised against shuffles of the same event, giving **rZ**.
 
-Median rZ, PRE against POST. "rb" is the rank-biserial correlation — an effect size
-bounded by ±1. "matched-n" repeats the test 200 times with PRE cut at random to POST's
-event count.
+Median rZ, PRE against POST, every session reported separately. "rb" is the rank-biserial
+correlation — an effect size bounded by ±1. "control" is what the same difference becomes
+when place fields are detached from the cells that own them (the negative control below):
+it belongs beside every effect size, not in a footnote, and on three of these sessions it
+is large.
 
-| Session | Event set | Shuffle | PRE | POST | difference | rb | p | matched-n |
+| Session | Event set | Shuffle | PRE | POST | difference | rb | p | control leaves |
 |---|---|---|---|---|---|---|---|---|
-| Achilles_10252013 | all | column cycle | +0.548 | +0.850 | **+0.302** | +0.114 | 3.4 × 10⁻⁶ | +0.302 (100 % of draws p < 0.05) |
-| Achilles_10252013 | all | time permutation | +0.188 | +0.407 | **+0.220** | +0.131 | 1.2 × 10⁻⁷ | +0.217 (100 %) |
-| Achilles_10252013 | conjunction | column cycle | +0.529 | +0.873 | **+0.344** | +0.136 | 5.4 × 10⁻⁷ | +0.336 (100 %) |
-| Achilles_10252013 | conjunction | time permutation | +0.188 | +0.438 | **+0.250** | +0.147 | 6.0 × 10⁻⁸ | +0.248 (100 %) |
-| Achilles_11012013 | all | column cycle | +0.110 | +0.307 | **+0.197** | +0.071 | 0.026 | +0.197 (77 %) |
-| Achilles_11012013 | all | time permutation | +0.291 | +0.723 | **+0.433** | +0.178 | 3.1 × 10⁻⁸ | +0.433 (100 %) |
-| Achilles_11012013 | conjunction | column cycle | +0.129 | +0.350 | **+0.221** | +0.091 | 0.0091 | +0.221 (100 %) |
-| Achilles_11012013 | conjunction | time permutation | +0.251 | +0.776 | **+0.525** | +0.189 | 6.4 × 10⁻⁸ | +0.516 (100 %) |
+| Achilles_10252013 (linear) | all | column cycle | +0.548 | +0.850 | **+0.302** | +0.114 | 3.4 × 10⁻⁶ | −0.005 (−2 %) |
+| Achilles_10252013 | all | time permutation | +0.188 | +0.407 | **+0.220** | +0.131 | 1.2 × 10⁻⁷ | −0.034 (−15 %) |
+| Achilles_10252013 | conjunction | column cycle | +0.529 | +0.873 | **+0.344** | +0.136 | 5.4 × 10⁻⁷ | −0.005 (−2 %) |
+| Achilles_10252013 | conjunction | time permutation | +0.188 | +0.438 | **+0.250** | +0.147 | 6.0 × 10⁻⁸ | −0.034 (−13 %) |
+| Cicero_09012014 (linear) | all | column cycle | +0.332 | +0.534 | +0.202 | +0.073 | 0.091 | −0.369 |
+| Cicero_09012014 | all | time permutation | +0.127 | +0.312 | +0.185 | +0.062 | 0.15 | −0.114 |
+| Cicero_09012014 | conjunction | column cycle | +0.264 | +0.622 | **+0.357** | +0.137 | 0.0050 | −0.369 |
+| Cicero_09012014 | conjunction | time permutation | −0.006 | +0.346 | **+0.351** | +0.131 | 0.0072 | −0.114 |
+| Gatsby_08022013 (linear) | all | column cycle | +0.400 | +0.595 | **+0.195** | +0.110 | 0.0024 | **+0.121 (+62 %)** |
+| Gatsby_08022013 | all | time permutation | +0.232 | +0.246 | +0.014 | +0.023 | 0.52 | −0.025 |
+| Gatsby_08022013 | conjunction | column cycle | +0.609 | +0.873 | **+0.264** | +0.114 | 0.0071 | **+0.121 (+46 %)** |
+| Gatsby_08022013 | conjunction | time permutation | +0.258 | +0.406 | +0.148 | +0.077 | 0.068 | −0.025 |
+| Achilles_11012013 (circular) | all | column cycle | +0.110 | +0.307 | **+0.197** | +0.071 | 0.026 | **+0.049 (+25 %)** |
+| Achilles_11012013 | all | time permutation | +0.291 | +0.723 | **+0.433** | +0.178 | 3.1 × 10⁻⁸ | **+0.071 (+16 %)** |
+| Achilles_11012013 | conjunction | column cycle | +0.129 | +0.350 | **+0.221** | +0.091 | 0.0091 | **+0.049 (+22 %)** |
+| Achilles_11012013 | conjunction | time permutation | +0.251 | +0.776 | **+0.525** | +0.189 | 6.4 × 10⁻⁸ | **+0.071 (+14 %)** |
+| Cicero_09102014 (circular) | all | column cycle | −0.011 | +0.197 | +0.209 | +0.058 | 0.067 | **+0.087 (+42 %)** |
+| Cicero_09102014 | all | time permutation | +0.265 | +0.495 | **+0.230** | +0.068 | 0.030 | **+0.060 (+26 %)** |
+| Cicero_09102014 | conjunction | column cycle | +0.121 | +0.270 | +0.149 | +0.019 | 0.61 | **+0.087 (+59 %)** |
+| Cicero_09102014 | conjunction | time permutation | +0.272 | +0.509 | **+0.237** | +0.084 | 0.020 | **+0.060 (+25 %)** |
 
-A rank-biserial correlation of +0.07 to +0.19 means that **if you draw one PRE event and
-one POST event at random, the POST event scores higher 54–59 % of the time.** That is a
+**Every one of the twenty differences is positive.** Twelve of the twenty reach p < 0.05
+— 3, 3, 4 and 4 of the five sessions in the four columns of the summary below — and the
+eight that do not are named rather than averaged away: Cicero_09012014's two full-set
+tests, Cicero_09102014's conjunction column-cycle test (rank-biserial +0.019, p = 0.61),
+and Gatsby_08022013's full-set time-permutation test (difference +0.014, p = 0.52).
+
+| Event set | Shuffle | sessions with POST > PRE | of those, p < 0.05 |
+|---|---|---|---|
+| all | column cycle | **5 / 5** | 3 |
+| all | time permutation | **5 / 5** | 3 |
+| conjunction | column cycle | **5 / 5** | 4 |
+| conjunction | time permutation | **5 / 5** | 4 |
+
+Absolute rZ is **not comparable between linear and circular tracks**: on a ring the
+weighted correlation is maximised over 28–29 circular offsets of the position axis where a
+line offers one, which broadens the null and compresses rZ for the same quality of
+sequence (D8.4). Magnitudes are therefore pooled only within a geometry; what is pooled
+across all five is the direction, because a sign has no scale.
+
+| Pool | Event set | Shuffle | PRE | POST | difference | rb | p |
+|---|---|---|---|---|---|---|---|
+| linear (3 sessions) | all | column cycle | +0.493 | +0.728 | +0.235 | +0.088 | 1.1 × 10⁻⁶ |
+| linear | all | time permutation | +0.206 | +0.342 | +0.137 | +0.083 | 4.2 × 10⁻⁶ |
+| linear | conjunction | column cycle | +0.520 | +0.818 | +0.298 | +0.116 | 1.3 × 10⁻⁸ |
+| linear | conjunction | time permutation | +0.198 | +0.407 | +0.209 | +0.120 | 4.5 × 10⁻⁹ |
+| circular (2 sessions) | all | column cycle | +0.058 | +0.256 | +0.198 | +0.055 | 0.013 |
+| circular | all | time permutation | +0.280 | +0.565 | +0.285 | +0.112 | 4.6 × 10⁻⁷ |
+| circular | conjunction | column cycle | +0.126 | +0.303 | +0.177 | +0.050 | 0.045 |
+| circular | conjunction | time permutation | +0.268 | +0.601 | +0.333 | +0.126 | 4.2 × 10⁻⁷ |
+
+Where PRE holds more events than POST — the two Achilles sessions and Gatsby_08022013; in
+both Cicero sessions POST is the larger set — the test is repeated 200 times with PRE cut
+at random to POST's event count. The median matched-n difference lands within 0.01 of the
+full-sample difference in eleven of those twelve comparisons (the twelfth, Gatsby's
+conjunction time permutation, is 0.025 lower), and the share of draws reaching
+p < 0.05 is 100 % in seven of them, 93–98 % in two, **77 %** for Achilles_11012013's
+full-set column cycle, **21 %** for Gatsby_08022013's conjunction time permutation and
+**0 %** for its full-set time permutation — the same non-result stated a second way.
+
+A rank-biserial correlation of +0.02 to +0.19 means that **if you draw one PRE event and
+one POST event at random, the POST event scores higher 51–59 % of the time.** That is a
 real shift and a consistent one, but it is not a large one.
 
-Normalising by searched time rather than by event — POST holds roughly half the NREM
-sleep of PRE in both sessions — widens the margin:
+Normalising by searched time rather than by event changes nothing about the direction —
+20 / 20 again — and the amount of sleep searched is not a constant: POST holds roughly half
+the non-REM of PRE in the Achilles sessions but **more** than PRE in Cicero_09102014 (138.9
+against 92.8 minutes).
 
 | Session | Shuffle | PRE | POST |
 |---|---|---|---|
@@ -71,6 +133,15 @@ sleep of PRE in both sessions — widens the margin:
 | Achilles_10252013 | time permutation | 0.83 /min | 1.58 /min |
 | Achilles_11012013 | column cycle | 0.45 /min | 0.81 /min |
 | Achilles_11012013 | time permutation | 0.70 /min | 1.72 /min |
+| Cicero_09012014 | column cycle | 0.47 /min | 0.88 /min |
+| Cicero_09012014 | time permutation | 0.19 /min | 0.49 /min |
+| Cicero_09102014 | column cycle | 0.39 /min | 0.40 /min |
+| Cicero_09102014 | time permutation | 0.56 /min | 0.81 /min |
+| Gatsby_08022013 | column cycle | 1.36 /min | 1.87 /min |
+| Gatsby_08022013 | time permutation | 0.69 /min | 0.85 /min |
+
+Cicero_09102014's column-cycle margin — 0.396 against 0.388 per minute — is the thinnest
+in the set and is quoted at that precision deliberately.
 
 **Why the magnitude cannot be compared to the paper.** Grosmark & Buzsáki report the
 Figure 1C distributions graphically and give no effect size, no median rZ, and no
@@ -79,8 +150,8 @@ further obstacles are ours rather than theirs: only 15–24 % of our candidate e
 long enough to score, and the absolute level of rZ carries a bias that makes
 "fraction of events above threshold" meaningless here. Both are described below.
 
-Forward and reverse traversals split evenly (49–52 % forward in every epoch of both
-sessions) with no consistent difference in score between them.
+Forward and reverse traversals split evenly (45–53 % forward in every sleep epoch of every
+session) with no consistent difference in score between them.
 
 ---
 
@@ -96,15 +167,41 @@ events, the same bins, the same spikes, the same shuffles — and destroys the o
 that could carry replay. If the PRE/POST difference survives that, it is a property of
 the event sets or of the scoring, not of the hippocampus.
 
-| Session | Shuffle | POST − PRE, real fields | POST − PRE, identities permuted |
-|---|---|---|---|
-| Achilles_10252013 | column cycle | **+0.302** | −0.005 |
-| Achilles_10252013 | time permutation | **+0.220** | −0.033 |
-| Achilles_11012013 | column cycle | **+0.197** | +0.049 |
-| Achilles_11012013 | time permutation | **+0.433** | +0.071 |
+| Session | geometry | Shuffle | POST − PRE, real fields | identities permuted | residual as % of real |
+|---|---|---|---|---|---|
+| Achilles_10252013 | linear | column cycle | **+0.302** | −0.005 | −2 % |
+| Achilles_10252013 | linear | time permutation | **+0.220** | −0.034 | −15 % |
+| Cicero_09012014 | linear | column cycle | +0.202 | −0.369 | −183 % |
+| Cicero_09012014 | linear | time permutation | +0.185 | −0.114 | −61 % |
+| **Gatsby_08022013** | linear | column cycle | **+0.195** | **+0.121** | **+62 %** |
+| Gatsby_08022013 | linear | time permutation | +0.014 | −0.025 | −180 % |
+| Achilles_11012013 | circular | column cycle | **+0.197** | **+0.049** | **+25 %** |
+| Achilles_11012013 | circular | time permutation | **+0.433** | **+0.071** | **+16 %** |
+| Cicero_09102014 | circular | column cycle | +0.209 | **+0.087** | **+42 %** |
+| Cicero_09102014 | circular | time permutation | +0.230 | **+0.060** | **+26 %** |
 
-The gap collapses. Three of the four permuted gaps are under a sixth of the real one and
-one is zero.
+**This is the weakest part of the result and it is reported as such** (D8.8). In two
+sessions the gap collapses to nothing. In three it does not:
+
+- **Both circular sessions** leave +16 % to +42 % in all four of their readings. No
+  circular effect size should be read without that number attached, and the likely
+  mechanism is the same one that compresses circular rZ — maximising the correlation over
+  28–29 position offsets gives the permuted data more freedom to find apparent structure.
+- **Gatsby_08022013 is a linear track and leaves the largest residual of all**, +0.121
+  against a real gap of +0.195. So geometry is not a sufficient explanation. Whether the
+  circular residual and the circular rZ compression share a cause is an **open question**;
+  five sessions, with ensemble size, event count and geometry all varying together, cannot
+  separate them.
+- **Two of these percentages are uninterpretable**, and are shown rather than hidden:
+  Gatsby's −180 % is −0.025 against a real difference of +0.014 (a session with no effect
+  on that shuffle), and Cicero_09012014's −183 % is a percentage of a difference the
+  control sends the *other* way, which is reassuring in sign and meaningless in size.
+
+An earlier version of this repository applied an automated pass/fail verdict when the
+residual exceeded a quarter of the real difference. That threshold was invented here, has
+no external standing, and would have called one session a failure while saying nothing
+about a linear session leaving 62 %. It has been removed; the residual is printed and the
+judgement is the reader's.
 
 The control also returned something we did not expect and that changes how the result may
 be read: **with identities permuted, the median rZ is still +0.59**, not zero. The
@@ -121,19 +218,43 @@ If the scoring cannot recognise a trajectory the animal actually ran, it cannot 
 trusted on sleep. Running periods were decoded with leave-one-lap-out templates — fields
 built from every lap except the one being scored — and scored identically:
 
+| Session | place cells | geometry | column cycle | time permutation |
+|---|---|---|---|---|
+| Achilles_10252013 | 77 | linear | **+13.23** (95 % above z = 1.65) | **+10.68** (94 %) |
+| Achilles_11012013 | 73 | circular | **+7.50** (82 %) | **+7.91** (85 %) |
+| Cicero_09102014 | 36 | circular | **+5.63** (91 %) | **+6.67** (96 %) |
+| Gatsby_08022013 | 30 | linear | **+3.30** (69 %) | **+2.24** (61 %) |
+| Cicero_09012014 | 16 | linear | **+1.80** (52 %) | **+1.50** (46 %) |
+
+A known trajectory scores an order of magnitude above anything seen in sleep — in the
+sessions with the largest ensembles. In the smallest it barely scores at all.
+
+![Sequence score against ensemble size](docs/figures/sensitivity_floor.png)
+
+*The same table as a figure. Median rZ for 2 s windows of real running against the number
+of place cells in the session's decoding ensemble; circular sessions hollow, because rZ is
+not comparable across geometry. With 16 place cells the scoring still recognises a known
+trajectory, but half its windows fall below z = 1.65.*
+
+**This is the context every effect size on this page needs.** These windows are the one
+case where the ground truth is known: the animal ran the trajectory and the decoder
+recovers it, so a score near zero is a failure of the scoring, not an absence of sequence.
+The method's power varies by nearly an order of magnitude across sessions that the pipeline
+otherwise treats identically, which means a replay effect size from Cicero_09012014 and one
+from Achilles_10252013 are not measurements on the same instrument. Ensemble size and
+geometry are confounded here — the circular sessions sit in the middle at 73 and 36 cells —
+so the figure is a floor, not a calibration curve, and nothing in this repository corrects
+one session's rZ by another's.
+
+The short-window rows below are the same control at 0.2 s, and they are not a failure:
+
 | Session | Window | Shuffle | n | median rZ | above z = 1.65 |
 |---|---|---|---|---|---|
-| Achilles_10252013 | 2.0 s | column cycle | 62 | **+13.23** | 95 % |
-| Achilles_10252013 | 2.0 s | time permutation | 62 | **+10.68** | 94 % |
-| Achilles_11012013 | 2.0 s | column cycle | 145 | **+7.50** | 82 % |
-| Achilles_11012013 | 2.0 s | time permutation | 145 | **+7.91** | 85 % |
 | Achilles_10252013 | 0.2 s | column cycle | 984 | −0.10 | 11 % |
 | Achilles_11012013 | 0.2 s | column cycle | 1606 | −0.67 | 2 % |
+| Gatsby_08022013 | 0.2 s | column cycle | 1352 | +0.01 | 16 % |
 
-A known trajectory scores an order of magnitude above anything seen in sleep.
-
-The 0.2 s rows are not a failure, and they are the reason both window lengths are
-reported. At roughly 30 cm/s, 200 ms of running covers about 6 cm — less than one 10 cm
+They are the reason both window lengths are reported. At roughly 30 cm/s, 200 ms of running covers about 6 cm — less than one 10 cm
 position bin. Such a window cannot contain a trajectory however good the decoder is, so a
 low score there measures nothing. That sleep events of that duration score at all is the
 point: replay is time-compressed, so 60 ms of replay traverses what takes the animal a
@@ -181,9 +302,9 @@ cross-validated — the fields used here were built without the lap being decode
 `hc11.events` so their outputs are directly comparable. `hc11.mua` detects population
 synchrony from spikes alone; `hc11.ripples` detects 150–300 Hz sharp-wave ripples on a
 CA1 pyramidal-layer channel chosen per shank by `hc11.ripple_channels`. The MUA set is
-primary — the LFP exists locally for only two of the eight sessions — with the ripple
-match carried as a per-event property, so the stricter conjunction of the two is a filter
-on a column rather than a second pipeline.
+primary — the LFP is held locally for five of the eight sessions — with the ripple match
+carried as a per-event property, so the stricter conjunction of the two is a filter on a
+column rather than a second pipeline.
 
 ![Agreement with the MUA detector against multi-shank support](docs/figures/cross_check_by_support.png)
 
@@ -256,14 +377,22 @@ if asked. Directions now need five laps before their fields are used.
 ### Only 15–24 % of candidate events are long enough to score
 
 Scoring needs at least five 20 ms bins with spikes in them, which needs a 100 ms event.
-Our events have a median duration of 55–68 ms:
+Our events have a median duration of 55–69 ms, and the scorable fraction across the five
+sessions is **6–23 %**:
 
-| | median duration | ≥ 3 bins | ≥ 4 | **≥ 5** |
-|---|---|---|---|---|
-| Achilles_10252013 PRE | 68 ms | 62 % | 37 % | **24 %** |
-| Achilles_10252013 POST | 62 ms | 54 % | 32 % | **21 %** |
-| Achilles_11012013 PRE | 57 ms | 46 % | 25 % | **15 %** |
-| Achilles_11012013 POST | 58 ms | 47 % | 28 % | **19 %** |
+| | median duration | scorable (PRE) | scorable (POST) |
+|---|---|---|---|
+| Achilles_10252013 | 68 / 62 ms | 1646 of 7046 — **23 %** | 825 of 3955 — **21 %** |
+| Achilles_11012013 | 57 / 58 ms | 695 of 4709 — **15 %** | 605 of 3328 — **18 %** |
+| Cicero_09012014 | 55 / 56 ms | 310 of 4916 — **6 %** | 435 of 4643 — **9 %** |
+| Cicero_09102014 | 60 / 58 ms | 562 of 3812 — **15 %** | 836 of 5923 — **14 %** |
+| Gatsby_08022013 | 56 / 58 ms | 671 of 4637 — **14 %** | 408 of 2889 — **14 %** |
+
+Cicero_09012014 is the extreme case, and the reason is its ensemble rather than its
+events: with 16 place cells, a 60 ms burst rarely puts spikes from enough of them into
+five consecutive bins. It is also the session at the bottom of the sensitivity-floor
+figure. Even so, 310 and 435 scorable events are enough to test, and no PRE/POST
+comparison in this repository rests on fewer than 100 events in either epoch.
 
 This is a larger loss than every other filter in the pipeline combined, and it traces to
 the event detector's boundary threshold rather than to anything in the scoring. It is
@@ -271,15 +400,19 @@ recorded rather than tuned: a three-bin floor would mean fitting a correlation t
 points, which is not an estimate. The same filter applies to PRE and POST, so the
 comparison is unaffected; what it limits is any absolute rate.
 
-### POST has less NREM sleep than PRE, in both sessions
+### How much sleep there is to search varies by session, and not in one direction
 
-168.5 → 89.7 minutes in one session, 104.0 → 73.0 in the other. Part of that is simply a
-shorter POST epoch, but the *proportion* also falls in one session (56 % → 37 %) and the
-other's REM sleep collapses instead (27 % → 5 % of scored sleep). The likely reason is
-mundane — the animal has already slept for some five hours before POST begins — and it
-cannot be tested here. Every rate in this repository is therefore normalised by searched
-time, and the PRE/POST test is reported both on all events and on PRE subsampled to
-POST's event count.
+Searched non-REM minutes, PRE → POST: Achilles_10252013 168.5 → 89.7, Achilles_11012013
+104.0 → 73.0, Gatsby_08022013 100.7 → 63.8, Cicero_09012014 112.9 → 106.5, **and
+Cicero_09102014 92.8 → 138.9**. The "POST holds half the sleep of PRE" observation from the
+two-session stage is an Achilles fact, not a dataset fact: one session has half again as
+much non-REM in POST as in PRE. Part of the variation is simply epoch length, part is
+proportion (56 % → 37 % in one session) and in one the REM collapses instead (27 % → 5 %
+of scored sleep).
+
+Since the denominator moves in both directions, every rate in this repository is
+normalised by searched time, and the PRE/POST test is reported both on all events and on
+PRE subsampled to POST's event count where PRE is the larger set.
 
 ### Quiet wakefulness on the maze cannot be defined from the released position data
 
@@ -294,16 +427,34 @@ one, and one the EMG or theta/delta channels of the LFP would settle.
 
 ## Scope and limitations
 
-- **Two of eight sessions** carry the full analysis. Steps 1–5 (loading through decoding)
-  run on all eight; event detection and sequence scoring need the LFP, which is roughly
-  9.5 GB compressed per session, and two were downloaded. Both are from the same animal.
+- **Five of eight sessions** carry the full analysis: Achilles_10252013,
+  Achilles_11012013, Cicero_09012014, Cicero_09102014 and Gatsby_08022013, from three of
+  the four animals. Steps 1–5 (loading through decoding) run on all eight; event detection
+  and sequence scoring need the LFP, which is roughly 9.5 GB compressed per session.
+  **Buddy_06272013, Cicero_09172014 and Gatsby_08282013 are omitted because that LFP was
+  not downloaded, for local storage reasons** — not because of anything in the data, and
+  not because they failed anything. The place-cell total of 304 is still all eight
+  sessions. Omitting Gatsby_08282013 and Buddy_06272013 has one methodological
+  consequence, recorded below.
 - **The Science paper's methods are in an online supplement that was not available.**
   Parameters came from Chen et al. (2016) where that paper states one, and are otherwise
   our own choice, labelled **provisional** in `config/params.yaml` with the reasoning in
   `docs/decisions.md`.
-- The two sessions are reported separately as the primary result, pooled only as a
-  secondary one. They are different mazes with different place-cell yields, and two
-  sessions are an internal replication rather than a sample.
+- **Every session is reported separately as the primary result.** Pooling is secondary and
+  happens only *within* a track geometry, because rZ is not on the same scale on a ring as
+  on a line (D8.4). Five sessions with place-cell ensembles from 16 to 77 are an internal
+  replication, not a sample.
+- **The method's sensitivity varies nearly tenfold across these five sessions** — the
+  positive control runs from +13.2 to +1.8 — so the effect sizes are not measurements on a
+  common instrument, and no attempt is made to correct for that.
+- **The negative control leaves a substantial residual in three of the five sessions**
+  (both circular, and one linear), which is the main reason the magnitude is reported as
+  unestablished. See D8.8.
+- **No session in this analysis exercises the XML `skip="1"` channel flag.** The two
+  sessions whose metadata carries it, Buddy_06272013 and Gatsby_08282013, are the omitted
+  ones; Gatsby_08022013 excludes its bad channel by a different mechanism (absence from a
+  `spikeDetection` group). The skip-flag parser is covered by unit tests and by no real
+  session.
 - Nothing here addresses the paper's rigid-versus-plastic cell classification or its
   per-cell contribution scores. The replication stops at Figure 1C.
 
@@ -369,7 +520,11 @@ uv run python scripts/score_events.py                  # sequence scores        
 uv run python scripts/score_events.py --identity-shuffle   # the negative control
 uv run python scripts/validate_sequences.py            # both controls
 uv run python scripts/replay_comparison.py             # the Fig. 1C comparison
+uv run python scripts/sensitivity_floor.py             # the positive control as a figure
 ```
+
+All of these default to the five sessions whose LFP is present (`config.LFP_SESSIONS`);
+`place_fields.py` and `decode_position.py` run on all eight.
 
 Everything lands in `results/` (gitignored): one CSV per analysis and per-session figures,
 each figure with a sidecar JSON recording the parameters and the git commit that made it.
@@ -379,10 +534,10 @@ itself is the slow part, at roughly three minutes per session.
 ### Tests
 
 ```
-418 passed, 3 skipped
+442 passed, 3 skipped
 ```
 
-The three skips are a parametrised test that does not apply to circular mazes. **Sixteen
+The three skips are a parametrised test that does not apply to circular mazes. **Seventeen
 test functions, plus all of `tests/test_data_present.py`, are marked `requires_data` and
 skip silently when the hc-11 session files are absent** — so a passing run on a fresh
 clone with no data is *not* full coverage. Everything else runs against synthetic
@@ -405,7 +560,7 @@ data/            raw data (gitignored)
 ```
 
 `docs/decisions.md` records every methodological choice with its reasoning, numbered
-D1.1 through D7.8 and cross-referenced from `docs/METHODS.md`. `docs/worklog.md` is the
+D1.1 through D8.9 and cross-referenced from `docs/METHODS.md`. `docs/worklog.md` is the
 running diary, including what went wrong and when.
 
 ---

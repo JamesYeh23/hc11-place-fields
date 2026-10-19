@@ -1,7 +1,7 @@
 # Methods
 
 How the pipeline works and why, in the order it runs. This is the narrative version:
-[`decisions.md`](decisions.md) is the decision log, numbered D1.1 to D7.8 and referenced
+[`decisions.md`](decisions.md) is the decision log, numbered D1.1 to D8.9 and referenced
 throughout here; [`worklog.md`](worklog.md) is the running diary;
 [`data_schema.md`](data_schema.md) documents the raw file format field by field. Results
 and effect sizes are in the [README](../README.md).
@@ -271,20 +271,46 @@ event without one was never measured.
 
 ### Validation
 
-- **File geometry.** Both `.eeg` files are a whole number of 268-byte frames with
-  remainder zero, and both durations match `sessDuration` to +0.000 s (D6.11). 134 is the
-  only plausible channel count that divides either file exactly, so the stride is
+- **File geometry.** All five `.eeg` files are a whole number of 268-byte frames with
+  remainder zero, and four of the five match `sessDuration` to +0.0 s (D6.11, D8.7). 134 is
+  the only plausible channel count that divides any of them exactly, so the stride is
   confirmed by the data and not only by the XML.
-- **Channel grouping against the dataset's own `Channel_Orderings.pdf`** (D6.12): 12 CA1
-  shanks of 10 channels, two four-channel "extra channel" groups, EMG on 128–130 and
-  accelerometer on 131–133, every line matching. Two independent confirmations: the EMG
+- **One session's XML contradicts its own recording, and the data wins** (D8.6, D8.7).
+  Gatsby_08022013 declares 141 channels; the file is an exact number of 134-channel frames
+  and 130 bytes short of a 141-channel one. A direct stride test settles it: at 134 the
+  channels have the statistics of a real probe (per-channel s.d. 85–2543, one visibly hot
+  channel, neighbouring contacts correlating at +0.93), while at 141 every channel has the
+  same s.d. to within 1 % and every neighbour pair the same correlation to within 0.004 —
+  the mis-stride signature described below. The override lives in `config/params.yaml`
+  under `lfp.channel_count_override`, applies to that session alone, and every
+  `LfpMetadata` records whether its stride came from the XML or from an override. That
+  session's recording also runs 26.5 minutes past `sessDuration`, which is the known
+  spikes-past-session anomaly of D3.1 seen in the LFP; a recording *longer* than the
+  session is accepted because every analysis window ends at `sessDuration`, while a
+  *shorter* one remains fatal, since it can be read past its end.
+- **The `skip="1"` channel flag is never exercised by this analysis** (D8.7). The parser
+  handles it and unit tests cover it, but the two sessions whose XML uses it
+  (Buddy_06272013, Gatsby_08282013) are among the three omitted for storage.
+  Gatsby_08022013 excludes its bad channel by a different route — channel 59 is absent from
+  shank 8's `spikeDetection` group, which is the grouping channel selection iterates — so
+  it is correctly dropped without the flag being read. This is a real coverage gap and is
+  stated here rather than left to be discovered.
+- **Channel grouping against the dataset's own `Channel_Orderings.pdf`** (D6.12, D8.2):
+  for the Achilles and Cicero sessions, 12 CA1 shanks of 10 channels, two four-channel
+  "extra channel" groups, EMG on 128–130 and accelerometer on 131–133, every line matching.
+  Gatsby_08022013 uses a different probe (BUZ64, 16 shanks of 8, of which 8 carry sorted
+  units), which is why group membership rather than a fixed geometry drives the selection
+  and why multi-shank support is reported as a fraction: the denominator is 7 there and
+  10–12 elsewhere. Two independent confirmations: the EMG
   channels carry 9.8–21.8 of ripple-band envelope against 2.4–5.0 for the accelerometer
   (muscle is broadband, an accelerometer is not), and the extra-channel groups carry no
   sorted units and the lowest ripple-band power on the probe.
 - **The channel selection tracks anatomy, not noise** (D6.14), on three grounds that are
   not the margin: each shank's depth profile is smooth and single-peaked; theta and delta
   peak several channels *deeper* than the ripple band, which is the CA1 depth signature;
-  and seven of twelve shanks select the identical channel in two sessions a week apart.
+  and seven of twelve shanks select the identical channel in two Achilles sessions a week
+  apart. The Cicero pair repeats it nine days apart, both sessions selecting channel 68
+  on shank 8 (D8.9).
 - The per-shank margins are only 1–14 %, and ranking by excursion (99th percentile over
   median) instead of level moves the choice by one contact on most shanks and by seven on
   one. Both rankings were detected on. Where they differ most, the level ranking is
@@ -292,9 +318,12 @@ event without one was never measured.
 
 ### Outcome
 
-Event rates of 28–39 per minute of NREM, median duration 54–64 ms. 70–80 % of ripples have
-an MUA partner and 47–58 % the other way, with population firing peaking 4.5–6 ms before
-the ripple envelope (D6.19, D6.22).
+Across the five sessions: MUA event rates of 41–46 per minute of NREM, median duration
+55–69 ms. **61–80 % of ripples have an MUA partner and 45–58 % the other way**, with
+population firing peaking 3–6 ms before the ripple envelope in four sessions (D6.19,
+D6.22). Gatsby_08022013 is the exception at −0.3 to +0.5 ms — no measurable lead — which
+is unexplained and may follow from its different probe and its much smaller set of
+unit-bearing shanks.
 
 ---
 
@@ -359,9 +388,20 @@ the ensemble is quiet — and that describes the place fields, not the animal.
 
 ### Validation
 
-Both controls are in the README with their numbers; the short version is that
-identity-permuted place fields collapse the PRE/POST gap to approximately zero while real
-running scores a median rZ of +7.5 to +13.2.
+Both controls are in the README with their numbers. The short version is no longer a
+single sentence, and that is the result rather than a reporting problem:
+
+- **Identity-permuted place fields** collapse the PRE/POST gap to approximately zero in two
+  of the five sessions, leave +16 % to +42 % of it in both circular sessions, and leave
+  **+62 %** of it in one linear session, Gatsby_08022013 (D8.8). Geometry is a strong
+  predictor of a large residual but not a sufficient explanation, and whether the residual
+  shares a cause with the circular rZ compression of D8.4 is an open question. Every
+  effect size is quoted with its residual attached.
+- **Real running** scores a median rZ of +1.8 to +13.2 across the five sessions, ordered by
+  ensemble size (D8.9). The low end is the session with 16 place cells, where only half the
+  windows clear z = 1.65. `results/sensitivity_floor.png` is this series, and it is the
+  context every effect size needs: the scoring's power varies nearly tenfold across
+  sessions the pipeline otherwise treats identically.
 
 ### Measured along the way
 
@@ -369,11 +409,13 @@ running scores a median rZ of +7.5 to +13.2.
   ~1 spike found during running, and under 1 % of bins are empty. The posteriors are
   sharper than anticipated — a 15 cm/s animal and a population burst are different
   regimes.
-- Forward and reverse traversals split 49–52 % in every epoch of both sessions, with no
-  consistent difference in score.
-- The conjunction event set gives a *larger* PRE/POST effect than the full set in all four
-  comparisons, consistent with it being a stricter threshold on event strength rather than
-  a different kind of filter (D6.23).
+- Forward and reverse traversals split 45–53 % in every sleep epoch of every session, with
+  no consistent difference in score.
+- The conjunction event set gives a *larger* PRE/POST effect than the full set in **9 of
+  the 10** session-by-shuffle comparisons, consistent with it being a stricter threshold on
+  event strength rather than a different kind of filter (D6.23). The single exception is
+  Cicero_09102014's column cycle, +0.149 against +0.209 — the same cell where that
+  session's rank-biserial is +0.019 at p = 0.61.
 
 ---
 
@@ -389,12 +431,13 @@ running scores a median rZ of +7.5 to +13.2.
 | **Multi-shank support vs MUA agreement** | Do two independent checks pick out the same weak events? | Agreement rises monotonically, 37 % at zero support to 87 % at eleven | D6.19 |
 | Cell-count-matched shank null | Are unmatched MUA events on shanks the detector misses? | No — concentration excess over the null is identical for matched and unmatched | D6.23 |
 | Smoothing-kernel sweep | Is the 5 ms MUA-to-ripple lead an artifact of smoothing? | No — flat from 0 to 8 ms, less than one sample | D6.22 |
-| **Identity-shuffled place fields** | Is the PRE/POST difference replay? | Gap collapses from +0.197…+0.433 to −0.033…+0.071 | D7.7 |
-| **MAZE running positive control** | Can the scoring recognise a known trajectory? | Median rZ +7.5 to +13.2, 82–95 % above 1.65 | D7.7 |
+| **Identity-shuffled place fields** | Is the PRE/POST difference replay? | Collapses in 2 of 5 sessions; leaves +16–42 % in both circular sessions and +62 % in one linear one | D7.7, D8.8 |
+| **MAZE running positive control** | Can the scoring recognise a known trajectory? | Median rZ +1.8 to +13.2 (46–95 % above 1.65), ordered by ensemble size | D7.7, D8.9 |
+| **Per-session reporting with no pooling across geometry** | Is a pooled rZ a mixture of two scales? | Yes — a ring maximises over 28–29 offsets, a line over one | D8.4 |
 
 The four in bold are the ones the headline result depends on.
 
-### Four bugs that failed silently, and how each was caught
+### Bugs that failed silently, and how each was caught
 
 A methods document that does not say what nearly went wrong is less useful than one that
 does. None of these raised an exception; each produced plausible numbers.
@@ -441,7 +484,19 @@ now by* comparing against a per-event null that draws the same number of cells a
 weighted by how many cells each shank actually has. Against that null the excess is
 identical for both groups and the hypothesis is rejected.
 
-A fifth near-miss is not a bug but belongs in the same list: **a one-lap directional
+**5. A results table that rounded its own p-values to zero (step 8c).** Every results CSV
+was written with `frame.round(5)`, so a p-value of 3.4 × 10⁻⁶ was saved as `0.0` — in
+`replay_comparison.csv` and in 73 of the 90 rows of `unmatched_mua_hypotheses.csv`. The
+printed report showed the real value, so nothing looked wrong while the analysis was
+running; only the saved artifact was damaged, which is the harder version to notice
+because it surfaces when someone reads the table months later. *Caught by* a verification
+script written to check the README's numbers against the CSVs, which flagged six
+"mismatches" that turned out to be the file's fault rather than the prose's. *Prevented
+now by* `results.round_for_csv`, which rounds p-value columns to significant figures
+rather than decimal places, used by `write_session_table` so every table written through
+it is covered.
+
+A sixth near-miss is not a bug but belongs in the same list: **a one-lap directional
 template** on the circular session (D7.3) depressed that session's sequence scores by as
 much as the effect being measured, because the score maximises over directions and a noise
 template hands the shuffles the same freedom. It was caught by checking lap counts per
@@ -490,23 +545,30 @@ The consequence: the LFP is not covering events the spikes miss, so there is no 
 argument for an LFP-primary event set, and the conjunction is best understood as a
 stricter threshold.
 
-### POST has less NREM sleep than PRE
+### How much sleep there is to search varies by session, in both directions
 
 **What would settle it:** more sessions, or sleep-pressure measurements the dataset does
 not contain.
 
-168.5 → 89.7 and 104.0 → 73.0 minutes (D6.6). The proportion falls in one session and the
-other's REM collapses instead. The likely reason — the animal has already slept some five
-hours before POST begins — cannot be tested here. Every rate is normalised by searched
-time and the PRE/POST test is reported both on all events and on PRE subsampled to POST's
-count.
+Searched non-REM minutes, PRE → POST: 168.5 → 89.7, 104.0 → 73.0, 112.9 → 106.5, 100.7 →
+63.8 — and **92.8 → 138.9 in Cicero_09102014** (D6.6). The "POST holds about half the sleep
+of PRE" statement from the two-session stage was an Achilles fact; one session has half
+again as much non-REM in POST. Where POST is shorter, the likely reason — the animal has
+already slept some five hours before POST begins — cannot be tested here. Every rate is
+normalised by searched time, and the PRE/POST test is reported both on all events and on
+PRE subsampled to POST's count wherever PRE is the larger set (which it is not in either
+Cicero session).
 
-### Only 15–24 % of candidate events are long enough to score
+### Only 6–23 % of candidate events are long enough to score
 
 **What would settle it:** a longer candidate event, which means revisiting the MUA
 detector's boundary threshold — a step-4 change, not a step-5 one.
 
-The five-bin floor at 20 ms needs a 100 ms event and ours run 55–68 ms (D7.5). This is a
+The five-bin floor at 20 ms needs a 100 ms event and ours run 55–69 ms (D7.5). The
+scorable fraction is 14–23 % in four sessions and **6–9 % in Cicero_09012014**, whose
+16-cell ensemble rarely puts spikes from five cells into five consecutive bins; that
+session still contributes 310 PRE and 435 POST scorable events, and no comparison in this
+repository rests on fewer than 100 per epoch. This is a
 larger loss than every other filter combined. It is recorded rather than tuned: a
 three-bin floor would mean fitting a correlation to three points. The same filter applies
 to PRE and POST so the comparison is unaffected, but any absolute rate is a rate within a
@@ -539,9 +601,29 @@ Threshold-crossing fractions are therefore not reported as results anywhere in t
 repository, and only the PRE/POST difference — which the control collapses — is treated as
 information.
 
-### Two sessions, one animal
+### Five sessions of eight, three animals of four
 
 Event detection and sequence scoring need the LFP, which is roughly 9.5 GB compressed per
-session; two were downloaded, both from the rat named Achilles. Steps 1–3 above run on all
-eight sessions. The two are reported separately as the primary result because they are
-different mazes with different place-cell yields; pooling them is a secondary result only.
+session. Five were downloaded: Achilles_10252013, Achilles_11012013, Cicero_09012014,
+Cicero_09102014 and Gatsby_08022013. **Buddy_06272013, Cicero_09172014 and Gatsby_08282013
+are omitted because their LFP was not downloaded, for local storage reasons** — not because
+of anything in the data and not because they failed any check (D8.9). Steps 1–3 above run
+on all eight sessions, and the place-cell total of 304 is all eight.
+
+Each session is reported separately as the primary result. Pooling is secondary and happens
+only within a track geometry, because rZ is not on the same scale on a ring as on a line
+(D8.4). The omissions have one methodological consequence beyond sample size: both sessions
+whose XML carries a `skip="1"` channel flag are among them, so that path is untested
+against real data (D8.7).
+
+### The sensitivity floor, and what it does to effect sizes
+
+**What would settle it:** sessions that vary ensemble size independently of track geometry
+and event count — which these five do not.
+
+The positive control runs from +13.2 at 77 place cells to +1.8 at 16 (D8.9). Whatever the
+replay effect sizes mean, they are not measurements on a common instrument, and the
+smallest-ensemble session is also the one with the lowest scorable fraction. Ensemble size,
+geometry and event count all move together here, so `results/sensitivity_floor.png` is a
+floor — a statement of where the method stops working — and not a calibration curve. No rZ
+in this repository is corrected by it.
