@@ -242,6 +242,17 @@ lfp:
   # A file that is not a whole number of frames fails regardless: that is the
   # signature of a wrong channel count, which mis-strides every sample.
   size_check_tolerance_s: 1.0    # [PROVISIONAL]
+  # The .eeg may run LONGER than sessDuration without that being an error: the
+  # authors sometimes defined a session shorter than what they recorded, and
+  # every analysis window ends at sessDuration. A file SHORTER than the session
+  # stays fatal, because an epoch would then read past the end of the data.
+  # The tolerance above applies to the short direction only. See D8.7.
+  #
+  # Sessions where the XML's nChannels does not describe the .eeg. Taken from
+  # the data, with the stride evidence in D8.6, and deliberately a declared
+  # per-session exception rather than a heuristic.
+  channel_count_override:
+    Gatsby_08022013: 134         # [DATA] XML says 141; stride test says 134
 
   # --- Channel selection for ripple detection (step 6a-2) ---
   channel_selection:

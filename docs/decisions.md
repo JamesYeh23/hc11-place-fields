@@ -1613,7 +1613,7 @@ Plus re-running the two Achilles sessions through any stage whose output table i
 whole rather than per session, and the pooled 8c analysis, which is seconds. Call it an
 hour of compute once the data is on disk, spread over the 180 s call limit.
 
-### D8.6 — Gatsby_08022013: the XML says 141 channels, the recording is 134 **(blocked)**
+### D8.6 — Gatsby_08022013: the XML says 141 channels, the recording is 134 **(resolved in D8.7)**
 
 The file-size check refuses this session, and the refusal is correct. What it refuses is
 worth stating precisely, because the obvious reading of the evidence is the wrong one.
@@ -1696,3 +1696,90 @@ mechanism channel selection actually uses — it iterates `meta.shanks[shank]` �
 channel is correctly excluded whatever the skip flag says. The consequence to record is
 that **no session in this analysis exercises the `skip="1"` path**, and it remains
 covered only by unit tests.
+
+## Step 8b (part 2) — Gatsby_08022013, and what its two fixes do and do not touch
+
+### D8.7 — A channel count taken from the data, and a size check that is asymmetric on purpose
+
+D8.6 left Gatsby_08022013 blocked because using it required two changes, and a change made
+while looking at a failing session is the classic way a pipeline stops being trustworthy.
+Both were authorised. They are recorded here as **correctness fixes**, and the case for
+calling them that — rather than calling them a relaxation — is set out below, together
+with the limits on what they can affect.
+
+**1. Where the XML and the file disagree about the channel count, the file wins — for one
+declared session.**
+
+`config/params.yaml` gains `lfp.channel_count_override`, with exactly one entry:
+
+```yaml
+lfp:
+  channel_count_override:
+    Gatsby_08022013: 134   # XML says 141; see D8.6 for the stride evidence
+```
+
+`hc11.lfp.apply_channel_override` applies it, and `LfpMetadata.channel_count_source`
+records `"xml"` or `"override"` so that every object — and every figure sidecar derived
+from one — states where its stride came from. The four other sessions read `"xml"`.
+
+The reason this is not a tuned parameter is that **it is checkable against the data and
+only one value passes**. D8.6's stride test is the check: at 134 channels the recording
+has the statistics of a real probe (per-channel s.d. 85–2543, one visibly hot channel,
+neighbour correlation median +0.925, distant channels much lower); at 141 every channel
+has the same s.d. to within 1 % and every neighbour pair the same correlation to within
+0.004, which is the mis-stride signature of D6.7. A wrong override announces itself. A
+parameter that can be read off the data is not a free parameter, and this one is pinned to
+a session name so it cannot leak into another.
+
+Guards, all unit-tested: an override equal to the XML value is a no-op and leaves the
+source as `"xml"`; no session without an entry is touched; the override is applied at
+`open_session_lfp`, so no caller can bypass it or apply it twice.
+
+**2. A recording longer than `sessDuration` is accepted. A short one is still fatal.**
+
+`require_size_consistency` previously raised on any disagreement beyond 1 s in either
+direction. It now raises only when `SizeCheck.is_short`. The asymmetry is the point:
+
+* **Short is dangerous.** If the file ends before the session does, an analysis window can
+  run past the end of the data and come back silently truncated — or the stride is wrong,
+  which is the same failure wearing a different hat. Nothing downstream can detect it.
+* **Long costs nothing.** Every window this project reads lies inside an epoch, every
+  epoch ends at or before `sessDuration`, and spikes are already truncated there (D3.1).
+  A longer file means only that there is tail no analysis reads.
+
+**This fix was made while looking at a session that was failing, and it affects no
+quantity that enters a PRE/POST comparison.** Both halves of that sentence are load-bearing
+and the second is checkable. One session is long; the rest match the session clock exactly,
+so for them the check's input and its verdict are both unchanged:
+
+| Session | channels | source | file | `sessDuration` | excess |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 134 | xml | 34,861.1 s | 34,861.1 s | 0.0 s |
+| Achilles_11012013 | 134 | xml | 36,629.2 s | 36,629.2 s | 0.0 s |
+| Cicero_09012014 | 134 | xml | 34,756.8 s | 34,756.8 s | 0.0 s |
+| Cicero_09102014 | 134 | xml | 36,498.6 s | 36,498.6 s | 0.0 s |
+| **Gatsby_08022013** | **134** | **override** | 32,002.4 s | 30,413.6 s | **+1,588.8 s** |
+
+The 1,588.8 s is the known anomaly, not a new one: D3.1 records 263,976 spikes (4.67 % of
+the session's total) past `sessDuration`, and 4.67 % of 8.89 h is ~25 min. The LFP and the
+spike file agree that the recording ran ~26 min longer than the session the authors
+defined. Both are truncated at the same mark.
+
+What the change cannot do, stated so it can be checked rather than trusted: it alters no
+detection threshold, no scoring parameter and no epoch boundary; it admits a session that
+was previously refused, and nothing else.
+
+**3. Coverage gap: no session in this analysis exercises the `skip="1"` path.**
+
+The step-8 brief asked for an assertion on Gatsby_08022013's parsed skip set, on the
+understanding that it was the one downloaded session with skip flags. It has none. Its bad
+channel (59) is excluded by a different mechanism — absence from shank 8's
+`spikeDetection` group, which leaves that shank with seven channels instead of eight — and
+that is the mechanism channel selection actually uses, since it iterates `meta.shanks`.
+The sessions whose XML carries `skip="1"` are Buddy_06272013 and Gatsby_08282013, both
+omitted for storage (D8.9).
+
+So the skip-flag parser is covered by unit tests and by nothing else. It is correct on
+synthetic XML and has never been run against a real session that uses it. This is stated
+in `docs/METHODS.md` as a limitation rather than left to be discovered.
+

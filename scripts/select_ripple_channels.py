@@ -95,9 +95,16 @@ def profile_session(session_name: str, params: dict) -> dict:
     profile = rc.channel_profile(block, meta.sampling_rate_hz, channels=order, bands=bands)
     eligible = shanks_with_units(session, meta)
     skipped_groups = [s for s in sorted(meta.shanks) if s not in eligible]
+    # What the excluded groups are depends on the probe. On the BUZ64SP
+    # (Achilles, Cicero) they are the four-channel "Extra Channels" groups of
+    # Channel_Orderings.pdf, which are not in the cell layer at all. On the
+    # BUZ64 (Gatsby) every group is a real CA1 shank and the excluded ones
+    # simply carry no sorted units. Either way the test is the same and it is
+    # the data's, not the document's: no sorted pyramidal cell, no pyramidal
+    # layer.
     log.info(
-        "spike groups with sorted units: %s; without: %s (excluded -- the "
-        "'Extra Channels' groups of Channel_Orderings.pdf)",
+        "spike groups with sorted units: %s; without: %s (excluded -- no sorted "
+        "units, so not in stratum pyramidale)",
         eligible, skipped_groups,
     )
     select = dict(skip_channels=cfg["skip_channels"], shanks=eligible)

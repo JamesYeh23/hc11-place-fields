@@ -869,3 +869,31 @@ Cicero_09102014 +5.6, **Cicero_09012014 +1.8** with only 52 % of windows above 1
 work done on it pending a decision.
 
 **Time**: ~2 h.
+
+## 2026-10-19 — Step 8b (part 2): Gatsby_08022013 unblocked
+
+**Gatsby_08022013 unblocked (D8.7).** Both changes D8.6 identified were authorised and
+made. The channel count for this one session comes from the data (134) rather than its XML
+(141), declared in `config/params.yaml` as `lfp.channel_count_override` and recorded on
+every `LfpMetadata` as `channel_count_source`; the stride evidence that pins it to a single
+value is in D8.6. The file-size check is now asymmetric — a recording *shorter* than
+`sessDuration` is still fatal, a *longer* one is accepted — because every window this
+project reads lies inside an epoch and every epoch ends at or before `sessDuration`.
+
+That second change was made while looking at a failing session, which is worth saying
+plainly rather than burying. What bounds it: Gatsby is the only long file (+1,588.8 s, the
+known D3.1 anomaly); the other four match the session clock to 0.0 s, so the check's input
+and verdict are unchanged for them; and the change touches no threshold, no scoring
+parameter and no epoch boundary. 11 new tests in `test_lfp.py`.
+
+**A coverage gap, stated rather than discovered later.** Gatsby_08022013 turns out to have
+no `skip="1"` flags at all — it excludes channel 59 by leaving it out of shank 8's
+`spikeDetection` group, which is the mechanism channel selection actually uses. The two
+sessions whose XML does carry skip flags are both omitted for storage. **No session in this
+analysis exercises the skip-flag path**; it is covered by unit tests and nothing else. It
+goes into METHODS.md with the step-8c write-up.
+
+**Gatsby in numbers.** 30 place cells, 8 of 16 spike groups carrying units (support
+denominator 7, the lowest in the set), 671 PRE and 408 POST scorable events.
+
+**Tests**: 436 passing, 3 skipped.

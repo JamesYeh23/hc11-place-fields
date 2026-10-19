@@ -20,10 +20,13 @@ from hc11.lfp import (
     LFP_DIR_ENV_VAR,
     LfpFile,
     LfpFormatError,
+    apply_channel_override,
     lfp_dir,
     open_session_lfp,
     parse_xml,
+    require_size_consistency,
     session_lfp_paths,
+    size_check,
 )
 
 N_SHANKS = 8
@@ -403,3 +406,98 @@ class TestPaths:
         with pytest.raises(FileNotFoundError, match=LFP_DIR_ENV_VAR):
             lfp_dir()
         assert lfp_dir(required=False) == tmp_path / "nope"
+
+
+# ---------------------------------------------------------------------------
+# Step 8: a long recording, and a channel count the XML gets wrong
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def xml_meta(recording):
+    folder, _ = recording
+    return parse_xml(folder / "Testrat_01012020.xml")
+
+
+# --- a long recording is fine, a short one is not (D8.7) --------------------
+
+
+def size_check_for(duration_s, expected_s, meta, tmp_path):
+    """A SizeCheck for a file of ``duration_s`` against a session of ``expected_s``."""
+    n_bytes = int(round(duration_s * meta.sampling_rate_hz)) * meta.n_channels_total * 2
+    return size_check(tmp_path / "x.eeg", n_bytes, meta, expected_s)
+
+
+def test_a_recording_longer_than_the_session_is_accepted(tmp_path, xml_meta):
+    """The authors sometimes defined a session shorter than what they recorded."""
+    check = size_check_for(1000.0, 900.0, xml_meta, tmp_path)
+    assert not check.is_short
+    assert check.excess_s == pytest.approx(100.0)
+    assert require_size_consistency(check, tolerance_s=1.0) is check
+
+
+def test_a_recording_shorter_than_the_session_is_refused(tmp_path, xml_meta):
+    """The dangerous direction: an epoch would read past the end of the data."""
+    check = size_check_for(900.0, 1000.0, xml_meta, tmp_path)
+    assert check.is_short
+    assert check.excess_s == 0.0
+    with pytest.raises(LfpFormatError, match="ends"):
+        require_size_consistency(check, tolerance_s=1.0)
+
+
+def test_the_tolerance_still_covers_a_slightly_short_file(tmp_path, xml_meta):
+    check = size_check_for(999.6, 1000.0, xml_meta, tmp_path)
+    assert check.is_short
+    assert require_size_consistency(check, tolerance_s=1.0) is check
+
+
+def test_a_long_file_still_has_to_be_a_whole_number_of_frames(tmp_path, xml_meta):
+    """Length is forgiven; a wrong stride never is."""
+    n_bytes = 1000 * xml_meta.n_channels_total * 2 + 7
+    check = size_check(tmp_path / "x.eeg", n_bytes, xml_meta, 0.1)
+    assert not check.exact
+    with pytest.raises(LfpFormatError, match="whole number"):
+        require_size_consistency(check)
+
+
+def test_the_excess_is_reported_in_the_summary_line(tmp_path, xml_meta):
+    assert "recorded past the session" in str(size_check_for(1000.0, 900.0, xml_meta, tmp_path))
+
+
+# --- the per-session channel count (D8.6) ----------------------------------
+
+
+def test_an_override_replaces_the_xml_channel_count(xml_meta):
+    params = {"lfp": {"channel_count_override": {xml_meta.session: 99}}}
+    out = apply_channel_override(xml_meta, params)
+    assert out.n_channels_total == 99
+    assert out.channel_count_source == "override"
+    assert "not the XML" in str(out)
+
+
+def test_an_override_for_another_session_is_ignored(xml_meta):
+    params = {"lfp": {"channel_count_override": {"Someone_Else": 99}}}
+    out = apply_channel_override(xml_meta, params)
+    assert out.n_channels_total == xml_meta.n_channels_total
+    assert out.channel_count_source == "xml"
+
+
+def test_no_override_section_leaves_the_metadata_alone(xml_meta):
+    assert apply_channel_override(xml_meta, {}).channel_count_source == "xml"
+    assert apply_channel_override(
+        xml_meta, {"lfp": {"channel_count_override": None}}
+    ).channel_count_source == "xml"
+
+
+def test_an_override_equal_to_the_xml_is_not_marked_as_one(xml_meta):
+    params = {"lfp": {"channel_count_override": {xml_meta.session: xml_meta.n_channels_total}}}
+    assert apply_channel_override(xml_meta, params).channel_count_source == "xml"
+
+
+def test_shrinking_the_count_drops_channels_from_the_non_probe_set(xml_meta):
+    """The override changes the stride, and with it which channels exist at all."""
+    wide = apply_channel_override(
+        xml_meta, {"lfp": {"channel_count_override": {xml_meta.session: N_TOTAL - 4}}}
+    )
+    assert max(wide.non_probe_channels) == N_TOTAL - 5
+    assert wide.probe_channels == xml_meta.probe_channels

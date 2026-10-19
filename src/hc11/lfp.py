@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import os
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -135,6 +135,7 @@ class LfpMetadata:
     shanks: dict[int, list[int]] = field(default_factory=dict)  # spike-sorted shanks
     anatomical_groups: dict[int, list[int]] = field(default_factory=dict)  # all channels
     shank_source: str = "spikeDetection"  # which grouping `shanks` came from
+    channel_count_source: str = "xml"  # "xml", or "override" when D8.6 applies
     skipped_channels: tuple[int, ...] = ()  # Neuroscope "skip" flag
     path: Path | None = None
 
@@ -172,6 +173,8 @@ class LfpMetadata:
             f"({self.n_probe_channels} probe on {self.n_shanks} shanks from "
             f"{self.shank_source}, {len(self.non_probe_channels)} non-probe), "
             f"{self.sampling_rate_hz:g} Hz, {self.n_bits}-bit"
+            + ("" if self.channel_count_source == "xml"
+               else f" [channel count from {self.channel_count_source}, not the XML]")
             + (f", {len(self.skipped_channels)} skipped" if self.skipped_channels else "")
         )
 
@@ -297,6 +300,27 @@ class SizeCheck:
             return None
         return self.duration_s - self.expected_duration_s
 
+    @property
+    def is_short(self) -> bool:
+        """The recording ends before the session does.
+
+        This is the dangerous direction and the only one that is fatal. A short
+        file means an analysis window can run past the end of the data, which
+        yields a silently truncated read. A *long* file means the authors
+        defined a session shorter than what they recorded, which costs nothing:
+        every epoch ends at or before ``sessDuration`` and the extra samples
+        are never addressed. See D8.7.
+        """
+        if self.expected_duration_s is None:
+            return False
+        return self.duration_s < self.expected_duration_s
+
+    @property
+    def excess_s(self) -> float:
+        """Seconds of recording beyond the session, zero when there are none."""
+        difference = self.duration_difference_s
+        return max(difference, 0.0) if difference is not None else 0.0
+
     def __str__(self) -> str:
         text = (
             f"{self.path.name}: {self.n_bytes:,} bytes / "
@@ -305,6 +329,8 @@ class SizeCheck:
         )
         if not self.exact:
             text += f"  [{self.remainder_bytes} trailing bytes -- NOT a whole frame]"
+        if self.excess_s > 0:
+            text += f"  [+{self.excess_s:.1f} s recorded past the session]"
         if self.expected_duration_s is not None:
             text += (
                 f"; sessInfo says {self.expected_duration_s:.3f} s "
@@ -357,13 +383,16 @@ def require_size_consistency(check: SizeCheck, tolerance_s: float = 1.0) -> Size
         )
     if (
         check.expected_duration_s is not None
+        and check.is_short
         and abs(check.duration_difference_s) > tolerance_s
     ):
         raise LfpFormatError(
             f"{check.path.name}: file is {check.duration_s:.3f} s at "
             f"{check.n_channels_total} channels but the session is "
-            f"{check.expected_duration_s:.3f} s "
-            f"({check.duration_difference_s:+.3f} s, tolerance {tolerance_s} s)."
+            f"{check.expected_duration_s:.3f} s -- the recording ends "
+            f"{-check.duration_difference_s:.3f} s before the session does "
+            f"(tolerance {tolerance_s} s). Reading an epoch would run past the "
+            "end of the data."
         )
     return check
 
@@ -489,8 +518,36 @@ class LfpFile:
         )
 
 
-def open_session_lfp(session: str, root: Path | None = None) -> tuple[LfpFile, LfpMetadata]:
+def apply_channel_override(meta: LfpMetadata, params: dict) -> LfpMetadata:
+    """Replace ``n_channels_total`` where the XML is known not to describe the file.
+
+    The stride normally comes from the XML and nothing else (D6.7), because a
+    wrong stride mis-reads every sample while raising nothing. One session
+    breaks that: Gatsby_08022013's XML declares 141 channels and its ``.eeg``
+    is 134, which a stride test settles beyond argument -- at 134 the channels
+    have the amplitude spread and the neighbour correlations of real
+    electrodes, and at 141 every channel has the same statistics to within
+    1 %, the signature of a drifting mixture. The evidence is in D8.6.
+
+    This stays a declared, per-session exception in ``config/params.yaml``. It
+    is deliberately not a heuristic: a rule that picked whichever channel count
+    divided the file exactly would have chosen 134 here for the wrong reason
+    and would choose wrongly elsewhere.
+    """
+    overrides = params.get("lfp", {}).get("channel_count_override") or {}
+    override = overrides.get(meta.session)
+    if override is None or int(override) == meta.n_channels_total:
+        return meta
+    return replace(meta, n_channels_total=int(override), channel_count_source="override")
+
+
+def open_session_lfp(
+    session: str, root: Path | None = None, params: dict | None = None
+) -> tuple[LfpFile, LfpMetadata]:
     """Open one session's ``.eeg`` with the metadata from its ``.xml``."""
+    from hc11 import config
+
     eeg_path, xml_path = session_lfp_paths(session, root)
     meta = parse_xml(xml_path, session=session)
+    meta = apply_channel_override(meta, params if params is not None else config.load_params())
     return LfpFile(eeg_path, meta), meta
