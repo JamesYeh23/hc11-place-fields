@@ -592,6 +592,25 @@ running diary, including what went wrong and when.
 
 ---
 
+## How this was built
+
+I directed this replication end to end: its scope, the order the work ran in, the
+parameter choices, the stopping points, and every call about what counted as a finding.
+The implementation was AI-assisted — much of the code and the prose was drafted in
+collaboration with a language model, working against those decisions and against the
+standing rules I set for the project: a session that fails is data rather than a bug to
+tune away, a contradiction between the data and the paper stops the work instead of being
+worked around, and a result that is absent or reversed is reported as prominently as one
+that holds.
+
+The evidence for how that went is in the repository rather than in this paragraph.
+`docs/decisions.md` records every methodological choice with its reasoning and the
+measurement that settled it, numbered and cross-referenced. `docs/worklog.md` is the
+session-by-session diary, including the dead ends. `docs/METHODS.md` has a section on the
+five bugs that produced plausible numbers instead of errors, and on what caught each one.
+
+---
+
 ## Citations
 
 > Grosmark, A. D. & Buzsáki, G. (2016). Diversity in neural firing dynamics supports both
