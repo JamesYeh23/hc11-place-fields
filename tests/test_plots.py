@@ -93,3 +93,24 @@ def test_sensitivity_floor_survives_one_shuffle_kind(tmp_path):
     rows = [{"session": "A_1", "n_place_cells": 70, "geometry": "linear",
              "shuffle": "column_cycle", "median_rz": 12.0}]
     assert plots.plot_sensitivity_floor(rows, tmp_path / "one.png", {}).exists()
+
+
+def test_residual_vs_ensemble_renders_both_panels(tmp_path):
+    rows = [
+        {"session": "A_1", "n_place_cells": 77, "geometry": "linear",
+         "shuffle": "column_cycle", "difference": 0.302, "identity_residual": -0.005,
+         "residual_fraction": -0.018, "abs_residual": 0.005},
+        {"session": "B_2", "n_place_cells": 30, "geometry": "circular",
+         "shuffle": "column_cycle", "difference": 0.014, "identity_residual": 0.121,
+         "residual_fraction": 8.6, "abs_residual": 0.121},
+        {"session": "B_2", "n_place_cells": 30, "geometry": "circular",
+         "shuffle": "time_permutation", "difference": 0.2, "identity_residual": -0.025,
+         "residual_fraction": -0.125, "abs_residual": 0.025},
+    ]
+    out = plots.plot_residual_vs_ensemble(rows, tmp_path / "residual.png", {"n": 5})
+    assert out.exists() and out.with_suffix(".json").exists()
+
+
+def test_unstable_difference_is_small_enough_to_flag_only_a_near_zero_gap():
+    """The ring marks a denominator that is noise, not a merely modest effect."""
+    assert 0.0 < plots.UNSTABLE_DIFFERENCE <= 0.1

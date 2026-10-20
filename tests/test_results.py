@@ -97,3 +97,21 @@ def test_write_session_table_does_not_flatten_p(tmp_path):
     written = pd.read_csv(path)
     assert written.loc[0, "p"] == 1.2e-07
     assert written.loc[0, "x"] == 0.12346
+
+
+def test_leading_monotone_run_whole_sequence():
+    assert results.leading_monotone_run([0.0, 0.05, 0.09, 0.12]) == (True, 4)
+
+
+def test_leading_monotone_run_reports_where_it_breaks():
+    # The five-session residual series: four ensembles in order, then a reversal.
+    assert results.leading_monotone_run([-0.018, 0.247, 0.418, 0.622, -1.828]) == (False, 4)
+
+
+def test_leading_monotone_run_breaks_immediately():
+    assert results.leading_monotone_run([0.5, 0.1, 0.2]) == (False, 1)
+
+
+def test_leading_monotone_run_on_empty_and_single():
+    assert results.leading_monotone_run([]) == (True, 0)
+    assert results.leading_monotone_run([0.3]) == (True, 1)

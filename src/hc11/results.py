@@ -106,3 +106,24 @@ def write_session_table(
     path.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(path, index=False)
     return merged
+
+
+def leading_monotone_run(values) -> tuple[bool, int]:
+    """How far a sequence rises before it stops, counted from the start.
+
+    Returns ``(whole, run)``: whether every step increases, and the length of
+    the increasing run starting at the first element. Used to describe an
+    ordering across a handful of sessions **without fitting anything** — with
+    five points a slope would be invented, while "monotone over the four
+    largest ensembles, then it breaks" is a statement the data supports.
+
+    A run of 1 means the first step already breaks the ordering. An empty
+    sequence is reported as ``(True, 0)``: nothing to break.
+    """
+    values = list(values)
+    run = 1 if values else 0
+    for previous, current in zip(values, values[1:], strict=False):
+        if current <= previous:
+            break
+        run += 1
+    return run == len(values), run

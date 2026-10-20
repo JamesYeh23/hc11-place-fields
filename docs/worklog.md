@@ -942,3 +942,43 @@ everything else to the fixed places, and `write_session_table` uses it, so every
 written through it is fixed at once. 4 new tests; the affected tables were regenerated.
 
 **Tests**: 442 passing, 3 skipped. **Time**: ~2.5 h.
+
+## 2026-10-20 — Two additions before pushing: the residual against ensemble size, and the silent failures as a section
+
+**Does the residual track cells rather than geometry? On one shuffle, yes — suggestively
+(D8.10).** `scripts/residual_vs_ensemble.py` and `plots.plot_residual_vs_ensemble` plot the
+identity-shuffle residual against place-cell count, hollow markers for circular tracks, two
+panels (signed fraction and absolute residual), **no curve fitted**. The signed fraction
+rises across the four largest ensembles — 77, 73, 36, 30 — which alternate linear,
+circular, circular, linear, so cell count orders them and geometry does not; the
+16-cell session then reverses the sign. The *absolute* residual is monotone across all five
+(0.005, 0.049, 0.087, 0.121, 0.369) on the column-cycle shuffle, in both event sets. Read
+as noise rather than bias, that is the sensitivity-floor story again: the negative control
+weakens as the ensemble shrinks, and at 16 cells it is noisier than the effect it controls.
+Time permutation shows neither pattern, which fits — column cycling is the shuffle that
+rewards positional localisation.
+
+Five points, with geometry and ensemble size confounded, establish nothing. The script
+reports how far each series is monotone and refuses to go further; `leading_monotone_run`
+in `hc11.results` is the whole statistic, and it is four lines long. The geometry
+explanation is not retired: both circular sessions still sit above both large-ensemble
+linear ones.
+
+Also recorded: the residual is computed once per session and shuffle on the **full** event
+set, so the conjunction rows carry the same residual over a different denominator. That is
+another reason the absolute residual is the series to read.
+
+**The silent failures are now a section of their own in METHODS.md**, not a list inside the
+controls section. Lead paragraph on what they share — every one returned a plausible number
+instead of an error — then a table of what each produced and what caught it, then a
+paragraph each. The point the table makes is that in all five cases the detector was a
+cross-check against something the result had to agree with (a second measurement, a
+physical expectation, a control, a document), never the code failing. Three of the five
+produced results that *supported* the hypothesis under test, which is the dangerous shape.
+
+Stale text in `replay_comparison.py`'s docstring fixed on the way: it still said the
+residual was "a sixth to a half" on circular tracks and that PRE holds twice the non-REM of
+POST "in both sessions".
+
+**Tests**: 448 passing, 3 skipped (6 new: 4 for `leading_monotone_run`, 2 for the figure).
+**Time**: ~1 h.

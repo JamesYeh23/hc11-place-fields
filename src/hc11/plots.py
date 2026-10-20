@@ -965,3 +965,76 @@ def plot_sensitivity_floor(rows, path: Path, params: dict) -> Path:
     _style(ax)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+#: Below this, a PRE/POST difference is too small for a residual *fraction* of it
+#: to mean anything: the denominator is noise, so the ratio is noise over noise.
+UNSTABLE_DIFFERENCE = 0.05
+
+
+def plot_residual_vs_ensemble(rows, path: Path, params: dict) -> Path:
+    """Identity-shuffle residual against ensemble size — does it track cells, not geometry?
+
+    Two panels, because the quantity asked for and the quantity that behaves are
+    not the same one. Left: the residual as a fraction of the real PRE/POST
+    difference, which is how it is quoted everywhere else and which inherits its
+    denominator's instability — points whose real difference is under
+    :data:`UNSTABLE_DIFFERENCE` are ringed, not hidden. Right: the absolute
+    residual in rZ units, which has no denominator at all.
+
+    Circular sessions are drawn hollow. **No line is fitted.** Five sessions
+    cannot establish a relationship, and the figure exists to show the ordering,
+    not to measure a slope.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.3))
+    panels = (
+        (axes[0], "residual_fraction", "residual ÷ real PRE−POST difference", True),
+        (axes[1], "abs_residual", "|identity-shuffle residual| (rZ)", False),
+    )
+    for ax, key, ylabel, mark_unstable in panels:
+        for kind, colour, marker in (("column_cycle", "#0072B2", "o"),
+                                     ("time_permutation", "#D55E00", "s")):
+            here = sorted((r for r in rows if r["shuffle"] == kind),
+                          key=lambda r: r["n_place_cells"])
+            if not here:
+                continue
+            # Markers only: a connecting line between five sessions would read as
+            # a trend, and no trend is claimed.
+            for r in here:
+                circular = str(r.get("geometry", "")).lower().startswith("circ")
+                ax.plot(r["n_place_cells"], r[key], marker=marker, markersize=6.5,
+                        color=colour, zorder=3, linestyle="none",
+                        markerfacecolor="white" if circular else colour,
+                        markeredgecolor=colour, markeredgewidth=1.4)
+                if mark_unstable and abs(r["difference"]) < UNSTABLE_DIFFERENCE:
+                    ax.plot(r["n_place_cells"], r[key], marker="o", markersize=13,
+                            markerfacecolor="none", markeredgecolor=MUTED,
+                            markeredgewidth=0.9, linestyle="none", zorder=4)
+        ax.axhline(0.0, color=MUTED, linewidth=0.8, linestyle=":", zorder=1)
+        ax.set_xlabel("place cells in the decoding ensemble")
+        ax.set_ylabel(ylabel)
+        ax.margins(x=0.12, y=0.14)
+        _style(ax)
+    for r in rows:
+        if r["shuffle"] != "column_cycle":
+            continue
+        for ax, key in ((axes[0], "residual_fraction"), (axes[1], "abs_residual")):
+            ax.annotate(r["session"].replace("_", "\n"),
+                        (r["n_place_cells"], r[key]), textcoords="offset points",
+                        xytext=(0, 11), fontsize=6.5, color=MUTED, ha="center")
+    handles = [Line2D([], [], color="#0072B2", marker="o", markersize=6.5, linewidth=0,
+                      label="column cycle"),
+               Line2D([], [], color="#D55E00", marker="s", markersize=6.5, linewidth=0,
+                      label="time permutation"),
+               Line2D([], [], color=MUTED, marker="o", markersize=6.5, linewidth=0,
+                      markerfacecolor="white", markeredgecolor=MUTED,
+                      label="circular track"),
+               Line2D([], [], color=MUTED, marker="o", markersize=11, linewidth=0,
+                      markerfacecolor="none", markeredgecolor=MUTED,
+                      label="real difference < 0.05: fraction not interpretable")]
+    fig.suptitle("Does the negative control's residual follow ensemble size?\n"
+                 "five sessions, no line fitted", color=INK, fontsize=10)
+    fig.tight_layout(rect=(0, 0.09, 1, 1))
+    fig.legend(handles=handles, frameon=False, fontsize=7.5, ncol=2,
+               loc="lower center", bbox_to_anchor=(0.5, 0.0))
+    return _save(fig, path, params)

@@ -402,6 +402,15 @@ single sentence, and that is the result rather than a reporting problem:
   windows clear z = 1.65. `results/sensitivity_floor.png` is this series, and it is the
   context every effect size needs: the scoring's power varies nearly tenfold across
   sessions the pipeline otherwise treats identically.
+- **The two controls are probably one finding.** Plotted against place-cell count rather
+  than against session, the *absolute* identity-shuffle residual is monotone with ensemble
+  size across all five sessions on the column-cycle shuffle — 0.005, 0.049, 0.087, 0.121,
+  0.369 — while the four largest ensembles order the same way on the signed fraction with
+  geometry alternating between them (D8.10). Read as noise rather than as bias, that says
+  the negative control gets weaker as the ensemble shrinks, exactly as the positive control
+  does. `results/residual_vs_ensemble_all.png` plots it with no curve fitted: five
+  sessions, with geometry and ensemble size moving together, can show an ordering and
+  nothing more.
 
 ### Measured along the way
 
@@ -434,73 +443,87 @@ single sentence, and that is the result rather than a reporting problem:
 | **Identity-shuffled place fields** | Is the PRE/POST difference replay? | Collapses in 2 of 5 sessions; leaves +16–42 % in both circular sessions and +62 % in one linear one | D7.7, D8.8 |
 | **MAZE running positive control** | Can the scoring recognise a known trajectory? | Median rZ +1.8 to +13.2 (46–95 % above 1.65), ordered by ensemble size | D7.7, D8.9 |
 | **Per-session reporting with no pooling across geometry** | Is a pooled rZ a mixture of two scales? | Yes — a ring maximises over 28–29 offsets, a line over one | D8.4 |
+| Residual against ensemble size | Does the control's residual follow cell count rather than geometry? | The absolute residual is monotone with ensemble size across all five sessions on the column-cycle shuffle; suggestive only, no fit | D8.10 |
 
-The four in bold are the ones the headline result depends on.
+The five in bold are the ones the headline result depends on.
 
-### Bugs that failed silently, and how each was caught
+---
 
-A methods document that does not say what nearly went wrong is less useful than one that
-does. None of these raised an exception; each produced plausible numbers.
+## Five silent failures
 
-**1. Band-passing across the probe instead of across time (D6.15).** The first
-channel-power analysis indexed `data[channel]` — a single time point across 134 channels —
-instead of `data[:, channel]`. A 150–300 Hz filter happily runs on a 134-sample "signal"
-and returns a few tens of units, slightly different per channel, so the output was a flat
-profile reading as "all channels are equivalent" rather than as a fault. Only the 1–4 Hz
-band complained, and it complained with NaN rather than an error, because a narrow
-low-frequency Butterworth in transfer-function form is unstable at that length. *Caught
-by* the result being implausible — a uniform 44–46 on every one of 134 channels — followed
-by several hours spent verifying the recording before the fault was located in the
-analysis. *Prevented now by* explicit `axis=0` on every filter call, a per-channel loop
-over one-dimensional arrays where the axis cannot be ambiguous, `sosfiltfilt` instead of
-`filtfilt`, and three tests that pin the behaviour by *answer* rather than by arithmetic —
-including one that plants a 190 Hz burst on a known channel and asserts that channel is
-the one selected.
+Every one of these produced plausible output instead of an error. None raised an
+exception, none made a number look obviously wrong, and in every case the thing that
+caught it was a **cross-check against something the result had to agree with** — a second
+measurement, a physical expectation, a control, or a document — rather than the code
+complaining. That is the argument for the controls in the previous section: they are not
+ceremony, they are the only detector this project has.
 
-**2. "No shank saw this event" that actually meant "never measured" (D6.18).** Multi-shank
+| # | What broke | What it produced instead of an error | What caught it |
+|---|---|---|---|
+| 1 | Band-passing across the probe's spatial profile, not across time (D6.15) | A flat channel-power profile: a uniform 44–46 on every one of 134 channels, reading as "all channels are equivalent" | Physical implausibility — real electrodes at different depths cannot all carry the same ripple power |
+| 2 | NaN multi-shank support read as a clean zero (D6.18) | "No other shank saw this event", on all 18 MAZE events | The result being *too* clean — exactly zero everywhere, where real data is never that tidy |
+| 3 | A duration confound in the spike-jitter null (D6.5) | The null looking *more* synchronous than the data, 22 active cells against 18 | A second comparison that controlled for duration, run because the first answer was the wrong sign |
+| 4 | A cell-count confound in the shank-concentration test (D6.23) | Apparent confirmation: unmatched events did have more concentrated activity | A per-event null drawing the same number of cells, built before accepting a result that agreed with the hypothesis |
+| 5 | p-values below 1 × 10⁻⁵ rounding to zero in saved tables (step 8c) | `p = 0.0` in two results CSVs while the printed report showed 3.4 × 10⁻⁶ | A verification script comparing the README's numbers against the CSVs, which flagged six "mismatches" that were the file's fault |
+
+**1. Band-passing across the probe instead of across time.** The first channel-power
+analysis indexed `data[channel]` — a single time point across 134 channels — instead of
+`data[:, channel]`. A 150–300 Hz filter runs happily on a 134-sample "signal" and returns
+a few tens of units, slightly different per channel. Only the 1–4 Hz band complained, and
+it complained with NaN rather than an error, because a narrow low-frequency Butterworth in
+transfer-function form is unstable at that length. Several hours went into verifying the
+recording before the fault was located in the analysis. *Prevented now by* explicit
+`axis=0` on every filter call, a per-channel loop over one-dimensional arrays where the
+axis cannot be ambiguous, `sosfiltfilt` instead of `filtfilt`, and three tests that pin
+the behaviour by *answer* rather than by arithmetic — including one that plants a 190 Hz
+burst on a known channel and asserts that channel is the one selected.
+
+**2. "No shank saw this event", which actually meant "never measured".** Multi-shank
 support needs a baseline per comparison channel, sampled from the same brain state. MAZE
 immobility comes in fragments under a second, too short to sample from, so the baseline
 was NaN, every z-score was NaN, and the count of supporting shanks came out as a clean
-zero for all 18 MAZE events. *Caught by* the result being too clean — exactly zero on
-every event, where real data is never that tidy. *Prevented now by* a fallback that uses
-the state itself when no window fits, and by a warning when nothing finite was measured.
-With the fallback, MAZE support is a median of 10 of 11.
+zero. *Prevented now by* a fallback that uses the state itself when no window fits, and by
+a warning when nothing finite was measured. With the fallback, MAZE support is a median of
+10 of 11.
 
-**3. A duration confound in the jitter null (D6.5).** Comparing the median participation of
-*re-detected* null events against observed suggested the null was *more* synchronous — 22
-cells against 18. It is an artifact of detection: jittering smooths the rate trace, so null
-events are nearly twice as long (124 ms against 68 ms) and simply accumulate more distinct
-cells over their longer span. Normalised for duration the observed events are denser (2.50
-against 1.85 active cells per 10 ms). *Prevented now by* the rule that any comparison of
-participation between two event sets must control for duration — which is why the
-decisive comparison recounts participation inside the *observed* windows.
+**3. A duration confound in the jitter null.** Comparing the median participation of
+*re-detected* null events against observed suggested the null was more synchronous.
+It is an artifact of detection: jittering smooths the rate trace, so null events are
+nearly twice as long (124 ms against 68 ms) and accumulate more distinct cells over their
+longer span. Normalised for duration the observed events are denser (2.50 against 1.85
+active cells per 10 ms). *Prevented now by* the rule that any comparison of participation
+between two event sets must control for duration, which is why the decisive comparison
+recounts participation inside the *observed* windows.
 
-**4. A cell-count confound in the shank-concentration test (D6.23).** Testing whether
-unmatched MUA events have their active cells concentrated on particular shanks, the raw
-concentration *was* higher for unmatched events — which looks like confirmation. But an
+**4. A cell-count confound in the shank-concentration test.** Testing whether unmatched
+MUA events have their active cells concentrated on particular shanks, the raw
+concentration was higher for unmatched events — which looks like confirmation. But an
 event with nine active cells cannot occupy twelve shanks, so fewer cells forces higher
 concentration whatever the physiology, and unmatched events have fewer cells. *Prevented
 now by* comparing against a per-event null that draws the same number of cells at random,
 weighted by how many cells each shank actually has. Against that null the excess is
 identical for both groups and the hypothesis is rejected.
 
-**5. A results table that rounded its own p-values to zero (step 8c).** Every results CSV
-was written with `frame.round(5)`, so a p-value of 3.4 × 10⁻⁶ was saved as `0.0` — in
+**5. A results table that rounded its own p-values to zero.** Every results CSV was
+written with `frame.round(5)`, so a p-value of 3.4 × 10⁻⁶ was saved as `0.0` — in
 `replay_comparison.csv` and in 73 of the 90 rows of `unmatched_mua_hypotheses.csv`. The
-printed report showed the real value, so nothing looked wrong while the analysis was
-running; only the saved artifact was damaged, which is the harder version to notice
-because it surfaces when someone reads the table months later. *Caught by* a verification
-script written to check the README's numbers against the CSVs, which flagged six
-"mismatches" that turned out to be the file's fault rather than the prose's. *Prevented
-now by* `results.round_for_csv`, which rounds p-value columns to significant figures
-rather than decimal places, used by `write_session_table` so every table written through
-it is covered.
+printed report showed the real value, so nothing looked wrong while the analysis ran; only
+the saved artifact was damaged, which is the harder version to notice because it surfaces
+when someone reads the table months later. *Prevented now by* `results.round_for_csv`,
+which rounds p-value columns to significant figures rather than decimal places, used by
+`write_session_table` so every table written through it is covered.
 
-A sixth near-miss is not a bug but belongs in the same list: **a one-lap directional
+A sixth near-miss is not a bug but belongs in the same section: **a one-lap directional
 template** on the circular session (D7.3) depressed that session's sequence scores by as
 much as the effect being measured, because the score maximises over directions and a noise
 template hands the shuffles the same freedom. It was caught by checking lap counts per
-direction before trusting the output, not by any test.
+direction before trusting the output — again a cross-check, not an error.
+
+What the five have in common is worth stating plainly, because it generalises past this
+project: **a numerical pipeline fails by returning a number.** Three of the five produced
+results that supported the hypothesis under test, which is the most dangerous shape a
+silent failure can take, and the only reason any of them was found is that something
+independent had to agree and did not.
 
 ---
 

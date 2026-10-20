@@ -197,6 +197,32 @@ sessions the gap collapses to nothing. In three it does not:
   on that shuffle), and Cicero_09012014's −183 % is a percentage of a difference the
   control sends the *other* way, which is reassuring in sign and meaningless in size.
 
+**The residual may be the same finding as the sensitivity floor below.** Plotted against
+place-cell count rather than against session identity, it orders by ensemble size and not
+by geometry:
+
+![Identity-shuffle residual against ensemble size](docs/figures/residual_vs_ensemble.png)
+
+*Left: the residual as a fraction of the real PRE/POST difference. Right: the absolute
+residual in rZ units, which has no denominator. Hollow markers are circular tracks; the
+ringed point has a real difference of +0.014, so its fraction is noise over noise. No
+curve is fitted.*
+
+Two readings (D8.10). The signed fraction rises across the four largest ensembles — 77,
+73, 36, 30 cells — and those four alternate linear, circular, circular, linear, so cell
+count orders them and geometry does not; the smallest ensemble then reverses the sign.
+The **absolute** residual is monotone across all five, 0.005 → 0.049 → 0.087 → 0.121 →
+0.369, on the column-cycle shuffle in both event sets: read as a noise measurement rather
+than a bias, the negative control gets weaker as the ensemble shrinks, and at 16 place
+cells it is noisier than the effect it is controlling. The time-permutation shuffle shows
+neither pattern.
+
+**Five sessions cannot establish this and no curve is fitted to them.** It is suggestive,
+it does not retire the geometry explanation — both circular sessions still sit above both
+large-ensemble linear ones — and the two candidate causes are not separable here, because
+the circular pair happens to sit in the middle of the ensemble range. What it does mean is
+that this figure and the sensitivity-floor figure below should be read together.
+
 An earlier version of this repository applied an automated pass/fail verdict when the
 residual exceeded a quarter of the real difference. That threshold was invented here, has
 no external standing, and would have called one session a failure while saying nothing
@@ -521,6 +547,7 @@ uv run python scripts/score_events.py --identity-shuffle   # the negative contro
 uv run python scripts/validate_sequences.py            # both controls
 uv run python scripts/replay_comparison.py             # the Fig. 1C comparison
 uv run python scripts/sensitivity_floor.py             # the positive control as a figure
+uv run python scripts/residual_vs_ensemble.py          # residual against ensemble size
 ```
 
 All of these default to the five sessions whose LFP is present (`config.LFP_SESSIONS`);
@@ -534,7 +561,7 @@ itself is the slow part, at roughly three minutes per session.
 ### Tests
 
 ```
-442 passed, 3 skipped
+448 passed, 3 skipped
 ```
 
 The three skips are a parametrised test that does not apply to circular mazes. **Seventeen

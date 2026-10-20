@@ -9,23 +9,28 @@ each shuffle kind and each candidate-event set:
 * the cumulative distribution of rZ with medians marked;
 * the identity-shuffle residual beside every effect size — the same PRE/POST
   difference measured with place fields detached from the cells that own them.
-  On a circular track that residual is a sixth to a half of the real
-  difference, so no circular number should be read without it (D8.8);
+  It is large in three of the five sessions, both circular ones and one linear
+  one, so no effect size should be read without it (D8.8). It is measured once
+  per session and shuffle, on the full event set, so the conjunction rows carry
+  the same residual over a different denominator;
 * PRE against POST by Mann-Whitney U with a rank-biserial effect size;
 * the same test on PRE subsampled to POST's event count, repeated
   ``sequences.n_subsamples`` times, so the unequal-n objection is answered with
   a distribution rather than an argument;
-* significant events per minute of searched state, never counts — PRE holds
-  roughly twice the non-REM of POST in both sessions.
+* significant events per minute of searched state, never counts — the amount of
+  non-REM to search differs by up to a factor of two between epochs, and not
+  always in the same direction (Cicero_09102014 has more in POST than in PRE).
 
 Sessions are reported separately and **grouped by track geometry**. Linear and
 circular tracks put rZ on different scales — a ring maximises the correlation
 over 28-29 position offsets where a line maximises over one, so the circular
-null is broader and rZ compressed (D8.4) — and the circular sessions also leave
-a larger identity-shuffle residual (D8.8). Magnitudes are therefore pooled only
-within a geometry. What *is* pooled across all five is the **direction** of the
-effect, because a sign has no scale: the headline is how many sessions show
-POST > PRE, under each shuffle and each event set.
+null is broader and rZ compressed (D8.4). Both circular sessions also leave a
+large identity-shuffle residual, but so does one linear session, and that
+residual's size orders by ensemble count better than by geometry (D8.8, D8.10).
+Magnitudes are therefore pooled only within a geometry. What *is* pooled across
+all five is the **direction** of the effect, because a sign has no scale: the
+headline is how many sessions show POST > PRE, under each shuffle and each
+event set.
 
 Writes results/replay_comparison.csv, results/replay_subsamples.csv and
 results/replay_distributions.csv, plus per-session figures.

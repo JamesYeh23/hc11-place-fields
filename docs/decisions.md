@@ -1934,3 +1934,64 @@ It does not support correcting one session's rZ by another's.
   size, median or denominator, so there is no published number to compare against; the
   identity-shuffle residual is large in three of five sessions (D8.8); and the method's
   sensitivity varies across sessions by the amount the table above shows.
+
+### D8.10 — The residual orders by ensemble size better than by geometry, on one shuffle
+
+D8.8 left the question open: both circular sessions leave a large identity-shuffle
+residual, but so does one linear session, so geometry is not sufficient. The obvious next
+suspect is ensemble size, because Gatsby_08022013 is both the largest linear residual and
+the smallest linear ensemble, and because a residual is a difference between two noisy
+medians — which should get noisier as the ensemble shrinks, exactly as the sensitivity
+floor of D8.9 does.
+
+`scripts/residual_vs_ensemble.py` plots it. **No curve is fitted, and none should be.**
+Five sessions, with geometry, event count and ensemble size all moving together, cannot
+establish a relationship; what they can show is an ordering, so the script reports how far
+each series is monotone with ensemble size and stops there.
+
+| Session | place cells | geometry | column cycle: residual | as % of real gap |
+|---|---|---|---|---|
+| Achilles_10252013 | 77 | linear | −0.005 | −2 % |
+| Achilles_11012013 | 73 | circular | +0.049 | +25 % |
+| Cicero_09102014 | 36 | circular | +0.087 | +42 % |
+| Gatsby_08022013 | 30 | linear | +0.121 | +62 % |
+| Cicero_09012014 | 16 | linear | **−0.369** | **−183 %** |
+
+Two readings, and the second is the one worth keeping.
+
+1. **The signed fraction rises monotonically across the four largest ensembles and then
+   reverses at the smallest.** Those four alternate linear, circular, circular, linear —
+   geometry does not order them, cell count does, exactly. That is the suggestive part.
+2. **The *absolute* residual is monotone with ensemble size across all five** — 0.005,
+   0.049, 0.087, 0.121, 0.369 — on the column-cycle shuffle, in both event sets. The
+   smallest-ensemble session does not break this ordering; it extends it, because its
+   residual is the largest of all and merely points the other way. Read as a noise
+   measurement rather than as a bias, the series says: **the negative control gets noisier
+   as the ensemble shrinks, and at 16 place cells it is noisier than the effect it is
+   controlling.**
+
+The time-permutation shuffle shows neither pattern — monotone over two or three sessions
+and no further — so this is a column-cycle phenomenon, which fits: column cycling is the
+shuffle that rewards positional localisation (D7.6) and so the one most exposed to how
+sharply a given ensemble can localise anything at all.
+
+**What this does and does not license.**
+
+- It does **not** retire the geometry explanation of D8.8. Both circular sessions still sit
+  above both large-ensemble linear ones on the signed fraction, and the two candidate
+  causes are not separable in five sessions where the circular pair happens to sit in the
+  middle of the ensemble range.
+- It does mean the residual figure and the sensitivity-floor figure (D8.9) **are the same
+  story told twice** and should be read together: a measurement whose ensemble is small is
+  one whose control is weak and whose positive control is barely above threshold. Both are
+  now in the README, adjacent.
+- It does **not** license correcting any rZ, weighting any session, or quoting a slope.
+  Three further sessions exist in hc-11 and would roughly double the evidence either way
+  (D8.9); until then this is an ordering over five points.
+
+**One caveat about the quantity itself.** The residual is computed once per session and
+shuffle, from the identity-shuffle run over the full event set, so the conjunction rows in
+`replay_comparison.csv` carry the same residual over a different denominator. That is why
+the absolute residual, which has no denominator, is the series to read — and why the
+fraction for Gatsby_08022013's time permutation (−180 % of a +0.014 gap) is ringed in the
+figure rather than quietly dropped.
