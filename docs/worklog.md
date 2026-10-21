@@ -973,8 +973,8 @@ controls section. Lead paragraph on what they share — every one returned a pla
 instead of an error — then a table of what each produced and what caught it, then a
 paragraph each. The point the table makes is that in all five cases the detector was a
 cross-check against something the result had to agree with (a second measurement, a
-physical expectation, a control, a document), never the code failing. Three of the five
-produced results that *supported* the hypothesis under test, which is the dangerous shape.
+physical expectation, a control, a document), never the code failing. Several produced
+results that *supported* the hypothesis under test, which is the dangerous shape.
 
 Stale text in `replay_comparison.py`'s docstring fixed on the way: it still said the
 residual was "a sixth to a half" on circular tracks and that PRE holds twice the non-REM of
@@ -982,3 +982,59 @@ POST "in both sessions".
 
 **Tests**: 448 passing, 3 skipped (6 new: 4 for `leading_monotone_run`, 2 for the figure).
 **Time**: ~1 h.
+
+## 2026-10-21 — Step 9b: the firing-rate split, and the control that ate it
+
+**Why this ran first.** Phase 3 is the paper's Fig. 2–4 material: a per-cell contribution
+(PCC) score, a rigid/plastic split at the median of its PRE-to-POST change, and the claims
+that follow. The scoping report (9a) found that Fig. 4D — slow-firing cells increase their
+sequence contribution from PRE to POST, fast-firing cells do not — needs no PCC at all, is
+fully specified in the main text, and costs a minute of compute. It is the paper's own
+independent confirmation of the PCC result, so it is the cheapest decisive thing to run
+before building anything.
+
+**New code.** `hc11.subsets` (off-line firing rate over intervals, equal halves with the
+median cell dropped, random halves, split agreement, NaN-safe pairing and empirical p) with
+18 tests, and `scripts/firing_rate_split.py`, which rebuilds the decoding template from one
+half of the ensemble at a time and re-scores the same events. Four provisional parameters
+in `config/params.yaml` under `subsets`, reasoning in D9.1.
+
+**The halves land where the paper's do**: median off-line rate 0.34–0.50 Hz slow against
+0.81–1.39 Hz fast, versus the paper's 0.39 and 1.12 Hz. 67–88 % of cells keep their half
+under the non-REM-only rate definition.
+
+**The result (D9.2).** The slow half gains more than the fast half in 7 of 10
+session-by-shuffle cells, including both shuffles of both Achilles sessions. But the fast
+half also gains in 8 of 10 — so the "but not fast-firing" half of the claim does not hold —
+and, decisively, **in 9 of 10 cells the slow-minus-fast gap sits inside the spread of gaps
+produced by splitting the same ensemble at random**. The one exception is p = 0.095.
+Rebuilding a template from half an ensemble is a large perturbation that produces gaps of
+this size routinely; the firing-rate split does not produce a larger one.
+
+Reported as a non-replication of Fig. 4D as stated. Nothing was tuned and no variant was
+searched for one that would separate.
+
+**A sixth silent failure, caught by reading the line above the answer.** Cicero_09102014's
+time-permutation gap came back as `p = 0.048` — the smallest value a 20-draw null can
+express, and a result that would have been the strongest in the table. It was NaN: one
+event in the slow half had a degenerate posterior, so its null had zero width, its z-score
+was undefined, and the median inherited it. `NaN >= draw` is false for every draw, so the
+count of more-extreme draws was zero. A missing measurement had become the most significant
+number on the page. Fixed by `subsets.empirical_p` (NaN in, NaN out; non-finite draws
+discarded) and `subsets.finite_in_both` (an event either half cannot score leaves the
+comparison for both halves, so the two are never compared on different event sets). Both
+unit-tested on exactly these cases, and added to the METHODS catalogue, which is now six.
+
+While adding it I corrected an overstatement of my own from the step-8c write-up: that
+section said three of the five failures produced results supporting the hypothesis under
+test. Counting them honestly it was two of five, and it is three of six now that the NaN
+comparison joins them. The names are in METHODS.md so the claim can be checked.
+
+**Stopping here.** The brief says proceed to 9c if 9b holds. It does not hold, so no PCC
+code was written. What 9b does hand the PCC phase is a calibrated expectation: if dividing
+38 cells by a threefold firing-rate difference produces a gap indistinguishable from a
+random division of the same cells, the null-label control for the rigid/plastic split is
+very likely to produce effects the size of the real ones — which is why the brief puts it
+first, and why it should be run before the real labels are ever looked at.
+
+**Tests**: 466 passing, 3 skipped. **Time**: ~2 h.

@@ -1038,3 +1038,65 @@ def plot_residual_vs_ensemble(rows, path: Path, params: dict) -> Path:
     fig.legend(handles=handles, frameon=False, fontsize=7.5, ncol=2,
                loc="lower center", bbox_to_anchor=(0.5, 0.0))
     return _save(fig, path, params)
+
+
+def plot_firing_rate_split(rows, null_rows, path: Path, params: dict) -> Path:
+    """The paper's Fig. 4D question, with the control that makes it readable.
+
+    Left column: the POST-minus-PRE change in median rZ for the slow-firing and
+    fast-firing halves of each session's ensemble, scored on the same events.
+    Right column: the gap between those two halves against the spread of gaps
+    produced by splitting the same ensemble at random, drawn as a grey band.
+    A rate split that lands inside its own random band has not shown anything,
+    however large the gap looks on the left.
+    """
+    kinds = [k for k in ("column_cycle", "time_permutation")
+             if any(r["shuffle"] == k for r in rows)]
+    fig, axes = plt.subplots(len(kinds), 2, figsize=(11.0, 2.9 * len(kinds) + 1.1),
+                             squeeze=False)
+    sessions = sorted({r["session"] for r in rows},
+                      key=lambda s: -max(r["n_cells"] for r in rows if r["session"] == s))
+    y = np.arange(len(sessions))
+    for row_index, kind in enumerate(kinds):
+        here = {r["session"]: r for r in rows if r["shuffle"] == kind}
+        left, right = axes[row_index]
+
+        for label, key, colour, filled in (("slow half", "slow_difference", "#0072B2", True),
+                                           ("fast half", "fast_difference", "#D55E00", False)):
+            left.plot([here[s][key] for s in sessions], y, marker="o", markersize=7,
+                      linestyle="none", color=colour, label=label,
+                      markerfacecolor=colour if filled else "white",
+                      markeredgecolor=colour, markeredgewidth=1.5)
+        left.axvline(0.0, color=MUTED, linewidth=0.8, linestyle=":")
+        left.set_xlabel("POST − PRE, median rZ (same events)")
+        left.set_yticks(y)
+        left.set_yticklabels([s.replace("_", "\n") for s in sessions], fontsize=7)
+        left.set_title(f"{kind.replace('_', ' ')}: each half", fontsize=9, color=INK)
+        if row_index == 0:
+            left.legend(frameon=False, fontsize=8, loc="best")
+
+        for i, session in enumerate(sessions):
+            draws = [abs(n["gap"]) for n in null_rows
+                     if n["session"] == session and n["shuffle"] == kind]
+            if draws:
+                right.barh(i, 2 * np.percentile(draws, 95), left=-np.percentile(draws, 95),
+                           height=0.45, color=MUTED, alpha=0.22, zorder=1)
+            right.plot(here[session]["gap_slow_minus_fast"], i, marker="D", markersize=7,
+                       color="#0072B2", zorder=3, linestyle="none")
+        right.axvline(0.0, color=MUTED, linewidth=0.8, linestyle=":")
+        right.set_xlabel("gap: slow minus fast")
+        right.set_yticks(y)
+        right.set_yticklabels([])
+        right.set_title(f"{kind.replace('_', ' ')}: against random splits",
+                        fontsize=9, color=INK)
+        if row_index == 0 and null_rows:
+            right.text(0.98, 0.04, "grey: 95th percentile of |gap| over random halves",
+                       transform=right.transAxes, fontsize=7, color=MUTED, ha="right")
+        for ax in (left, right):
+            ax.margins(y=0.18)
+            _style(ax)
+    fig.suptitle("Do slow-firing cells gain replay from PRE to POST, and fast-firing not?\n"
+                 "the paper's Fig. 4D, with a random-split control",
+                 color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)

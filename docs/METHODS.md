@@ -449,7 +449,7 @@ The five in bold are the ones the headline result depends on.
 
 ---
 
-## Five silent failures
+## Six silent failures
 
 Every one of these produced plausible output instead of an error. None raised an
 exception, none made a number look obviously wrong, and in every case the thing that
@@ -465,6 +465,7 @@ ceremony, they are the only detector this project has.
 | 3 | A duration confound in the spike-jitter null (D6.5) | The null looking *more* synchronous than the data, 22 active cells against 18 | A second comparison that controlled for duration, run because the first answer was the wrong sign |
 | 4 | A cell-count confound in the shank-concentration test (D6.23) | Apparent confirmation: unmatched events did have more concentrated activity | A per-event null drawing the same number of cells, built before accepting a result that agreed with the hypothesis |
 | 5 | p-values below 1 × 10⁻⁵ rounding to zero in saved tables (step 8c) | `p = 0.0` in two results CSVs while the printed report showed 3.4 × 10⁻⁶ | A verification script comparing the README's numbers against the CSVs, which flagged six "mismatches" that were the file's fault |
+| 6 | An undefined statistic compared against a null (step 9b) | `p = 0.048`, the smallest value a 20-draw null can express, for a gap that was NaN | Reading the printed line beside the medians it came from, which were NaN too |
 
 **1. Band-passing across the probe instead of across time.** The first channel-power
 analysis indexed `data[channel]` — a single time point across 134 channels — instead of
@@ -513,17 +514,29 @@ when someone reads the table months later. *Prevented now by* `results.round_for
 which rounds p-value columns to significant figures rather than decimal places, used by
 `write_session_table` so every table written through it is covered.
 
-A sixth near-miss is not a bug but belongs in the same section: **a one-lap directional
+**6. A missing number reported as the strongest possible result.** The random-split control
+of step 9b compares an observed gap against 20 draws from a null. In one session the gap
+was undefined — one half of the ensemble produced a degenerate posterior on one event, so
+its z-score was NaN and the median inherited it — and `NaN >= draw` is false for every
+draw, so the count of more-extreme draws was zero and the empirical p came back as 1/21 =
+0.048. A missing measurement had turned into the most significant result the null could
+produce. *Prevented now by* `subsets.empirical_p`, which returns NaN for a non-finite
+observation and discards non-finite draws, and by `subsets.finite_in_both`, which drops an
+event from *both* halves when either half cannot score it — so the two halves are always
+compared on one event set. Both are unit-tested on exactly these cases.
+
+A seventh near-miss is not a bug but belongs in the same section: **a one-lap directional
 template** on the circular session (D7.3) depressed that session's sequence scores by as
 much as the effect being measured, because the score maximises over directions and a noise
 template hands the shuffles the same freedom. It was caught by checking lap counts per
 direction before trusting the output — again a cross-check, not an error.
 
 What the five have in common is worth stating plainly, because it generalises past this
-project: **a numerical pipeline fails by returning a number.** Three of the five produced
-results that supported the hypothesis under test, which is the most dangerous shape a
-silent failure can take, and the only reason any of them was found is that something
-independent had to agree and did not.
+project: **a numerical pipeline fails by returning a number.** Three of the six — the
+cell-count confound, the rounded p-values and the NaN comparison — produced results that
+*supported* the hypothesis under test or made it look stronger, which is the most dangerous
+shape a silent failure can take, and the only reason any of them was found is that
+something independent had to agree and did not.
 
 ---
 

@@ -1995,3 +1995,98 @@ shuffle, from the identity-shuffle run over the full event set, so the conjuncti
 the absolute residual, which has no denominator, is the series to read — and why the
 fraction for Gatsby_08022013's time permutation (−180 % of a +0.014 gap) is ringed in the
 figure rather than quietly dropped.
+
+## Phase 3, step 9b — the firing-rate split, before any per-cell contribution score
+
+### D9.1 — What the Fig. 4D test is, and the four things we had to choose
+
+Grosmark & Buzsáki's Fig. 4D divides place cells "into equal subgroups by either 'off-line'
+sleep-firing rate or ripple-rate gain" and repeats the decoding analysis for each group,
+reporting that "slow-firing, but not fast-firing, neurons increased their contribution to
+neuronal sequences from PRE to POST sleep." It is the paper's own confirmation of the
+per-cell contribution (PCC) result, it invents almost nothing, and it costs a minute of
+compute — so it runs first, before any PCC code exists to be believed.
+
+The test: split each session's place cells at the median off-line firing rate into equal
+halves, rebuild the decoding template from each half alone, re-score the same candidate
+events against it, and compare PRE with POST **within each half**.
+
+Four choices, all **[PROVISIONAL]**, all in `config/params.yaml` under `subsets`:
+
+1. **Which rate.** "Off-line" is not defined. We use spikes in the whole PRE and POST
+   epochs divided by their total duration, so the rate is a property of the cell across
+   sleep rather than of our state scoring. The scored-non-REM-only rate is computed too
+   and the agreement between the two splits is reported per session (67–88 % of cells land
+   in the same half), so a result that depends on the choice cannot be mistaken for one
+   that does not.
+2. **Equal halves.** The paper's subgroups are equal, so with an odd number of cells the
+   **median cell is dropped**, not assigned. Assigning it would make one group larger by a
+   rule nobody could check. Achilles_10252013 loses one cell this way, 77 → 38 + 38.
+3. **A fixed event set.** Half an ensemble leaves more empty 20 ms bins, so fewer events
+   clear the five-bin floor — in Cicero_09012014 the slow half can score 67 of 310 PRE
+   events where the full ensemble scores 310. Comparing halves on their own event sets
+   would compare two different sets of events and call the difference a result. The
+   comparison therefore runs on events scorable under **both** halves and under the full
+   ensemble. The attrition is reported rather than hidden: it is the main cost of the test.
+4. **The control.** A difference between two halves of an ensemble is not evidence until
+   the spread of differences between *arbitrary* halves is known. `n_random_splits = 20`
+   equal splits are drawn at random per session and the whole measurement repeated on each,
+   giving an empirical two-sided p for the observed gap. Twenty draws give a finest p of
+   1/21 = 0.048, which is enough to say whether an observed gap is ordinary.
+
+This control is the same shape as the label control the PCC work will need, and 9b is
+therefore also a test of whether that control bites. It does.
+
+### D9.2 — The result: the split is real, the difference between halves is not
+
+The halves land where the paper's do. Median off-line rate is 0.34–0.50 Hz in the slow
+half and 0.81–1.39 Hz in the fast half, against the paper's 0.39 and 1.12 Hz, so our
+ensembles are being divided in much the same place theirs were.
+
+POST minus PRE, median rZ, measured on the events both halves can score:
+
+| Session | cells | matched PRE/POST | shuffle | slow Δ | fast Δ | gap | random-split 95th pct | p |
+|---|---|---|---|---|---|---|---|---|
+| Achilles_10252013 | 76 | 1097 / 594 | column cycle | **+0.295** | +0.148 | +0.148 | 0.302 | 0.19 |
+| Achilles_10252013 | 76 | 1097 / 594 | time permutation | **+0.251** | +0.043 | +0.208 | 0.233 | 0.19 |
+| Achilles_11012013 | 72 | 426 / 415 | column cycle | +0.200 | +0.083 | +0.117 | 0.370 | 0.62 |
+| Achilles_11012013 | 72 | 426 / 415 | time permutation | **+0.348** | +0.101 | +0.247 | 0.287 | 0.19 |
+| Cicero_09102014 | 36 | 191 / 282 | column cycle | +0.211 | +0.217 | −0.007 | 0.441 | 0.95 |
+| Cicero_09102014 | 36 | 190 / 282 | time permutation | +0.436 | +0.062 | +0.374 | 0.534 | 0.19 |
+| Gatsby_08022013 | 30 | 199 / 107 | column cycle | −0.017 | −0.173 | +0.156 | 0.765 | 0.48 |
+| Gatsby_08022013 | 30 | 199 / 107 | time permutation | +0.259 | −0.200 | **+0.459** | 0.383 | **0.095** |
+| Cicero_09012014 | 16 | 24 / 47 | column cycle | +0.034 | +0.760 | −0.726 | 0.819 | 0.19 |
+| Cicero_09012014 | 16 | 24 / 47 | time permutation | +0.398 | +0.611 | −0.213 | 0.677 | 0.62 |
+
+Three readings, in order of how much weight they carry.
+
+1. **The direction is weakly consistent with the paper.** The slow half gains more than the
+   fast half in **7 of 10** session-by-shuffle cells, and in both shuffles of both Achilles
+   sessions — the two with ensembles large enough to split meaningfully. The two reversals
+   are the two smallest ensembles.
+2. **The second half of the claim does not hold.** The paper says slow-firing cells
+   increase their contribution *and fast-firing cells do not*. In our data the fast half
+   also gains, in **8 of 10** cells, and in Achilles_10252013 its gain is significant on its
+   own (+0.148, p = 0.042). What we see is a difference of degree, not the presence and
+   absence the paper describes.
+3. **The gap does not survive its control, anywhere.** In **9 of 10** cells the observed
+   slow-minus-fast gap sits inside the range of gaps produced by splitting the same
+   ensemble at random. The single exception, Gatsby_08022013 under time permutation, has
+   p = 0.095 — not significant, and in the session whose full-set time-permutation PRE/POST
+   difference was +0.014 at p = 0.52 (D8.8). Splitting a 38-cell ensemble in two and
+   rebuilding the template from one half is a large perturbation; it produces gaps of this
+   size routinely, and the firing-rate split does not produce a bigger one.
+
+**Verdict: step 9b does not reproduce Fig. 4D as stated.** It reproduces a tendency in the
+right direction that the control cannot separate from an arbitrary split of the same cells.
+That is reported as the result; no parameter was changed, and no variant was searched for
+one that would separate.
+
+**What it implies for the PCC phase.** ΔPCC is a finer instrument than a median split on
+firing rate, but it is measured on the same events, from the same ensembles, with the same
+per-event noise of 1.6–1.7 spikes per participating cell. If dividing 38 cells by a
+property as strong as a threefold firing-rate difference yields a gap indistinguishable
+from a random division, then the rigid/plastic comparison needs its null-label control to
+be a headline rather than a check — which is how the brief already specifies it — and the
+honest prior for the PCC result is that the null labels will produce something of the same
+size as the real ones.

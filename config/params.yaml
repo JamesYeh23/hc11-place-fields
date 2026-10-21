@@ -194,6 +194,21 @@ output:
 # ---------------------------------------------------------------------------
 # Sequence scores for candidate events (Phase 2, step 7)
 # ---------------------------------------------------------------------------
+# --- Step 9b: ensemble subsets (the paper's Fig. 4D) -------------------------
+subsets:
+  # Grosmark & Buzsaki divide place cells "into equal subgroups by either
+  # 'off-line' sleep-firing rate or ripple-rate gain" and repeat the decoding
+  # analysis for each group. Which sleep is not stated. We measure the rate over
+  # the whole PRE and POST epochs, so it is a property of the cell across sleep
+  # rather than of the state scoring; the non-REM-only split is reported beside
+  # it as a robustness check, not as an alternative result.
+  offline_rate_window: epochs      # [PROVISIONAL] "epochs" or "nrem"
+  # The control: equal splits of the same ensemble made at random. A difference
+  # between two halves is not evidence until the spread of differences between
+  # arbitrary halves is known. 20 draws give a finest two-sided p of 1/21.
+  n_random_splits: 20              # [PROVISIONAL]
+  random_split_seed: 20160325      # [PROVISIONAL] (Science issue date)
+
 sequences:
   # Decoding bin for candidate events. Chen et al. bin quiet-waking and
   # slow-wave-sleep candidate events at 20 ms.
