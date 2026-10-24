@@ -43,6 +43,7 @@ import pandas as pd
 from scipy.stats import ks_2samp, mannwhitneyu
 
 from hc11 import config, pcc, sequences, subsets
+from hc11.results import write_session_table
 from place_fields import prepare  # noqa: I001  (sibling script)
 from score_events import direction_tuning, place_cell_ids  # noqa: I001
 
@@ -330,12 +331,40 @@ def summarise(name, params, out_root, *, no_figures=False) -> None:
         json.dumps(stamp, indent=2) + "\n")
     properties = ("session_rate_hz", "info_bits_per_spike", "n_fields", "peak_rate_hz")
     props = cell_properties(name, params)
-    report(name, real, nulls, params)
+    summaries = report(name, real, nulls, params)
     log.info("\n=== %s: rigid/plastic comparisons, null labels beside real ones", name)
     control = label_control(name, real, nulls, props, params, properties)
     if control:
-        pd.DataFrame(control).round(6).to_csv(
-            config.results_dir() / f"pcc_label_control_{name}.csv", index=False)
+        write_session_table(config.results_dir() / "pcc_label_control.csv", control,
+                            sessions=[name], round_to=6)
+    resolution = per_cell_bias_resolution(name, len(real.cluster_id.unique()))
+    ceiling = params["pcc"]["vacuous_null_rank_biserial"]
+    for summary in summaries:
+        here = [c for c in control if c["shuffle"] == summary["shuffle"]]
+        summary["null_rb_ceiling"] = (
+            float(max(c["null_rank_biserial_p95"] for c in here)) if here else np.nan)
+        summary["null_rb_max"] = (
+            float(max(c["null_rank_biserial_max"] for c in here)) if here else np.nan)
+        # No split at all (too few strongly contributing cells) is as vacuous as
+        # a split whose null labels can reach any effect size.
+        summary["vacuous_property_test"] = bool(
+            not np.isfinite(summary["null_rb_ceiling"])
+            or summary["null_rb_ceiling"] >= ceiling)
+        summary["property_test_possible"] = bool(np.isfinite(summary["null_rb_ceiling"]))
+        summary["per_cell_bias_resolution"] = resolution.get(summary["shuffle"], np.nan)
+        summary["n_validation_triples"] = resolution.get("n_triples", 0)
+        summary["spread_over_bias_bound"] = (
+            summary["real_delta_sd"] / summary["per_cell_bias_resolution"]
+            if summary.get("per_cell_bias_resolution") else np.nan)
+        log.info("  %-18s null-label |rb| ceiling %.3f%s; per-cell bias resolution "  # noqa: E501
+                 "%.4f rZ against a real spread of %.4f (%.1fx)",
+                 summary["shuffle"], summary["null_rb_ceiling"],
+                 "  <- VACUOUS, this session cannot test a property difference"
+                 if summary["vacuous_property_test"] else "",
+                 summary["per_cell_bias_resolution"], summary["real_delta_sd"],
+                 summary["spread_over_bias_bound"])
+    write_session_table(config.results_dir() / "pcc_summary.csv", summaries,
+                        sessions=[name], round_to=6)
     if not no_figures:
         plots.plot_pcc_null_first(
             real.to_dict("records"), nulls.to_dict("records"),
@@ -449,8 +478,40 @@ def label_control(name, real, nulls, props, params, properties) -> list[dict]:
     return out
 
 
-def report(name, real, nulls, params) -> None:
+def population_difference(name) -> dict:
+    """Step 8c's measured POST-minus-PRE median rZ for this session, by shuffle."""
+    table = pd.read_csv(config.results_dir() / "replay_comparison.csv")
+    here = table[(table.session == name) & (table.event_set == "all")]
+    return {row.shuffle: float(row.difference) for row in here.itertuples()}
+
+
+def per_cell_bias_resolution(name, n_cells) -> dict:
+    """How small a per-cell null-reuse bias the validation could have detected.
+
+    The validation samples (cell, placement, event) triples uniformly, so each
+    cell and epoch gets ``n_triples / (2 * n_cells)`` of them and the standard
+    error on one cell's epoch-differential bias is ``sd * sqrt(2 / that)``. A
+    real delta-PCC spread below this number is a comparison the approximation
+    cannot be shown to be innocent of (D9.4).
+    """
+    path = config.results_dir() / f"pcc_null_reuse_{name}.csv"
+    if not path.exists():
+        return {}
+    table = pd.read_csv(path)
+    out = {}
+    for kind in sequences.SHUFFLES:
+        error = (table[f"reused_rz_{kind}"] - table[f"fresh_rz_{kind}"]).to_numpy(float)
+        error = error[np.isfinite(error)]
+        per_cell_epoch = max(len(table) / (2 * max(n_cells, 1)), 1.0)
+        out[kind] = float(error.std() * np.sqrt(2.0 / per_cell_epoch))
+    out["n_triples"] = int(len(table))
+    return out
+
+
+def report(name, real, nulls, params) -> list[dict]:
     """Print the null-label comparison first, the real numbers second."""
+    population = population_difference(name)
+    summaries = []
 
     threshold = params["pcc"]["strong_z"]
     for kind in sequences.SHUFFLES:
@@ -483,6 +544,18 @@ def report(name, real, nulls, params) -> None:
         # admit cells whose real placement scores worse than its shifts, which
         # is a real effect but not the one the paper's phrase describes. The
         # two-sided count is logged beside it so the choice is visible (D9.3).
+        summary = {"session": name, "shuffle": kind, "n_cells": len(r),
+                   "n_placements": int(nulls[nulls.shuffle == kind]
+                                       .groupby("cluster_id").size().max()),
+                   "real_delta_sd": float(real_delta.std(ddof=1)),
+                   "null_delta_sd": float(null_delta.std(ddof=1)),
+                   "spread_ratio": float(real_delta.std(ddof=1) / null_delta.std(ddof=1)),
+                   "ks_p": float(p), "mannwhitney_p": float(pu),
+                   "sum_delta_pcc": float(np.nansum(r.delta_pcc.to_numpy(dtype=float))),
+                   "population_difference": population.get(kind, np.nan)}
+        summary["additivity_ratio"] = (
+            summary["sum_delta_pcc"] / summary["population_difference"]
+            if summary["population_difference"] else np.nan)
         strong = r[(r.z_pre >= threshold) | (r.z_post >= threshold)]
         either_sign = r[(r.z_pre.abs() >= threshold) | (r.z_post.abs() >= threshold)]
         log.info("  then the real labels")
@@ -495,12 +568,24 @@ def report(name, real, nulls, params) -> None:
             plastic = strong[strong.delta_pcc > median]
             log.info("    rigid %d cells (delta-PCC <= %+.4f), plastic %d",
                      len(rigid), median, len(plastic))
+        summary["n_strong"] = len(strong)
+        summary["n_strong_either_sign"] = len(either_sign)
+        summary["n_per_group"] = len(strong) // 2
         contributing_pre = r[r.z_pre >= threshold]
         both = contributing_pre[contributing_pre.z_post >= threshold]
+        summary["n_contributing_pre"] = len(contributing_pre)
+        summary["overlap_pct"] = (100 * len(both) / len(contributing_pre)
+                                  if len(contributing_pre) else np.nan)
         if len(contributing_pre):
             log.info("    of %d cells contributing to PRE, %d (%.0f%%) also contribute "
                      "to POST (paper: 73%%)", len(contributing_pre), len(both),
                      100 * len(both) / len(contributing_pre))
+        log.info("    additivity: per-cell contributions sum to %+.4f rZ against the "
+                 "step-8c population difference of %+.4f (ratio %.2f)",
+                 summary["sum_delta_pcc"], summary["population_difference"],
+                 summary["additivity_ratio"])
+        summaries.append(summary)
+    return summaries
 
 
 if __name__ == "__main__":

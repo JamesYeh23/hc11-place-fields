@@ -1100,3 +1100,54 @@ Cost, for the record: 77 cells x 16 placements x 2471 events ran in 20 chunks of
 The whole estimator is about six minutes of compute per session.
 
 **Tests**: 484 passing, 3 skipped (22 in `test_pcc.py`). **Time**: ~2 h.
+
+## 2026-10-24 (later) — Step 9d: per-cell contribution on all five sessions
+
+The 9c estimator run unchanged on the remaining four sessions, null labels first
+throughout. About 10 minutes of compute for the shift means (chunked per session) and
+another 5 for 40,000 null-reuse validation triples each. Four additions the brief asked
+for, all in D9.6.
+
+**Additivity, established per session rather than assumed.** Per-cell contributions sum to
+the step-8c population difference within a factor of two everywhere, and within 15 % on
+Achilles_10252013 (1.07) and Cicero_09012014 (1.14). The estimator is not broken; the
+loosest ratios are the circular sessions (1.7–2.0), consistent with D8.4's rZ compression.
+
+**The two circular sessions *do* separate from their nulls — in the wrong way.** This was
+the surprise, and it is the reason the write-up needs care. Achilles_11012013 and
+Cicero_09102014 reject at p = 0.006 and 0.002, but the separation is entirely a shift in
+**location**: their spread ratios are 1.07 and 0.99 (Levene p = 0.64, 0.74 after centring).
+A constant added to every cell is the population POST>PRE effect showing up per cell, and
+it is precisely what a within-session median split throws away, since the split ranks cells
+against each other. The quantity the split needs is excess *spread*, and only
+Gatsby_08022013 has it (ratio 1.58–1.60, p ≤ 0.0016).
+
+**The overlap claim is a function of ensemble size.** 29–38 % at 77 cells, undefined at 73
+and 36 (one qualifying cell each), **77–80 % at 30 and 16 cells** — the paper reports 73 %.
+Our numbers bracket theirs, and the match lands in the two smallest ensembles, where the
+statistic rests on 13 and 5 cells. A cell in a 16-cell ensemble carries a sixteenth of the
+posterior and clears a threshold easily in both epochs; in a 77-cell ensemble it carries a
+seventy-seventh and does not. This is the cleanest cross-session finding in Phase 3,
+because it needs no control at all.
+
+**Three of five sessions cannot test a property difference.** Null-label |rank-biserial|
+ceilings: 0.56 at 15v15, 0.55 at 9v8, but 0.76–0.81 at 5v5 and 4v4, 1.00 at 4v4, and
+Cicero_09102014 produces only two strongly contributing cells so there is no split to make.
+Marked vacuous rather than listed as further negatives. Of 32 comparisons, **one** exceeds
+its own null 95th percentile — Gatsby time-permutation place-field count, +0.639 against a
+ceiling of 0.639, so it ties rather than beats, in the cell whose population difference is
++0.014 at p = 0.52, and in the direction opposite to the paper's.
+
+**The per-cell bias bound carried forward.** Achilles_11012013's real ΔPCC spread is only
+1.1–1.2 times what an undetected per-cell null-reuse bias could account for; the others run
+1.4 to 10.5. No conclusion rests on it — a bias cannot manufacture a negative — but it is
+recorded so that session's numbers are never read as if the bound had been closed.
+
+`results/pcc_cross_session.png` puts the two findings side by side: the overlap against
+ensemble size with the paper's 73 % marked, and every rigid/plastic effect against its own
+null ceiling, 31 of 32 below the diagonal.
+
+**Phase 3 stops here for building.** 9e and 9f would measure an estimator whose resolution
+is now bounded below the effects they would look for. Next is the write-up decision.
+
+**Tests**: 484 passing, 3 skipped. **Time**: ~1.5 h.

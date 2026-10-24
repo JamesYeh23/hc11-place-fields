@@ -2270,3 +2270,149 @@ group, a median split of *noise* produces rank-biserial effects up to 0.43–0.5
 Per the brief, that is the result; no corrected estimator was sought, no parameter was
 changed, and the only variant tried — the two shuffle kinds — agrees. 9d repeats the
 measurement on all five sessions in the same order, null labels first.
+
+## Phase 3, step 9d — per-cell contribution on all five sessions
+
+### D9.6 — The split does not survive its null anywhere, and the overlap statistic is a function of ensemble size
+
+Step 9c's estimator (D9.3), its validated approximation (D9.4) and its null labels were run
+unchanged on all five sessions. Nothing was tuned between sessions. Null labels first
+throughout, every real comparison reported beside its null twin, and the two calibration
+floors — 9b's population floor of ~0.25–0.30 rZ and 9c's property floor of |rb| ≈ 0.45 —
+attached to every claim.
+
+**1. The ΔPCC distributions: real against null, per session.**
+
+| Session | geometry | cells | placements | real SD | null SD | SD ratio | location p | spread p |
+|---|---|---|---|---|---|---|---|---|
+| Achilles_10252013 | linear | 77 | 15 | 0.0156 | 0.0118 | 1.32 | 0.090 | 0.110 |
+| Achilles_11012013 | circular | 73 | 28 | 0.0140 | 0.0130 | **1.07** | **0.0062** | 0.643 |
+| Cicero_09102014 | circular | 36 | 27 | 0.0208 | 0.0210 | **0.99** | **0.0020** | 0.743 |
+| Gatsby_08022013 | linear | 30 | 15 | 0.0235 | 0.0149 | **1.58** | 0.365 | **0.0006** |
+| Cicero_09012014 | linear | 16 | 15 | 0.0624 | 0.0406 | 1.54 | 0.474 | 0.179 |
+
+(column cycle; time permutation agrees throughout. Location is Mann-Whitney on the raw
+values, spread is Levene's test after centring each distribution on its own median, so a
+location shift cannot leak into the spread test.)
+
+**This table needs reading carefully, because two sessions do separate and it is the wrong
+kind of separation.** The circular sessions differ from their nulls **only in location**:
+their real ΔPCC medians sit +0.004 and +0.010 above zero while the spread is identical to
+the null's (ratio 1.07 and 0.99, p = 0.64 and 0.74). A location shift is the population
+POST-minus-PRE effect appearing in every cell at once — the same effect step 8c measured
+and the additivity check below confirms. **It is also exactly the component a within-session
+median split discards**, because the split ranks cells against each other and a constant
+added to every cell changes no ranking. So the one test that reaches significance on two
+sessions is significant in the only way that cannot support the rigid/plastic split.
+
+What the split would need is **excess spread**: real cell-to-cell variation in ΔPCC beyond
+what shifted fields produce. One session has it — Gatsby_08022013, ratio 1.58–1.60,
+p ≤ 0.0016 — and two more point that way without reaching significance (1.32, 1.54). The
+circular sessions have none at all.
+
+**2. Additivity, established per session rather than assumed from one.**
+
+| Session | Σ ΔPCC (cc / tp) | step-8c population difference | ratio |
+|---|---|---|---|
+| Achilles_10252013 | +0.325 / +0.296 | +0.302 / +0.220 | **1.07 / 1.35** |
+| Achilles_11012013 | +0.335 / +0.332 | +0.197 / +0.433 | 1.70 / 0.77 |
+| Cicero_09102014 | +0.412 / +0.436 | +0.209 / +0.230 | 1.98 / 1.90 |
+| Gatsby_08022013 | +0.116 / +0.035 | +0.195 / +0.014 | 0.60 / *2.53* |
+| Cicero_09012014 | +0.229 / +0.206 | +0.202 / +0.185 | **1.14 / 1.11** |
+
+The per-cell contributions sum to the population effect within a factor of two everywhere,
+and within 15 % on the two sessions where the estimator has the most room — 77 cells on a
+linear track, and 16 cells where each contribution is large. **The estimator is not
+broken.** Its absolute calibration is loosest on the circular sessions (1.7–2.0), which is
+consistent with the rZ compression of D8.4 rather than with anything new. Gatsby's 2.53 is
+a ratio against a population difference of +0.014 (p = 0.52) and carries no information,
+the same denominator problem D8.8 records.
+
+**3. The overlap claim, and where the paper's 73 % could come from.**
+
+| Session | cells | PRE contributors | also contribute to POST |
+|---|---|---|---|
+| Achilles_10252013 | 77 | 16 / 17 | **38 % / 29 %** |
+| Achilles_11012013 | 73 | 1 / 1 | 0 % (undefined) |
+| Cicero_09102014 | 36 | 1 / 1 | 0 % (undefined) |
+| Gatsby_08022013 | 30 | 13 / 10 | **77 % / 60 %** |
+| Cicero_09012014 | 16 | 5 / 5 | **80 % / 80 %** |
+
+This is the cleanest cross-session statement available, because it needs no control at all,
+and it is the one place our numbers reach the paper's. **The overlap is not a constant: it
+runs from 29 % to 80 %, and it rises as the ensemble shrinks.** The two sessions that match
+the published 73 % are the two smallest linear ensembles, where the statistic rests on 13
+and 5 cells respectively. The two circular sessions produce one qualifying cell each and no
+usable statistic.
+
+The mechanism is not mysterious. "Contributing" is a threshold on a per-cell score whose
+magnitude scales with the share of the posterior one cell carries. In a 16-cell ensemble a
+cell carries about a sixteenth; in a 77-cell ensemble about a seventy-seventh, buried in the
+same event noise. Small ensembles therefore put a larger fraction of their cells over the
+threshold *and* put the same cells over it in both epochs. A 73 % overlap is what this
+statistic returns when the ensemble is small, whatever the hippocampus is doing. Our
+large-ensemble session, which should be the most reliable, returns 29–38 %.
+
+**4. The rigid/plastic comparisons: 1 of 32 beats its own null, and that one argues
+against the paper.**
+
+| Session | n per group | null-label \|rb\| ceiling (cc / tp) | verdict |
+|---|---|---|---|
+| Achilles_10252013 | 15 v 15 | 0.56 / 0.51 | usable |
+| Achilles_11012013 | 5 v 5, 4 v 4 | 0.76 / 0.81 | **vacuous** |
+| Cicero_09102014 | — | no split (2 strongly contributing cells) | **vacuous** |
+| Gatsby_08022013 | 9 v 8 | 0.55 / 0.64 | usable (cc only) |
+| Cicero_09012014 | 4 v 4, 4 v 3 | 1.00 / 1.00 | **vacuous** |
+
+Three of five sessions **cannot test a property difference at all**: a median split of noise
+in them reaches |rb| of 0.76 to 1.00, so no real effect could clear it. They are marked
+vacuous rather than counted as negatives, which is the honest bookkeeping — an underpowered
+null is not evidence of absence.
+
+Across all 32 comparisons (4 properties × 2 shuffles × 4 sessions with a split), **one real
+effect exceeds its own null's 95th percentile**: Gatsby_08022013, time permutation, place
+fields per cell, +0.639 against a ceiling of 0.639 — it ties the largest null draw rather
+than beating it, it is in the session-shuffle cell whose population PRE/POST difference is
++0.014 at p = 0.52, and its direction is **plastic cells having *more* fields**, the
+opposite of the paper's claim. Restricting to the 12 comparisons in non-vacuous cells, none
+exceeds its null.
+
+The paper's three property claims, across every session that can speak to them: rigid cells
+firing faster — not found (rank-biserial −0.44 to +1.00, the +1.00 being a 4-versus-4 split
+whose null also reaches 1.00); plastic cells more spatially specific — not found beyond
+noise (−0.38 to +0.63); plastic cells with fewer place fields — **consistently the wrong
+sign** where anything shows at all (+0.08 to +0.64).
+
+**5. The per-cell bias bound, carried forward per session.** D9.4 could bound the
+null-reuse approximation's *common* bias tightly but not a *per-cell* one below the
+resolution of 40,000 validation triples. That resolution depends on cells per session:
+
+| Session | per-cell bias resolution (cc / tp) | real ΔPCC SD | SD ÷ bound |
+|---|---|---|---|
+| Achilles_10252013 | 0.0099 / 0.0103 | 0.0156 / 0.0141 | 1.6 / 1.4 |
+| Achilles_11012013 | 0.0120 / 0.0138 | 0.0140 / 0.0145 | **1.2 / 1.1** |
+| Cicero_09102014 | 0.0107 / 0.0124 | 0.0208 / 0.0216 | 1.9 / 1.7 |
+| Gatsby_08022013 | 0.0077 / 0.0109 | 0.0235 / 0.0238 | 3.1 / 2.2 |
+| Cicero_09012014 | 0.0060 / 0.0117 | 0.0624 / 0.0525 | 10.5 / 4.5 |
+
+**Achilles_11012013 is the session to distrust**: its real ΔPCC spread is only 1.1–1.2
+times what an undetected per-cell bias could account for. Gatsby and Cicero_09012014 are
+comfortable at 2–10 times. Nothing here changes a conclusion — every per-session verdict
+is negative or vacuous, and a bias cannot manufacture a negative — but a *positive* result
+on Achilles_11012013 would have needed this bound closed first, and it is recorded so that
+nobody later reads that session's numbers as if it had been.
+
+**Conclusion, and what it means for the rest of Phase 3.**
+
+The per-cell contribution estimator works: it recovers the population effect additively on
+every session. What it does not support, on any session, is the split built on top of it.
+The rigid/plastic difference is reproducible from noise wherever it can be tested, and on
+three of five sessions it cannot be tested at all. The one statistic that matches the
+paper — the 73 % overlap — matches only in the sessions where it is least trustworthy and
+varies from 29 % to 80 % with ensemble size, which is a property of the threshold rather
+than of the cells.
+
+Per the brief: **this is the Phase 3 deliverable and it leads the write-up.** No corrected
+estimator was sought. Steps 9e (removal and shuffle curves) and 9f (cell-property
+comparisons at scale) stay unbuilt: both would measure an estimator whose resolution is now
+bounded below the effects they would be looking for.

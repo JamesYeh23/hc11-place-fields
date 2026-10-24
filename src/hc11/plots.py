@@ -1140,3 +1140,72 @@ def plot_pcc_null_first(real_rows, null_rows, path: Path, params: dict) -> Path:
                  color=INK, fontsize=10)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+def plot_pcc_cross_session(summary_rows, control_rows, path: Path, params: dict) -> Path:
+    """What the per-cell contribution survives across five sessions.
+
+    Left: the PRE-to-POST contributor overlap the paper reports as 73 %, against
+    the size of the ensemble it was measured in. It is not a constant of the
+    hippocampus in our data; it rises as the ensemble shrinks, which is what a
+    threshold on a noisy per-cell statistic does.
+
+    Right: every rigid/plastic property difference against the largest effect
+    the *null labels* reach in the same session. Points below the diagonal are
+    differences a median split of noise can already produce.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(10.6, 4.4))
+
+    linear = {"Achilles_10252013", "Gatsby_08022013", "Cicero_09012014"}
+    ax = axes[0]
+    ax.axhline(73, color=MUTED, linewidth=0.9, linestyle="--")
+    ax.text(0.99, 0.955, " paper: 73 % ", transform=ax.transAxes, fontsize=7.5,
+            color=MUTED, ha="right", va="top")
+    for row in summary_rows:
+        if not np.isfinite(row.get("overlap_pct", np.nan)):
+            continue
+        circular = row["session"] not in linear
+        marker = "o" if row["shuffle"] == "column_cycle" else "s"
+        colour = "#0072B2" if row["shuffle"] == "column_cycle" else "#D55E00"
+        ax.plot(row["n_cells"], row["overlap_pct"], marker=marker, markersize=7,
+                linestyle="none", color=colour,
+                markerfacecolor="white" if circular else colour,
+                markeredgecolor=colour, markeredgewidth=1.5)
+        if row["shuffle"] == "column_cycle":
+            ax.annotate(f"{row['session'].split('_')[0]}\n{row['n_contributing_pre']} cells",
+                        (row["n_cells"], row["overlap_pct"]), textcoords="offset points",
+                        xytext=(0, 11), fontsize=6.5, color=MUTED, ha="center")
+    ax.set_xlabel("place cells in the ensemble")
+    ax.set_ylabel("PRE contributors that also contribute to POST (%)")
+    ax.set_title("The overlap claim, against ensemble size", fontsize=9, color=INK)
+    ax.margins(x=0.16, y=0.22)
+    _style(ax)
+
+    ax = axes[1]
+    limit = 1.05
+    ax.plot([0, limit], [0, limit], color=MUTED, linewidth=0.9, linestyle=":")
+    for row in control_rows:
+        ceiling = row.get("null_rank_biserial_p95", np.nan)
+        if not np.isfinite(ceiling):
+            continue
+        beats = abs(row["real_rank_biserial"]) > ceiling
+        ax.plot(ceiling, abs(row["real_rank_biserial"]), marker="D" if beats else "o",
+                markersize=7 if beats else 5.5, linestyle="none",
+                color="#D55E00" if beats else "#0072B2",
+                markerfacecolor="#D55E00" if beats else "white",
+                markeredgecolor="#D55E00" if beats else "#0072B2", markeredgewidth=1.3)
+    ax.text(0.03, 0.95, "above the line: larger than noise labels reach\n"
+            "below: a median split of noise does this too",
+            transform=ax.transAxes, fontsize=7.5, color=MUTED, va="top")
+    ax.set_xlabel("null labels' 95th percentile |rank-biserial|")
+    ax.set_ylabel("real labels' |rank-biserial|")
+    ax.set_title("Every rigid/plastic difference against its own null",
+                 fontsize=9, color=INK)
+    ax.set_xlim(0, limit)
+    ax.set_ylim(0, limit)
+    _style(ax)
+
+    fig.suptitle("Per-cell contribution across five sessions: what survives its null",
+                 color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)

@@ -207,6 +207,10 @@ pcc:
   # their own 500-shuffle null, to check that reusing the unperturbed event's
   # null is safe (D9.4).
   validation_triples: 600          # [PROVISIONAL] 60 was too few to bound the bias
+  # A session cannot test a rigid/plastic property difference when a median
+  # split of *noise* can reach this effect size: the comparison has no room
+  # left to say anything. Marked vacuous rather than reported as a negative.
+  vacuous_null_rank_biserial: 0.6  # [PROVISIONAL]
 
 # --- Step 9b: ensemble subsets (the paper's Fig. 4D) -------------------------
 subsets:
