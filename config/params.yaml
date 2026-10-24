@@ -194,6 +194,20 @@ output:
 # ---------------------------------------------------------------------------
 # Sequence scores for candidate events (Phase 2, step 7)
 # ---------------------------------------------------------------------------
+# --- Step 9c: per-cell contribution ------------------------------------------
+pcc:
+  # A cell counts as strongly contributing when its contribution stands this
+  # many standard deviations above what the other placements of its own field
+  # give. The paper uses "significant PCC" and does not say against what; our
+  # exact test cannot reach p = 0.05 on a 16-bin track, where there are only 15
+  # alternative placements and the finest achievable p is 1/16 = 0.0625, so the
+  # standardised score decides and the exact p is reported beside it (D9.3).
+  strong_z: 1.65                   # [PROVISIONAL] matches sequences.significance_z
+  # Fresh-null validation sample: (cell, shift, event) triples re-scored with
+  # their own 500-shuffle null, to check that reusing the unperturbed event's
+  # null is safe (D9.4).
+  validation_triples: 600          # [PROVISIONAL] 60 was too few to bound the bias
+
 # --- Step 9b: ensemble subsets (the paper's Fig. 4D) -------------------------
 subsets:
   # Grosmark & Buzsaki divide place cells "into equal subgroups by either

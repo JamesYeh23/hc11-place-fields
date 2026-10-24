@@ -2090,3 +2090,183 @@ from a random division, then the rigid/plastic comparison needs its null-label c
 be a headline rather than a check — which is how the brief already specifies it — and the
 honest prior for the PCC result is that the null labels will produce something of the same
 size as the real ones.
+
+## Phase 3, step 9c — per-cell contribution on one session
+
+### D9.3 — The estimator as built, and where it diverges from the 9a proposal
+
+**The one procedural constraint we have comes from a figure caption, not from the
+methods.** The main text says only that a per-cell contribution (PCC) score "was defined
+as the neuron's mean contribution across all PRE and POST putative events as determined by
+a cell-specific shuffling technique", and defers the technique to the supplementary
+materials, which this project does not have (recorded in METHODS.md as a limitation).
+Fig. 2D's caption says the removal analysis used "templates in which an increasing
+percentage of neuron's place fields were shuffled". That one sentence is why the
+perturbation here is applied to the **decoding template** rather than to the spike train.
+A replication resting on a figure caption should say so, and this is it said.
+
+Everything else is our choice. The estimator, in one line, for cell *i* and epoch *E*:
+
+    PCC(i, E) = mean_e rZ(e) − mean_s mean_e rZ(e | field i placed at offset s)
+
+**Divergences from the 9a proposal, both improvements, both adopted:**
+
+1. **Every placement, not a random sample.** 9a proposed shifting each cell's field by a
+   random offset some number of times. The implementation instead uses **every non-zero
+   circular offset of the position axis** — 15 of them on a 16-bin track. This is strictly
+   better: the estimator becomes deterministic (no seed, no sampling noise in the quantity
+   itself), it is exhaustive rather than representative, and it costs no more than a
+   moderate random sample would.
+
+   It has one real consequence, recorded here rather than discovered later. With 15
+   alternative placements the within-cell permutation test is exact but **coarse**: the
+   finest achievable two-sided p is 1/16 = 0.0625, so *no cell can reach p < 0.05*. The
+   significance of a PCC is therefore decided on the standardised score,
+   `pcc.strong_z = 1.65` [PROVISIONAL], matching `sequences.significance_z`, and the exact
+   p is reported beside it in `results/pcc_<session>.csv` so a reader can see both. On a
+   longer track with more bins the exact p would become usable; on this one it cannot.
+
+2. **The real template is scored through the same code path as every shifted one.** The
+   draft took the unperturbed mean from the step-7 results table and the shifted means
+   from its own scoring loop. Any systematic difference between those two paths — a
+   different empty-bin rule, a different direction-maximisation, a rounding convention —
+   would land in **every cell's PCC, in the same direction**, and nothing downstream could
+   detect it. Placement 0 is now computed exactly like placements 1–15, and step 7's
+   numbers are used instead as an independent check: `shift0_vs_step7_<kind>` is the
+   largest disagreement across the epoch's events, it comes out at **1.64 × 10⁻⁵ rZ**
+   (the step-7 CSV is written to six decimals, so this is its rounding floor), and the run
+   aborts above 10⁻³.
+
+**The other choices, as implemented:**
+
+- **The shift is circular and the same in both running directions.** It preserves the
+  cell's peak rate, field width and shape and destroys only *where* the field is, so a
+  contribution is a contribution of position rather than of excitability. The same offset
+  is used in both directions because a cell is one cell.
+- **One event mask for all placements.** An event that any placement cannot score — a
+  degenerate posterior gives a zero-width null and no z-score — is dropped from every
+  placement including the real one (`pcc.finite_everywhere`). Otherwise a contribution
+  would be a difference between event sets rather than between field positions. This is
+  the same rule 9b needed, for the same reason.
+- **All events, not only the ones the cell fired in.** The paper says "across all PRE and
+  POST putative events", and there is a mechanism: a silent cell's field still enters the
+  decoder's normalisation term, so moving it still moves the posterior. **This was flagged
+  in the brief as the most likely silent failure and is now tested directly** — two tests
+  assert that shifting a silent cell's field changes the score and that its contribution
+  is not structurally zero. The present-only mean is computed alongside as a diagnostic.
+- **"Strongly contributing" is signed.** A cell counts when `z ≥ 1.65` in PRE or POST,
+  not `|z| ≥ 1.65`: a cell whose real placement scores *worse* than its own alternatives
+  is a real effect but not the one the paper's phrase describes. The two-sided count is
+  logged beside it (30 against 38 under column cycle), so the choice is visible.
+- **The null labels come free.** Treating each shifted placement in turn as though it were
+  the real field, with the remaining 14 as its null, yields a ΔPCC the estimator produced
+  from a field carrying no positional information — the same statistic, same events, same
+  spike counts, same epoch asymmetry, everything except the cell owning its field. Fifteen
+  null ΔPCC values per cell, 1155 in all, at no extra computation.
+
+### D9.4 — The null-reuse approximation, validated and bounded
+
+Standardising a score needs a within-event null, and recomputing 500 shuffles for every
+(cell, placement, event) would multiply the cost of the estimator by about 500. The
+implementation reuses each event's step-7 null mean and standard deviation for the
+perturbed templates. **This is the only approximation in the estimator**, and the brief
+required it validated before being relied on.
+
+`--validate N` re-scores N random (cell, placement, event) triples with their own fresh
+500-shuffle null and compares. On **40,000 triples** of Achilles_10252013:
+
+| | column cycle | time permutation |
+|---|---|---|
+| correlation, reused against fresh rZ | 0.9960 | 0.9945 |
+| overall bias (reused − fresh) | **+0.0004 ± 0.0006** rZ | **−0.0017 ± 0.0006** rZ |
+| 95 % of \|error\| below | 0.223 | 0.217 |
+| null SD ratio reused/fresh, median (5–95 %) | 0.9999 (0.929–1.074) | 0.9999 (0.930–1.076) |
+| epoch-differential bias (POST − PRE) | −0.0016 ± 0.0011 | +0.0004 ± 0.0012 |
+
+**Verdict: the approximation passes, with one bound worth stating.** Per-triple error has a
+standard deviation of about 0.11 rZ, but PCC averages over ~2500 events and 15 placements,
+so that noise is negligible in the mean. What could survive averaging is a bias, and a
+bias common to both epochs cancels in ΔPCC anyway; the quantity that matters is the
+epoch-differential bias, and it is bounded at **|bias| < 0.0023 rZ at two standard
+errors** for both shuffles — below the mean real ΔPCC of +0.004.
+
+**What the validation cannot bound.** A bias that varies *per cell* would affect the
+ranking of cells and so the rigid/plastic split. With 40,000 triples each cell gets about
+260 per epoch, giving a per-cell standard error of ~0.010 rZ — which accounts for
+essentially all of the observed per-cell spread (0.013 and 0.010 against a real ΔPCC
+spread of 0.015 and 0.014). So the measurement is consistent with no per-cell bias, but it
+cannot resolve one below ~0.01 rZ, and resolving it would take roughly fifty times more
+sampling (about an hour). Two things make that acceptable here: the correlation between a
+cell's differential bias and its real ΔPCC is **−0.09 and −0.23**, so if anything the
+approximation deflates the quantity rather than manufacturing it; and the headline result
+of 9c is a *failure* to separate real from null, which a deflating bias cannot create.
+
+### D9.5 — The result: what the estimator produces from noise, and from data
+
+**Null labels first, as the brief requires, and the comparison that needs no downstream
+choice at all.** The 77 real ΔPCC values against the 1155 null ones:
+
+| | column cycle | time permutation |
+|---|---|---|
+| null ΔPCC: median, SD | −0.0005, 0.0118 | −0.0004, 0.0108 |
+| real ΔPCC: median, SD | +0.0011, 0.0156 | +0.0006, 0.0141 |
+| two-sample Kolmogorov–Smirnov | D = 0.104, **p = 0.39** | D = 0.095, **p = 0.50** |
+| Mann-Whitney U | **p = 0.090**, rb +0.115 | **p = 0.104**, rb +0.110 |
+| spread ratio, real / null | 1.32 | 1.31 |
+
+**The distributions are not distinguishable.** The real one is shifted very slightly
+positive and about a third wider, and neither test separates them. Per cell the picture is
+the same: 10 and 12 of 77 cells have a real ΔPCC outside their own 15 null values at
+p < 0.1, against 7.7 expected by chance.
+
+**The rigid/plastic comparisons, each beside its null-label twin** (30 strongly
+contributing cells, split 15/15 at the median; `results/pcc_label_control_*.csv`):
+
+| Property | real: rigid vs plastic | real rb (p) | null labels: max \|rb\| | null draws with p < 0.05 |
+|---|---|---|---|---|
+| session-wide rate (Hz) | 0.615 vs 0.586 | −0.129 (0.56) | 0.307 | 0 of 15 |
+| spatial information (bits/spike) | 0.790 vs 1.053 | +0.253 (0.25) | 0.431 | 1 of 15 |
+| place fields per cell | 1.000 vs 1.000 | −0.022 (0.92) | 0.280 | 0 of 15 |
+| peak rate (Hz) | 6.40 vs 11.25 | +0.271 (0.21) | 0.564 | **6 of 15** |
+
+(column cycle; time permutation is the same picture — every real effect smaller than the
+null labels' largest, and 2 of 15 null draws significant on peak rate where the real
+labels are not.)
+
+**Every real effect is smaller than what the null labels produce at their largest, and on
+one property the null labels reach significance six times out of fifteen while the real
+labels do not.** The paper's claims fare as follows: rigid cells having higher session-wide
+rates is **absent** (−0.13, the wrong sign and not significant); plastic cells having
+higher spatial specificity is **present in direction, not in size** (+0.25, p = 0.25,
+inside the null envelope); plastic cells having fewer place fields is **absent** (0.00).
+The overlap claim fails separately and does not need the control: **38 % and 29 % of PRE
+contributors also contribute to POST, against the paper's 73 %**.
+
+**What the estimator does get right, stated so the failure is not overread.** The
+per-cell contributions sum to **+0.325 rZ** (column cycle) and **+0.296** (time
+permutation) across the 77 cells, against the measured population POST−PRE difference of
+**+0.302** and **+0.220** from step 8c. The estimator is additive and recovers the
+population effect it decomposes. What it cannot support is the per-cell split: the one
+aggregate that does exceed its null is the plastic half's ΔPCC sum (+0.409 against a null
+range of +0.017 to +0.343), and that is the quantity the median split is defined to
+maximise.
+
+**The calibration, carried in from 9b.** Step 9b established that at this ensemble size a
+threefold firing-rate difference across 38 cells produces a population gap that cannot be
+distinguished from splitting the same cells at random: observed gaps of +0.148 and +0.208
+against random-split 95th percentiles of 0.302 and 0.233. **Any population-level claim
+about a cell subset in this session needs a gap above roughly 0.25–0.30 rZ before it is
+evidence.** 9c adds a second, tighter floor on the cell-property side: with 15 cells per
+group, a median split of *noise* produces rank-biserial effects up to 0.43–0.56. So:
+
+- a rigid/plastic property difference below **|rb| ≈ 0.45** is not evidence in this
+  session, and every real difference measured here is below it;
+- a removal or shuffle curve (the paper's Fig. 2D/E, our 9e) would need to move population
+  rZ by more than **~0.25–0.30** to clear the 9b floor, and the entire plastic half's
+  contribution sums to +0.41 — within a factor of 1.5 of the floor, before any of it is
+  attributed to the split rather than to the median.
+
+**Conclusion.** On this session the rigid/plastic difference is reproducible from noise.
+Per the brief, that is the result; no corrected estimator was sought, no parameter was
+changed, and the only variant tried — the two shuffle kinds — agrees. 9d repeats the
+measurement on all five sessions in the same order, null labels first.

@@ -1100,3 +1100,43 @@ def plot_firing_rate_split(rows, null_rows, path: Path, params: dict) -> Path:
                  color=INK, fontsize=10)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+def plot_pcc_null_first(real_rows, null_rows, path: Path, params: dict) -> Path:
+    """The ΔPCC the estimator produces from noise, against the one it produces from data.
+
+    Null first, in grey, and drawn behind: the question this figure answers is
+    not how large the real spread is but whether it can be told apart from the
+    spread of ΔPCC values obtained by treating a shifted field as if it were the
+    cell's own. If the two distributions sit on top of each other, every
+    rigid/plastic comparison downstream is a comparison of noise, and no later
+    choice can repair that.
+    """
+    kinds = [k for k in ("column_cycle", "time_permutation")
+             if any(r["shuffle"] == k for r in real_rows)]
+    fig, axes = plt.subplots(1, len(kinds), figsize=(5.4 * len(kinds), 4.2), squeeze=False)
+    for ax, kind in zip(axes[0], kinds, strict=True):
+        real = np.array([r["delta_pcc"] for r in real_rows if r["shuffle"] == kind],
+                        dtype=float)
+        null = np.array([r["delta_pcc"] for r in null_rows if r["shuffle"] == kind],
+                        dtype=float)
+        real, null = real[np.isfinite(real)], null[np.isfinite(null)]
+        span = np.percentile(np.concatenate([real, null]), [1, 99])
+        edges = np.linspace(span[0], span[1], 41)
+        ax.hist(null, bins=edges, density=True, color=MUTED, alpha=0.35,
+                label=f"null labels (shifted fields, n={null.size})")
+        ax.hist(real, bins=edges, density=True, histtype="step", linewidth=1.6,
+                color="#0072B2", label=f"real fields (n={real.size})")
+        for values, colour, style in ((null, MUTED, "--"), (real, "#0072B2", "-")):
+            ax.axvline(float(np.median(values)), color=colour, linewidth=1.0,
+                       linestyle=style)
+        ax.set_xlabel("ΔPCC  (POST − PRE per-cell contribution)")
+        ax.set_ylabel("density")
+        ax.set_title(kind.replace("_", " "), fontsize=9, color=INK)
+        ax.legend(frameon=False, fontsize=7.5, loc="upper left")
+        _style(ax)
+    fig.suptitle("What the estimator produces from noise, and from data\n"
+                 "null labels first: if these overlap, the rigid/plastic split is noise",
+                 color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)

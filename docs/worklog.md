@@ -1038,3 +1038,65 @@ very likely to produce effects the size of the real ones — which is why the br
 first, and why it should be run before the real labels are ever looked at.
 
 **Tests**: 466 passing, 3 skipped. **Time**: ~2 h.
+
+## 2026-10-24 — Step 9c: per-cell contribution on Achilles_10252013, null labels first
+
+**Provenance, because it matters for a repository whose history is part of the point.**
+The estimator (`src/hc11/pcc.py`), its script and its tests were **drafted in a separate
+session on 23 October** and were sitting uncommitted in the working tree at the start of
+this one. They were adopted deliberately rather than silently: every line was reviewed
+before anything was run, five changes were made (below), and the commit says so.
+
+**What the review changed.**
+
+1. *The real template is now scored through the same code path as every shifted one.* The
+   draft took the unperturbed mean from the step-7 table and the shifted means from its own
+   loop. Any difference between those paths would have landed in every cell's PCC in the
+   same direction, undetectably. Placement 0 now goes through the same function, and step 7
+   serves as an independent check instead: agreement is 1.64e-05 rZ, the step-7 CSV's own
+   rounding floor, and the run aborts above 1e-3.
+2. *One event mask across all placements* (`pcc.finite_everywhere`), so a contribution is
+   never a difference between event sets. The same bug shape 9b found a week ago.
+3. *The silent-cell case is tested, not assumed.* Two tests assert that shifting a silent
+   cell's field changes the score, and that its contribution is not structurally zero. It
+   was already handled correctly — the field enters the decoder's normalisation term — but
+   "appears to handle it" is the standard that produced six silent failures.
+4. *"Strongly contributing" made signed* rather than two-sided, with the two-sided count
+   logged beside it (30 against 38).
+5. `np.rint` instead of `int()` on a float bin index in the validation path.
+
+**The null-reuse approximation passes.** Validation raised from 600 to **40,000 triples**
+(68 s): correlation 0.996, overall bias +0.0004 ± 0.0006 rZ, and — the number that matters,
+since a bias common to both epochs cancels in ΔPCC — epoch-differential bias bounded at
+**|bias| < 0.0023 rZ**. What it cannot bound is a per-cell bias below ~0.01 rZ; that is
+recorded in D9.4 along with why it does not threaten this particular conclusion.
+
+**The result (D9.5): the rigid/plastic split is reproducible from noise.**
+
+- Real ΔPCC against null-label ΔPCC: Kolmogorov–Smirnov p = 0.39 and 0.50, Mann-Whitney
+  p = 0.090 and 0.104. The real distribution is a third wider and shifted +0.001. **Not
+  distinguishable.** Per cell, 10 and 12 of 77 fall outside their own null at p < 0.1,
+  against 7.7 by chance.
+- Every rigid/plastic property difference is smaller than what the null labels produce at
+  their largest, and on peak rate the null labels reach p < 0.05 in **6 of 15 draws** where
+  the real labels reach p = 0.21.
+- The paper's claims: rigid cells firing faster — absent, wrong sign. Plastic cells more
+  spatially specific — right direction, inside the null envelope. Plastic cells with fewer
+  fields — absent. PRE-to-POST contributor overlap **38 % and 29 % against their 73 %**.
+
+**What the estimator does get right**, so the failure is not overread: the 77 per-cell
+contributions sum to +0.325 and +0.296 rZ, against the population POST−PRE differences of
++0.302 and +0.220 measured in step 8c. It is additive and it recovers the effect it
+decomposes. It is the per-cell split it cannot support.
+
+**Calibration carried in from 9b**, as the brief asked: a threefold rate split across 38
+cells could not be separated from a random one (gaps +0.148, +0.208 against random-split
+95th percentiles 0.302, 0.233), so a population claim here needs ~0.25–0.30 rZ to be
+evidence; and 15-against-15 median splits of noise produce |rank-biserial| up to 0.43–0.56,
+so a property difference below ~0.45 is not evidence either. Every real difference measured
+in 9c is below both floors.
+
+Cost, for the record: 77 cells x 16 placements x 2471 events ran in 20 chunks of ~17 s.
+The whole estimator is about six minutes of compute per session.
+
+**Tests**: 484 passing, 3 skipped (22 in `test_pcc.py`). **Time**: ~2 h.
