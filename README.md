@@ -1,31 +1,49 @@
 # hc11-place-fields
 
-An independent replication of the hippocampal replay analysis in **Grosmark & Buzsáki
-(2016)**, built from scratch in Python against the public CRCNS **hc-11** dataset — from
-raw MATLAB session files through place fields, a Bayesian position decoder and
-candidate-event detection, to the sequence-score distributions of the paper's Figure 1C.
+An independent replication of **Grosmark & Buzsáki (2016)**, *Science* **351**:1440, built
+from scratch in Python against the public CRCNS **hc-11** dataset — from raw MATLAB session
+files through place fields, a Bayesian position decoder and candidate-event detection, to
+the sequence-score distributions of the paper's Figure 1C and the per-cell analysis behind
+its Figures 2 to 4.
 
-**The direction of the published effect replicates: sequence scores are higher in
+## The arc, in one minute
+
+**Phase 1 — the published effect replicates in direction.** Sequence scores are higher in
 post-experience sleep than in pre-experience sleep, in every session analysed, under both
-shuffle procedures and both candidate-event definitions — twenty comparisons out of
-twenty.** The magnitude is not established: the effect is small, the paper reports no
-comparable effect size, the method's sensitivity varies nearly tenfold across these
-sessions, and a negative control leaves a substantial residual in three of the five.
+shuffle procedures and both candidate-event definitions: **twenty comparisons out of
+twenty**, and twenty again when the denominator is searched sleep rather than events. The
+magnitude is not established — the paper reports Figure 1C graphically with no effect size
+or denominator, so there is no published number to compare against.
 
-**Five of the eight hc-11 sessions are analysed** — Achilles_10252013, Achilles_11012013,
-Cicero_09012014, Cicero_09102014 and Gatsby_08022013. Buddy_06272013, Cicero_09172014 and
-Gatsby_08282013 are omitted because their local field potential recordings were not
-downloaded, for local storage reasons rather than anything in the data or the method. All
-eight sessions contribute to the place-field and decoding stages; only five reach
-candidate-event detection, which needs the LFP. This is five of eight, not "the dataset".
+**Phase 2 — the method has a sensitivity floor, and it is not far below the effect.** A
+positive control that scores real running, where the answer is known, runs from **+13.2 at
+77 place cells to +1.8 at 16**, where half the windows fall below threshold. A negative
+control that detaches place fields from the cells that own them leaves a substantial
+residual in three of the five sessions. The effect sizes are therefore not measurements on
+a common instrument, and the floor is close enough to the signal to matter.
 
-![Cumulative distributions of sequence score by epoch](docs/figures/replay_cdf.png)
+**Phase 3 — the per-cell structure is below what these ensembles can resolve.** The paper's
+per-cell contribution score, reconstructed and run on all five sessions, recovers the
+population effect additively but cannot support the rigid/plastic split built on top of it:
+of 32 rigid-versus-plastic comparisons, **one** exceeds what the same estimator produces
+from fields carrying no positional information, and that one ties rather than beats its
+null and runs in the opposite direction to the paper. Three of the five sessions cannot
+test the split at all.
 
-*Sequence score (rZ) for candidate events in Achilles_10252013 — one of the five sessions, all of which are tabulated below — by epoch. POST sleep
-(green) sits to the right of PRE sleep (blue) across the whole distribution, not only in
-the tail. The two panels are two different shuffle procedures; both are reported because
-they answer different questions (see below). MAZE has only three scorable events and is
-shown for completeness.*
+**What Phase 3 is not.** It is not a refutation. Grosmark & Buzsáki had 491 cells across
+eight sessions and their own methods; this project has 77 cells in its best session and a
+procedure reconstructed from four sentences of main text and one figure caption. The claim
+here is narrower and it is a claim about measurement: **this estimator, on these ensembles,
+cannot resolve the per-cell structure the paper reports** — and two calibration floors say
+by how much it falls short. A reader who takes Phase 3 as evidence that the paper is wrong
+is taking more from it than the data supports.
+
+**Scope.** Five of the eight hc-11 sessions are analysed — Achilles_10252013,
+Achilles_11012013, Cicero_09012014, Cicero_09102014 and Gatsby_08022013. Buddy_06272013,
+Cicero_09172014 and Gatsby_08282013 are omitted because their local field potential
+recordings were not downloaded, for local storage reasons rather than anything in the data
+or the method. All eight contribute to the place-field and decoding stages; only five reach
+candidate-event detection, which needs the LFP. This is five of eight, never "the dataset".
 
 ---
 
@@ -44,7 +62,18 @@ shown for completeness.*
 
 ---
 
-## What was found
+## Phase 1: does the published effect replicate?
+
+![Cumulative distributions of sequence score by epoch](docs/figures/replay_cdf.png)
+
+*Sequence score (rZ) for candidate events in Achilles_10252013 — one of the five sessions, all of which are tabulated below — by epoch. POST sleep
+(green) sits to the right of PRE sleep (blue) across the whole distribution, not only in
+the tail. The two panels are two different shuffle procedures; both are reported because
+they answer different questions (see below). MAZE has only three scorable events and is
+shown for completeness.*
+
+---
+
 
 Candidate events were detected in each epoch, decoded at 20 ms resolution against the
 place fields, and scored by how well decoded position tracks time within the event. The
@@ -155,7 +184,7 @@ session) with no consistent difference in score between them.
 
 ---
 
-## How we know it is not an artifact
+## Phase 2: how much of this can the method see?
 
 A sequence score can look impressive for reasons that have nothing to do with replay, so
 the result rests on two controls run through the identical pipeline.
@@ -289,6 +318,145 @@ decoded position actually moves between bins.
 
 ---
 
+## Phase 3: the per-cell contribution, and what these ensembles can resolve
+
+The paper's novel claim is not replay itself but its structure: a per-cell contribution
+score (PCC), cells split at the median of its PRE-to-POST change into *rigid* and
+*plastic*, and a set of properties that separate the two groups. We reconstructed the
+estimator from what the main text says — four sentences — plus one figure caption that
+fixes the one procedural detail available: the perturbation is applied to the decoding
+template, not to the spike train. Everything else is our choice, recorded in D9.3.
+
+**Read this section as a statement about measurement, not about the paper.** The framing
+paragraph above applies throughout: 77 cells against their 491, a procedure inferred rather
+than followed.
+
+### The overlap claim is a function of ensemble size
+
+The paper reports that 73 % of neurons contributing to PRE sequences also contribute to
+POST — a rigid backbone. This is the cleanest cross-session comparison in the project,
+because it needs no control at all: it is a count of cells over a threshold in both epochs.
+
+| Session | place cells | PRE contributors | also contribute to POST |
+|---|---|---|---|
+| Achilles_10252013 | 77 | 16 / 17 | **38 % / 29 %** |
+| Achilles_11012013 (circular) | 73 | 1 / 1 | undefined |
+| Cicero_09102014 (circular) | 36 | 1 / 1 | undefined |
+| Gatsby_08022013 | 30 | 13 / 10 | **77 % / 60 %** |
+| Cicero_09012014 | 16 | 5 / 5 | **80 % / 80 %** |
+
+(the two numbers are the two shuffle procedures)
+
+**It is not a constant. It runs from 29 % to 80 %, and it rises as the ensemble shrinks.**
+Our numbers bracket the published 73 %, and the two sessions that match it are the two
+smallest linear ensembles — where the statistic rests on 13 and 5 cells respectively.
+
+The mechanism is one line. "Contributing" is a threshold on a score whose size scales with
+the share of the posterior one cell carries. In a 16-cell ensemble a cell carries about a
+sixteenth and clears the threshold in both epochs; in a 77-cell ensemble it carries a
+seventy-seventh, buried in the same event noise, and clears it in neither. A high overlap
+is what this statistic returns when the ensemble is small. Our largest and most reliable
+ensemble returns 29–38 %.
+
+![Per-cell contribution across five sessions](docs/figures/pcc_cross_session.png)
+
+*Left: the overlap against ensemble size, with the published 73 % marked; hollow symbols
+are circular tracks. Right: every rigid-versus-plastic property difference against the
+largest effect the null labels reach in the same session — 31 of 32 below the diagonal.*
+
+### What the null labels say
+
+Each cell's field was shifted to **every** other position on the track, so each shifted
+placement can stand in for the real one and yield a ΔPCC the estimator produced from a
+field carrying no positional information. These null labels were computed and read **before**
+the real ones, and every real comparison below is reported beside its null twin.
+
+Two sessions do separate from their nulls, and the separation is the wrong kind:
+
+| Session | geometry | real SD | null SD | SD ratio | **location** p | **spread** p |
+|---|---|---|---|---|---|---|
+| Achilles_10252013 | linear | 0.0156 | 0.0118 | 1.32 | 0.090 | 0.110 |
+| Achilles_11012013 | circular | 0.0140 | 0.0130 | 1.07 | **0.0062** | 0.643 |
+| Cicero_09102014 | circular | 0.0208 | 0.0210 | 0.99 | **0.0020** | 0.743 |
+| Gatsby_08022013 | linear | 0.0235 | 0.0149 | 1.58 | 0.365 | **0.0006** |
+| Cicero_09012014 | linear | 0.0624 | 0.0406 | 1.54 | 0.474 | 0.179 |
+
+The circular sessions differ from their nulls **only in where the distribution sits**, not
+in how wide it is. A constant added to every cell is the population POST-minus-PRE effect
+showing up in each cell at once — the same effect Phase 1 measured. **And a median split
+discards exactly that**: the split ranks cells against each other, so adding a constant to
+every cell changes no ranking and moves no cell between groups. What the split needs is
+excess *spread* — real cell-to-cell variation beyond what shifted fields produce — and only
+one session has any (Gatsby_08022013, ratio 1.58, p = 0.0006).
+
+So the one test that reaches significance does so in the only way that cannot support the
+claim built on it.
+
+### Why the negative is credible rather than a broken estimator
+
+Per-cell contributions should sum to the population effect they decompose, and they do:
+
+| Session | Σ ΔPCC (both shuffles) | measured population difference | ratio |
+|---|---|---|---|
+| Achilles_10252013 | +0.325 / +0.296 | +0.302 / +0.220 | **1.07 / 1.35** |
+| Achilles_11012013 | +0.335 / +0.332 | +0.197 / +0.433 | 1.70 / 0.77 |
+| Cicero_09102014 | +0.412 / +0.436 | +0.209 / +0.230 | 1.98 / 1.90 |
+| Gatsby_08022013 | +0.116 / +0.035 | +0.195 / +0.014 | 0.60 / — |
+| Cicero_09012014 | +0.229 / +0.206 | +0.202 / +0.185 | **1.14 / 1.11** |
+
+Within a factor of two everywhere, within 15 % on the two sessions where the estimator has
+the most room. The estimator measures something real and additive; what it cannot do is
+divide it per cell finely enough to rank the cells. (Gatsby's second ratio is against a
+population difference of +0.014 at p = 0.52 and carries no information.)
+
+### Two calibration floors, and every real effect below both
+
+- **Phase 2's population floor.** Splitting an ensemble by a threefold firing-rate
+  difference — 38 cells against 38 — produced a PRE/POST gap of +0.148 that could not be
+  told apart from splitting the same cells at random (random splits reached 0.302 at their
+  95th percentile). **A claim about a cell subset in these sessions needs roughly
+  0.25–0.30 rZ before it is evidence.**
+- **Phase 3's property floor.** A median split of *noise*, 15 cells against 15, produces
+  rank-biserial effects up to **0.43–0.56**. At 4 against 4 it reaches **1.00**.
+
+Every real rigid-versus-plastic effect measured here sits below both floors. Of 32
+comparisons, one exceeds its own null's 95th percentile: Gatsby_08022013's place-field
+count, +0.639 against a ceiling of 0.639 — tying the largest null draw rather than beating
+it, in the session and shuffle whose population difference is +0.014 at p = 0.52, and in
+the direction **opposite** to the paper's claim. Among the twelve comparisons in sessions
+where the test is possible at all, none exceeds its null.
+
+The paper's three property claims, across every session that can speak to them: rigid cells
+firing faster — not found; plastic cells more spatially specific — not found beyond noise;
+plastic cells with fewer place fields — consistently the wrong sign where anything shows.
+
+### Three of the five sessions cannot test the split at all
+
+| Session | cells per group | null-label \|rank-biserial\| ceiling | verdict |
+|---|---|---|---|
+| Achilles_10252013 | 15 v 15 | 0.56 / 0.51 | usable |
+| Achilles_11012013 | 5 v 5, 4 v 4 | 0.76 / 0.81 | **vacuous** |
+| Cicero_09102014 | — | 2 strongly contributing cells, no split | **vacuous** |
+| Gatsby_08022013 | 9 v 8 | 0.55 / 0.64 | usable (one shuffle) |
+| Cicero_09012014 | 4 v 4, 4 v 3 | 1.00 / 1.00 | **vacuous** |
+
+These three are reported as **vacuous rather than as negatives**. An underpowered null is
+not evidence of absence, and listing them as three more failures would overstate the
+result by a factor of two.
+
+### One caveat carried forward
+
+Standardising a perturbed score reuses the unperturbed event's shuffle null, which is the
+estimator's one approximation. Validated on 40,000 re-scored triples per session, it holds:
+correlation 0.996, and the bias that does not cancel in a PRE-to-POST difference is bounded
+below 0.0023 rZ. What that sample cannot bound is a bias that varies *per cell*, below
+about 0.010 rZ. In four sessions the real spread is 1.4 to 10.5 times that bound; in
+**Achilles_11012013 it is 1.1 to 1.2 times**, so that session's per-cell numbers should not
+be read as if the bound had been closed. No conclusion rests on it — a bias cannot
+manufacture a negative — but it is stated rather than left to be found.
+
+---
+
 ## The pipeline
 
 Each stage has a module in `src/hc11/`, a command-line script in `scripts/`, and its
@@ -346,6 +514,13 @@ posterior, standardised against 500 within-event shuffles of two kinds. No posit
 read off the posterior: a bin whose posterior is spread over half the track contributes
 its spread, not a point estimate.
 
+**6. Per-cell contribution.** `hc11.pcc` moves one cell's place field to every other
+position on the track, re-scores every event against that altered template, and takes how
+far the real placement sits above the average placement as that cell's contribution. The
+same placements serve as the null labels, at no extra cost. `hc11.subsets` splits an
+ensemble into halves — by firing rate, or at random, which is the control for splitting at
+all.
+
 ---
 
 ## Where this diverges from the paper, and what turned up on the way
@@ -400,7 +575,7 @@ session's median rZ from −0.060 to +0.110 in PRE and from +0.148 to +0.307 in 
 shift the size of the effect being measured, from a template nobody would have defended
 if asked. Directions now need five laps before their fields are used.
 
-### Only 15–24 % of candidate events are long enough to score
+### Only 6–23 % of candidate events are long enough to score
 
 Scoring needs at least five 20 ms bins with spikes in them, which needs a 100 ms event.
 Our events have a median duration of 55–69 ms, and the scorable fraction across the five
@@ -481,8 +656,22 @@ one, and one the EMG or theta/delta channels of the LFP would settle.
   ones; Gatsby_08022013 excludes its bad channel by a different mechanism (absence from a
   `spikeDetection` group). The skip-flag parser is covered by unit tests and by no real
   session.
-- Nothing here addresses the paper's rigid-versus-plastic cell classification or its
-  per-cell contribution scores. The replication stops at Figure 1C.
+- **Phase 3 is a measurement claim, not a verdict on the paper.** 77 cells in the best
+  session against their 491, and a procedure reconstructed from four sentences of main text
+  plus one figure caption. What is established is that *this* estimator on *these* ensembles
+  cannot resolve the per-cell structure, and by how much it falls short (D9.5, D9.6).
+- **Three of the five sessions cannot test a rigid/plastic property difference at all**,
+  because a median split of noise in them reaches a rank-biserial of 0.76 to 1.00. They are
+  reported as vacuous, not as negatives.
+- **The per-cell contribution's one approximation is bounded but not closed.** Reusing each
+  event's shuffle null is validated to within 0.0023 rZ on the quantity that matters, but a
+  *per-cell* bias below ~0.010 rZ is beyond what 40,000 validation triples can see; in
+  Achilles_11012013 the real spread is only 1.1–1.2 times that bound (D9.4).
+- **The removal and shuffle curves of the paper's Fig. 2D/E were not built.** They would
+  measure an estimator whose resolution is now bounded below the effects they would look
+  for; the reasoning is in D9.6 rather than in an unfinished script.
+- Nothing here addresses the paper's within-session learning curves (Fig. 3B), its
+  pair-wise coactivation analyses (Fig. 4B/C) or its ripple-gain groups (Fig. 4E).
 
 ---
 
@@ -548,6 +737,10 @@ uv run python scripts/validate_sequences.py            # both controls
 uv run python scripts/replay_comparison.py             # the Fig. 1C comparison
 uv run python scripts/sensitivity_floor.py             # the positive control as a figure
 uv run python scripts/residual_vs_ensemble.py          # residual against ensemble size
+uv run python scripts/firing_rate_split.py             # Phase 3: the paper's Fig. 4D
+uv run python scripts/per_cell_contribution.py <session> --chunk 1/20   # PCC, in pieces
+uv run python scripts/per_cell_contribution.py <session> --validate 40000
+uv run python scripts/per_cell_contribution.py <session> --summarise
 ```
 
 All of these default to the five sessions whose LFP is present (`config.LFP_SESSIONS`);
@@ -561,7 +754,7 @@ itself is the slow part, at roughly three minutes per session.
 ### Tests
 
 ```
-448 passed, 3 skipped
+484 passed, 3 skipped
 ```
 
 The three skips are a parametrised test that does not apply to circular mazes. **Seventeen
@@ -577,7 +770,8 @@ touches under 10 kB.
 ## Layout
 
 ```
-src/hc11/        the package: loader, behaviour, fields, decoder, events, ripples, sequences
+src/hc11/        the package: loader, behaviour, fields, decoder, events, ripples,
+                 sequences, subsets (ensemble halves), pcc (per-cell contribution)
 config/          params.yaml — every tunable number, with its provenance
 scripts/         command-line entry points; each writes to results/
 tests/           pytest suite, synthetic fixtures plus data-dependent checks
@@ -587,7 +781,7 @@ data/            raw data (gitignored)
 ```
 
 `docs/decisions.md` records every methodological choice with its reasoning, numbered
-D1.1 through D8.9 and cross-referenced from `docs/METHODS.md`. `docs/worklog.md` is the
+D1.1 through D9.7 and cross-referenced from `docs/METHODS.md`. `docs/worklog.md` is the
 running diary, including what went wrong and when.
 
 ---

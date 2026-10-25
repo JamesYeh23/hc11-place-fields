@@ -428,6 +428,97 @@ single sentence, and that is the result rather than a reporting problem:
 
 ---
 
+## 6. Per-cell contribution — `hc11.pcc`, `hc11.subsets`
+
+### What it does
+
+The paper's Figures 2 to 4 rest on a per-cell contribution score (PCC): each neuron's mean
+contribution to PRE and POST sequences, cells with significant scores split at the median
+of their PRE-to-POST change (ΔPCC) into *rigid* and *plastic*. **The main text gives four
+sentences and defers the procedure to supplementary materials this project does not have.**
+One figure caption — Fig. 2D's "templates in which an increasing percentage of neuron's
+place fields were shuffled" — fixes the only procedural detail available: the perturbation
+is applied to the decoding template, not to the spike train. Everything else below is our
+choice, and a replication resting on a figure caption should say so plainly.
+
+The estimator, for cell *i* and epoch *E*:
+
+    PCC(i, E) = mean_e rZ(e) − mean_s mean_e rZ(e | field i placed at offset s)
+
+Seven choices, all provisional, all in D9.3:
+
+1. **The field is moved by circular shift**, the same offset in both running directions. It
+   keeps the cell's peak rate, width and shape and destroys only *where* the field is, so a
+   contribution is a contribution of position rather than of excitability.
+2. **Every non-zero offset is used**, not a random sample — 15 placements on a 16-bin
+   linear track, 27–28 on a circular one. This makes the estimator deterministic and gives
+   the null labels for free. It also makes the within-cell permutation test coarse: with 15
+   alternatives the finest two-sided p is 1/16 = 0.0625, so **no cell on a linear track can
+   reach p < 0.05** and significance is decided on a standardised score (`pcc.strong_z`,
+   1.65) with the exact p reported beside it.
+3. **The perturbed score reuses the event's own shuffle null** rather than drawing a fresh
+   one, which is the estimator's single approximation; it is validated below.
+4. **All events of the epoch enter the mean**, not only those the cell fired in. A silent
+   cell is not zero-contribution: its field never enters the spike term but does enter the
+   decoder's normalisation, so moving it still moves the posterior. The present-only mean
+   is kept as a diagnostic.
+5. **Significance is signed**: a cell counts as strongly contributing when its real
+   placement scores *better* than its own alternatives, not merely differently.
+6. **One event mask across all placements** (`pcc.finite_everywhere`), so a contribution is
+   never a difference between event sets.
+7. **The null labels** take each shifted placement in turn as though it were the real
+   field, with the remaining placements as its null — the same statistic, same events, same
+   spike counts, same epoch asymmetry, everything except the cell owning its field.
+
+`hc11.subsets` is the simpler sibling used for the paper's Fig. 4D: it splits an ensemble
+into equal halves by off-line firing rate, and — the part that matters — into equal halves
+at random, which is the control for splitting at all.
+
+### Parameters
+
+| | Value | Source |
+|---|---|---|
+| placements per cell | every non-zero circular offset | [PROVISIONAL] |
+| strongly contributing | signed z ≥ 1.65 in PRE or POST | [PROVISIONAL], matches `sequences.significance_z` |
+| rigid/plastic boundary | median ΔPCC within session | [GB2016] |
+| null-reuse validation sample | 40,000 (cell, placement, event) triples | [PROVISIONAL] |
+| vacuous-test threshold | null-label \|rank-biserial\| ≥ 0.6 | [PROVISIONAL] |
+| random ensemble splits (Fig. 4D) | 20 | [PROVISIONAL] |
+
+### Validation
+
+- **The real template is scored through the same code path as every shifted one.** The
+  first draft took the unperturbed mean from the step-5 results table and the perturbed
+  means from its own loop; any difference between those paths would have landed in every
+  cell's PCC in the same direction. Step 5's numbers now serve as an independent check
+  instead: agreement is **1.6–1.8 × 10⁻⁵ rZ**, the rounding floor of the step-5 CSV, and a
+  run aborts above 10⁻³.
+- **The null-reuse approximation**, on 40,000 re-scored triples per session: correlation
+  **0.996**, overall bias **+0.0004 ± 0.0006 rZ**, and — the quantity that does not cancel
+  in a PRE-to-POST difference — epoch-differential bias bounded at **|bias| < 0.0023 rZ**.
+  A *per-cell* bias below ~0.010 rZ is beyond what that sample can see, which matters for
+  one session and is recorded in D9.4 and in the limitations below.
+- **The silent-cell case is tested, not assumed**: two tests assert that shifting a silent
+  cell's field changes the score and that its contribution is not structurally zero.
+- **Two calibration floors**, both measured rather than asserted. A threefold firing-rate
+  split of 38 cells against 38 produced a population gap indistinguishable from splitting
+  the same cells at random, so a subset claim needs **~0.25–0.30 rZ** to be evidence
+  (D9.2). A median split of *noise* at 15 cells against 15 produces rank-biserial effects
+  up to **0.43–0.56**, and at 4 against 4 up to **1.00** (D9.5, D9.6).
+
+### Outcome
+
+The estimator is additive: per-cell contributions sum to the population PRE/POST difference
+within a factor of two on every session and within 15 % on two of them. The split built on
+it is not supported: of 32 rigid-versus-plastic comparisons **one** exceeds its own null's
+95th percentile, and it ties rather than beats, in the session and shuffle with no
+population effect, in the direction opposite to the paper's. Three of five sessions cannot
+test the split at all. The PRE-to-POST contributor overlap — the paper's 73 % — runs from
+29 % to 80 % across our sessions and **rises as the ensemble shrinks**, which is what a
+threshold on a per-cell score does when each cell carries a larger share of the posterior.
+
+---
+
 ## Controls and validation, in one place
 
 | Control | Question | Result | Where |
@@ -444,6 +535,10 @@ single sentence, and that is the result rather than a reporting problem:
 | **MAZE running positive control** | Can the scoring recognise a known trajectory? | Median rZ +1.8 to +13.2 (46–95 % above 1.65), ordered by ensemble size | D7.7, D8.9 |
 | **Per-session reporting with no pooling across geometry** | Is a pooled rZ a mixture of two scales? | Yes — a ring maximises over 28–29 offsets, a line over one | D8.4 |
 | Residual against ensemble size | Does the control's residual follow cell count rather than geometry? | The absolute residual is monotone with ensemble size across all five sessions on the column-cycle shuffle; suggestive only, no fit | D8.10 |
+| **Random ensemble splits** | Is a difference between two halves of an ensemble more than splitting it at all produces? | No — 9 of 10 observed gaps sit inside the random-split spread | D9.2 |
+| **Null labels for the rigid/plastic split** | What does a median split of ΔPCC produce from fields carrying no position? | Effects as large as the real ones, and larger in three sessions | D9.5, D9.6 |
+| **Additivity of the per-cell contribution** | Does the estimator decompose the population effect it claims to? | Yes — the per-cell sum matches within a factor of two on every session | D9.6 |
+| Null-reuse validation | Is reusing each event's shuffle null safe for a perturbed template? | Bias below 0.0023 rZ on the quantity that matters; a per-cell bias below ~0.010 rZ is unresolved | D9.4 |
 
 The five in bold are the ones the headline result depends on.
 
@@ -525,8 +620,23 @@ observation and discards non-finite draws, and by `subsets.finite_in_both`, whic
 event from *both* halves when either half cannot score it — so the two halves are always
 compared on one event set. Both are unit-tested on exactly these cases.
 
-A seventh near-miss is not a bug but belongs in the same section: **a one-lap directional
-template** on the circular session (D7.3) depressed that session's sequence scores by as
+**Two near-misses belong in the same section, because they were caught differently.**
+
+The first was caught by **reading code rather than output**, which is the detection mode
+none of the six above had. In the first draft of the per-cell contribution estimator the
+real template was scored through one code path and the shifted templates through another:
+the unperturbed mean came from the step-5 results table, the perturbed means from the
+estimator's own loop. Nothing it produced would have looked wrong — the difference between
+two correct-looking paths is a small constant, and it would have landed in *every* cell's
+contribution in the *same* direction, which is precisely the shape no downstream control
+can see. It was found in review, before the estimator was ever run on more than four cells,
+and the fix was to compute the real placement through the same function as the other
+fifteen and keep the step-5 table as an independent check (agreement: 1.6 × 10⁻⁵ rZ). The
+lesson is narrow and worth stating: the six failures above were caught because something
+independent disagreed, and this one could not have been, because the error would have moved
+every number together.
+
+The second: **a one-lap directional template** on the circular session (D7.3) depressed that session's sequence scores by as
 much as the effect being measured, because the score maximises over directions and a noise
 template hands the shuffles the same freedom. It was caught by checking lap counts per
 direction before trusting the output — again a cross-check, not an error.
@@ -536,7 +646,9 @@ project: **a numerical pipeline fails by returning a number.** Three of the six 
 cell-count confound, the rounded p-values and the NaN comparison — produced results that
 *supported* the hypothesis under test or made it look stronger, which is the most dangerous
 shape a silent failure can take, and the only reason any of them was found is that
-something independent had to agree and did not.
+something independent had to agree and did not. (Of the first five, two had that shape; the
+NaN comparison makes three of six. The count is kept honest here because it is the kind of
+number that drifts upward in retelling.)
 
 ---
 

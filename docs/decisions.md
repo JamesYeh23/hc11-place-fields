@@ -2416,3 +2416,44 @@ Per the brief: **this is the Phase 3 deliverable and it leads the write-up.** No
 estimator was sought. Steps 9e (removal and shuffle curves) and 9f (cell-property
 comparisons at scale) stay unbuilt: both would measure an estimator whose resolution is now
 bounded below the effects they would be looking for.
+
+### D9.7 — How Phase 3 is to be reported: a measurement claim, not a refutation
+
+Phase 3's results are easy to overread, and the overreading is in one direction, so the
+framing is fixed here rather than left to each reader.
+
+**What the asymmetry is.** Grosmark & Buzsáki had 491 place cells across eight sessions,
+their own recordings, and their own methods. This project has 77 cells in its best session,
+five sessions of eight, and a procedure reconstructed from **four sentences of main text
+and one figure caption** (D9.3). The supplementary methods that define the per-cell
+contribution were not available. Those are not symmetric positions, and no result obtained
+from the weaker one can settle the stronger one.
+
+**What is therefore claimed, and what is not.** The claim is about measurement: *this*
+estimator, on *these* ensembles, cannot resolve the per-cell structure the paper reports,
+and the two calibration floors say by how much — a subset claim needs ~0.25–0.30 rZ (D9.2)
+and a property difference at 15 against 15 needs |rank-biserial| above ~0.45 (D9.5), while
+every real effect measured sits below both. It is **not** claimed that the rigid/plastic
+distinction is absent in the hippocampus, that the paper's analysis is wrong, or that a
+better-powered replication would fail. A reader who takes Phase 3 as evidence for any of
+those is taking more from it than the data supports.
+
+**Three things keep that honest in the documents themselves**, and they are requirements on
+the write-up rather than observations about it:
+
+1. The framing paragraph appears **early** — in the README's opening section and at the top
+   of the Phase 3 material — not in a limitations list at the end where it would be read
+   after the conclusion has formed.
+2. Sessions that cannot test a claim are reported as **vacuous, not as negatives**. Three
+   of five fall there, and counting them as failures would double the apparent weight of
+   the result.
+3. The estimator's **additivity** is reported alongside every negative, because it is what
+   distinguishes "the split is below resolution" from "the code is wrong" — and only the
+   first of those is what we found.
+
+**One thing Phase 3 does establish on its own terms**, needing no control and no
+reconstruction: the PRE-to-POST contributor overlap varies from 29 % to 80 % across five
+sessions and rises as the ensemble shrinks (D9.6). That is a property of a threshold
+applied to a per-cell score, it is measured rather than inferred, and it says something
+specific about when a published figure of this kind is reproducible — which is a different
+and more useful statement than "we could not reproduce it".

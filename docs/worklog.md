@@ -1151,3 +1151,41 @@ null ceiling, 31 of 32 below the diagonal.
 is now bounded below the effects they would look for. Next is the write-up decision.
 
 **Tests**: 484 passing, 3 skipped. **Time**: ~1.5 h.
+
+## 2026-10-25 — Phase 3 write-up, and the public documents restructured around three phases
+
+No new analysis. The documents now carry all three phases rather than Phase 2 with a
+Phase 3 appendix.
+
+**Framing first, and fixed in the decision log (D9.7).** Phase 3 is a measurement claim,
+not a refutation: 77 cells in the best session against the paper's 491, five sessions of
+eight, and a procedure reconstructed from four sentences and a figure caption. The claim is
+that this estimator on these ensembles cannot resolve the per-cell structure, with two
+measured floors saying by how much. D9.7 also fixes three requirements that keep the
+framing honest in the documents themselves — the caveat goes early rather than in a trailing
+limitations list, vacuous sessions are not counted as negatives, and additivity is reported
+beside every negative so "below resolution" is never mistaken for "broken".
+
+**README restructured around the arc.** A reader should get it in the first fifty lines:
+Phase 1 replicated the direction of the published effect (20 of 20), Phase 2 found the
+method's sensitivity floor (+13.2 down to +1.8 across ensembles), Phase 3 bounded what the
+per-cell estimator can resolve. Phase 3's section leads with the overlap result, because it
+needs no control and is the cleanest cross-session comparison in the project: 29 % to 80 %,
+rising as the ensemble shrinks, with the two matches to the published 73 % being the two
+smallest linear ensembles, on 13 and 5 cells. Then the null labels with the location/spread
+decomposition, additivity as the reason the negative is credible, the two floors, the three
+vacuous sessions, and Achilles_11012013's unresolved per-cell bias bound.
+
+**METHODS.md gained a stage 6** in the same form as the others — the seven choices, the
+parameters, the validation (placement-0 path check at 1.6e-05 rZ, null reuse at 40,000
+triples, the two floors), the outcome.
+
+**The silent-failure catalogue stays at six, and gained a near-miss with a different
+detection mode.** The placement-0 path error was caught by *reading code*, not by reading
+output: it would have shifted every cell's contribution in the same direction, which is the
+one shape no downstream control can see. The other six were all caught because something
+independent disagreed. The honest count of hypothesis-supporting failures is kept where it
+belongs — two of the first five, three of six now — with a note saying why it is spelled
+out, since that is the kind of number that drifts upward in retelling.
+
+Tagged **v0.2.0**. **Tests**: 484 passing, 3 skipped. **Time**: ~1 h.
