@@ -2457,3 +2457,95 @@ sessions and rises as the ensemble shrinks (D9.6). That is a property of a thres
 applied to a per-cell score, it is measured rather than inferred, and it says something
 specific about when a published figure of this kind is reproducible — which is a different
 and more useful statement than "we could not reproduce it".
+
+## Phase 4, step 10a-bis — whether the event-length shortfall is fixable
+
+### D10.1 — The boundary threshold is ours, and was mislabelled as Chen et al.'s
+
+Phase 4 asks whether a receptive-field-free decoder can work where place fields ran out of
+resolution. Chen et al. score sleep events of 11.5 bins at 20 ms; ours run 7.2–8.0, and
+D7.5 traced that to the MUA detector's boundary threshold rather than to anything in the
+scoring. Before building an HMM on top of events that short, the question is whether the
+shortfall is a property of the data or of a number we chose.
+
+**It is a number we chose, and `config/params.yaml` said otherwise.** The boundary
+threshold `events.mua.threshold_low_sd: 1.0` carried the tag `[CHEN2016]`. Chen et al.
+state one threshold for multi-unit activity — "threshold > mean + 3 SD" — and say nothing
+about where a candidate's boundaries extend to. The decision log and METHODS.md both had
+it right as `[PROVISIONAL]` from the start (D8.1's audit table lists it among the
+provisional parameters); only the config was wrong. The tag is corrected, with the
+correction noted in place rather than silently applied.
+
+This matters beyond bookkeeping: a parameter believed to be the paper's is one nobody
+sweeps. It survived the step-8a audit for that reason — the audit asked which parameters
+were *checked on more than two sessions*, not which provenance tags were accurate.
+
+**The sweep.** `scripts/boundary_threshold_sweep.py` varies the boundary from 1.0 SD down
+to −1.0 SD in 0.25 steps, **leaving the 3 SD peak threshold alone throughout**, and
+reports per session and epoch: event count, median duration, bins with spikes, the
+fraction clearing the five-bin floor, bins and active pyramidal cells among the scorable
+events, spikes per used bin, and the two independent quality checks — whether the event
+still coincides with a sharp-wave ripple within 50 ms, and how many other shanks support
+that ripple (D6.19).
+
+Two guards on the sweep itself:
+
+- **At the pipeline's own threshold it must reproduce the pipeline's own events**, or it
+  is measuring something other than this detector. It does: 10 of 10 session-epochs match
+  `results/mua_events.csv` exactly on count and median duration, and the script raises
+  rather than writing a table if they ever stop matching.
+- The match to ripples uses `events.nearest_within`, a small unit-tested helper, rather
+  than a hand-rolled search in the script, because an off-by-one in a nearest-neighbour
+  match would move the one number the quality check rests on.
+
+### D10.2 — The length shortfall is fixable; the cell shortfall is not, and nothing is adopted
+
+Pooling PRE and POST, at the current 1.0 SD and at −0.5 SD:
+
+| Session | events | scorable events | median duration | bins/scorable | active cells/scorable | spikes/bin | ripple-matched |
+|---|---|---|---|---|---|---|---|
+| Achilles_10252013 | 11001 → 7668 | 3314 → **6300 (1.9×)** | 65 → 181 ms | 6.5 → **10.0** | 30.0 → 26.5 | 7.58 → 5.04 (−34 %) | 50 % → 50 % |
+| Achilles_11012013 | 8037 → 5932 | 1816 → **4566 (2.5×)** | 58 → 162 ms | 6.0 → **9.0** | 21.5 → 18.5 | 5.75 → 3.89 (−32 %) | 48 % → 48 % |
+| Cicero_09102014 | 9735 → 7723 | 1917 → **5389 (2.8×)** | 59 → 165 ms | 6.0 → **9.0** | 21.0 → 20.5 | 5.00 → 3.47 (−31 %) | 52 % → 54 % |
+| Gatsby_08022013 | 7526 → 5922 | 1441 → **3876 (2.7×)** | 57 → 158 ms | 6.0 → **9.0** | 17.5 → 17.0 | 5.00 → 3.54 (−29 %) | 45 % → 48 % |
+| Cicero_09012014 | 9559 → 7925 | 971 → **3193 (3.3×)** | 56 → 153 ms | 7.0 → **10.5** | 16.5 → 15.5 | 3.83 → 2.72 (−29 %) | 43 % → 43 % |
+
+Median supporting shanks for the matched ripples does not move in any session (11, 11, 11,
+6, 9.5 at both ends). Below −0.5 SD the sweep ends abruptly: at −1.0 SD **every session
+returns zero events**, because the population rate never falls back to the boundary, every
+candidate merges with its neighbours, and the merged events run past the 400 ms duration
+cap and are dropped. That is the floor, and it is set by the cap rather than by the data.
+
+**Four readings, and the third is the one that matters for Phase 4.**
+
+1. **The length shortfall is fixable.** At −0.5 SD the median scorable event runs 9.0–10.5
+   bins against Chen et al.'s 11.5, where today it runs 6.0–7.0, and between 1.9 and 3.3
+   times as many events clear the five-bin floor. D7.5's "largest attrition step in the
+   pipeline" is largely a consequence of this one parameter.
+2. **The extra duration is not drift into baseline.** The ripple-matched fraction is flat
+   to three points *higher* across the whole sweep, and multi-shank support does not move.
+   Whatever the longer events are, they are still ripple-locked and still corroborated by
+   shanks other than the one they were detected on.
+3. **But it buys time, not participants.** Active pyramidal cells per scorable event is
+   flat or slightly *lower* at −0.5 SD in all five sessions (30.0 → 26.5, 21.5 → 18.5,
+   21.0 → 20.5, 17.5 → 17.0, 16.5 → 15.5). Chen et al.'s detection power scales with the
+   active-cell ratio, and their own Fig. 4B found most simulated events non-significant
+   below roughly 40 active cells. **We sit at 15–27 and lowering the boundary does not
+   move us.** Phase 4 would start from better footing on bins and unchanged footing on
+   cells, which means a null at 10d should be attributed to the ensemble, not to the
+   event length — the attribution this step existed to settle.
+4. **Each bin carries 29–34 % fewer spikes.** Both decoders rest on a per-bin Poisson
+   likelihood; more bins with thinner counts is not a free gain, and the sweep cannot say
+   which way the trade lands without running the scoring at each threshold.
+
+**Nothing is adopted, and one finding argues for caution beyond the usual.** The PRE-minus-POST
+gap in the scorable fraction is stable across the sweep in four sessions (within a few
+points of where it starts), but in **Cicero_09012014 it widens from −4.8 to −14.6
+percentage points**: POST gains far more scorable events than PRE as the boundary drops.
+A parameter change that moves one epoch more than the other in the session with the
+smallest ensemble is exactly the shape that would make a PRE/POST difference appear for a
+reason that is not biology. Adopting this threshold would require re-running every number
+in Phases 1 to 3 — the event set is the denominator of all of them — and that asymmetry
+would have to be understood first, not noticed afterwards.
+
+The trade-off is recorded; the decision is not taken here.

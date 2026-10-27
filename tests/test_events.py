@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hc11 import events
 from hc11.events import (
     EventList,
     compare_events,
@@ -254,3 +255,32 @@ def test_counts_agree_with_the_flat_participation_count():
     flat = participation(session, events, session.pyr_ids)
     by_shank = participation_by_shank(session, events, session.pyr_ids)
     assert by_shank.n_active.tolist() == flat.n_active.tolist()
+
+
+def test_nearest_within_finds_the_closer_side():
+    reference = np.array([1.0, 2.0, 3.0])
+    assert list(events.nearest_within(np.array([1.9, 2.2]), reference, 0.5)) == [1, 1]
+
+
+def test_nearest_within_returns_minus_one_outside_the_window():
+    reference = np.array([1.0, 5.0])
+    assert list(events.nearest_within(np.array([3.0]), reference, 0.5)) == [-1]
+    assert list(events.nearest_within(np.array([3.0]), reference, 2.5)) == [0]
+
+
+def test_nearest_within_handles_unsorted_reference():
+    reference = np.array([5.0, 1.0, 3.0])
+    # index 2 is the 3.0 in the ORIGINAL array, not in a sorted copy
+    assert list(events.nearest_within(np.array([3.1]), reference, 0.5)) == [2]
+
+
+def test_nearest_within_on_empty_inputs():
+    assert events.nearest_within(np.array([]), np.array([1.0]), 1.0).size == 0
+    assert list(events.nearest_within(np.array([1.0]), np.array([]), 1.0)) == [-1]
+
+
+def test_nearest_within_is_deterministic_on_ties():
+    reference = np.array([1.0, 3.0])
+    first = events.nearest_within(np.array([2.0]), reference, 5.0)
+    second = events.nearest_within(np.array([2.0]), reference, 5.0)
+    assert list(first) == list(second)

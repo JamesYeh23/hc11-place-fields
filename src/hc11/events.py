@@ -251,6 +251,32 @@ def participation_by_shank(
 # ---------------------------------------------------------------------------
 
 
+def nearest_within(query: np.ndarray, reference: np.ndarray, window: float) -> np.ndarray:
+    """Index of the nearest ``reference`` time to each ``query``, or -1 if none is close.
+
+    Both arrays are times in seconds; ``reference`` need not be sorted. Ties go
+    to the earlier reference, which is arbitrary but deterministic — the point
+    is that two runs of the same comparison give the same answer.
+    """
+    query = np.asarray(query, dtype=float)
+    reference = np.asarray(reference, dtype=float)
+    if query.size == 0 or reference.size == 0:
+        return np.full(query.shape, -1, dtype=int)
+    order = np.argsort(reference, kind="stable")
+    ordered = reference[order]
+    right = np.searchsorted(ordered, query)
+    best = np.full(query.shape, -1, dtype=int)
+    gap = np.full(query.shape, np.inf)
+    for offset in (-1, 0):
+        candidate = np.clip(right + offset, 0, ordered.size - 1)
+        distance = np.abs(ordered[candidate] - query)
+        take = distance < gap
+        best[take] = candidate[take]
+        gap[take] = distance[take]
+    best[gap > window] = -1
+    return np.where(best >= 0, order[np.clip(best, 0, None)], -1)
+
+
 @dataclass(frozen=True)
 class EventOverlap:
     """How two event lists correspond."""

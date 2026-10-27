@@ -338,7 +338,11 @@ events:
     # not dominated by single-spike noise.
     smoothing_sigma_ms: 10.0       # [PROVISIONAL]
     threshold_high_sd: 3.0         # [CHEN2016] peak must clear this
-    threshold_low_sd: 1.0          # [CHEN2016] boundaries extend to this
+    # Chen et al. state only the 3 SD peak ("multi-unit activity, threshold >
+    # mean + 3 SD"); the boundary a candidate extends out to is ours, and was
+    # mislabelled [CHEN2016] here until step 10a-bis went looking for it
+    # (D10.1). docs/decisions.md and METHODS.md always had it as provisional.
+    threshold_low_sd: 1.0          # [PROVISIONAL] boundaries extend to this
     min_duration_ms: 30            # [PROVISIONAL]
     max_duration_ms: 400           # [GB2016] SPW-Rs last 50-400 ms
     merge_gap_ms: 30               # [PROVISIONAL]

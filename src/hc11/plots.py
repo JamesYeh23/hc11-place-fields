@@ -1209,3 +1209,59 @@ def plot_pcc_cross_session(summary_rows, control_rows, path: Path, params: dict)
                  color=INK, fontsize=10)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+def plot_boundary_sweep(rows, path: Path, params: dict) -> Path:
+    """What lowering the detector's boundary threshold buys, and what it costs.
+
+    Four panels, two of them the purchase and two the price. Bins per scorable
+    event and the scorable fraction both rise steeply; active cells per event
+    does not move, and spike density per bin falls. A boundary that lifts the
+    first pair while leaving the second flat is buying **time, not
+    participants** — which matters, because the detection power of both
+    decoders scales with how many cells are active in an event.
+
+    PRE solid, POST dashed: the two must move together, or a change here would
+    shift the PRE/POST comparison for a reason that is not biology.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(10.6, 7.4))
+    sessions = sorted({r["session"] for r in rows})
+    colours = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#56B4E9"]
+    panels = (
+        (axes[0][0], "median_used_bins_scorable", "bins with spikes, scorable events"),
+        (axes[0][1], "pct_scorable", "events clearing the five-bin floor (%)"),
+        (axes[1][0], "median_active_pyr_scorable", "active pyramidal cells per event"),
+        (axes[1][1], "pct_ripple_matched", "events matching a ripple (%)"),
+    )
+    for ax, key, ylabel in panels:
+        for session, colour in zip(sessions, colours, strict=False):
+            for epoch, style in (("PRE", "-"), ("POST", "--")):
+                here = sorted((r for r in rows if r["session"] == session
+                               and r["epoch"] == epoch and r.get("n_events")),
+                              key=lambda r: -r["threshold_low_sd"])
+                here = [r for r in here if np.isfinite(r.get(key, np.nan))]
+                if not here:
+                    continue
+                ax.plot([r["threshold_low_sd"] for r in here], [r[key] for r in here],
+                        style, color=colour, linewidth=1.3, marker="o", markersize=3.5,
+                        label=session.replace("_", " ") if epoch == "PRE" else None)
+        ax.axvline(1.0, color=MUTED, linewidth=0.9, linestyle=":")
+        ax.set_xlabel("boundary threshold (SD above baseline)")
+        ax.set_ylabel(ylabel)
+        ax.invert_xaxis()
+        _style(ax)
+    axes[0][0].axhline(11.5, color=MUTED, linewidth=0.9, linestyle="-.")
+    axes[0][0].text(0.02, 0.95, "-·- Chen et al., 11.5 bins", transform=axes[0][0].transAxes,
+                    fontsize=7, color=MUTED, va="top")
+    axes[1][0].text(0.02, 0.06, "flat: the extra duration adds time, not cells",
+                    transform=axes[1][0].transAxes, fontsize=7, color=MUTED)
+    axes[1][1].text(0.02, 0.06, "flat: the extra duration is still ripple-locked",
+                    transform=axes[1][1].transAxes, fontsize=7, color=MUTED)
+    axes[0][1].text(0.98, 0.06, "dotted: the current 1 SD\nsolid PRE, dashed POST",
+                    transform=axes[0][1].transAxes, fontsize=7, color=MUTED, ha="right")
+    axes[0][0].legend(frameon=False, fontsize=7, loc="lower right")
+    fig.suptitle("Lowering the boundary threshold: what it buys and what it costs\n"
+                 "peak threshold fixed at 3 SD throughout; no threshold adopted (D10.1)",
+                 color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)

@@ -1189,3 +1189,48 @@ belongs — two of the first five, three of six now — with a note saying why i
 out, since that is the kind of number that drifts upward in retelling.
 
 Tagged **v0.2.0**. **Tests**: 484 passing, 3 skipped. **Time**: ~1 h.
+
+## 2026-10-26 — Step 10a-bis: is the event-length shortfall fixable? Mostly, and not the part that matters
+
+Phase 4 asks whether a receptive-field-free decoder works where place fields ran out of
+resolution. Before building one on events of 7–8 bins when Chen et al. scored 11.5, this
+step asks whether the shortfall is the data or a parameter.
+
+**It is a parameter, and the config lied about whose it was.** `threshold_low_sd` was
+tagged `[CHEN2016]`. Chen et al. state one MUA threshold — peak above mean + 3 SD — and
+nothing about boundaries. decisions.md and METHODS.md both had it as provisional all
+along; only `config/params.yaml` was wrong, and a parameter believed to be the paper's is
+one nobody sweeps. It survived the step-8a audit because that audit asked which parameters
+had been *checked on more than two sessions*, not which provenance tags were true. Fixed in
+place with the correction noted (D10.1).
+
+**The sweep** (`scripts/boundary_threshold_sweep.py`) moves the boundary from 1.0 to −1.0
+SD, leaves the 3 SD peak alone, and reports duration, bins, scorable fraction, active cells,
+spike density and the two independent quality checks (ripple match, multi-shank support).
+Two guards: at the pipeline's own threshold it must reproduce `results/mua_events.csv`
+exactly — it does, 10 of 10 session-epochs on count and median duration, and it raises
+rather than writing a table if that ever stops being true — and the ripple match goes
+through `events.nearest_within`, now unit-tested, rather than a hand-rolled search.
+
+**What came back (D10.2).** At −0.5 SD the median scorable event runs 9.0–10.5 bins against
+6.0–7.0 today and Chen's 11.5, and 1.9–3.3× more events clear the five-bin floor. The extra
+duration is not drift into baseline: the ripple-matched fraction is flat to three points
+higher and multi-shank support does not move at all. **But active cells per event is flat or
+slightly lower in all five sessions** — the extension buys time, not participants — and
+spikes per used bin falls 29–34 %.
+
+That is the answer this step existed for. Phase 4 would start from better footing on bins
+and *unchanged* footing on cells, and Chen et al.'s detection power scales with the
+active-cell count, where we sit at 15–27 against the ~40 their own Fig. 4B needed. So if
+10d comes back null, the attribution is the ensemble, not the event length — which is what
+we wanted to know before building rather than after.
+
+Two things the sweep found that nobody asked for. Below −0.5 SD **every session returns
+zero events**: the rate never falls back, everything merges, and the merged events exceed
+the 400 ms cap and are dropped. And in Cicero_09012014 the PRE-minus-POST gap in the
+scorable fraction **widens from −4.8 to −14.6 points** as the boundary drops, where the
+other four sessions hold steady — a parameter change that helps one epoch more than the
+other, in the session with the smallest ensemble. Nothing is adopted; that asymmetry would
+have to be understood before anything could be.
+
+**Tests**: 489 passing, 3 skipped (5 new for `nearest_within`). **Time**: ~1.5 h.
