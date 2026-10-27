@@ -2549,3 +2549,79 @@ in Phases 1 to 3 — the event set is the denominator of all of them — and tha
 would have to be understood first, not noticed afterwards.
 
 The trade-off is recorded; the decision is not taken here.
+
+### D10.3 — Every citation tag audited against its source; five were wrong
+
+D10.1 found one parameter attributed to a paper that does not state it. A tag is not
+decoration: a parameter that looks like the authors' is a parameter nobody sweeps, and the
+step-8a audit could not have caught it, because that audit asked which parameters had been
+*checked on more than two sessions*, not which attributions were true. So every
+`[CHEN2016]`, `[GB2016]` and `[DATA]` tag in `config/params.yaml` was read back against the
+sentence it claims — twenty-five of them.
+
+**Five are wrong, in three different directions.**
+
+| Parameter | Was | Is | What the source actually says |
+|---|---|---|---|
+| `events.mua.max_duration_ms: 400` | `[GB2016]` | `[CHEN2016]` | "SPW-ripples, lasting between 50 to 400 milliseconds" is Chen et al.'s introduction. Grosmark & Buzsáki's main text gives no duration range. Right number, wrong paper. |
+| `events.ripples.threshold_high_sd: 3.0` | `[CHEN2016]` | `[PROVISIONAL]` | "ripple band (150–300 Hz) power combined with hippocampal multi-unit activity (threshold > mean + 3SD)" — the parenthesis attaches to multi-unit activity. Carrying 3 SD to the LFP envelope is our reading. **D8.1's audit table already said "band [CHEN2016], rest [PROVISIONAL]"; the config contradicted the decision log and the config was the one being read.** |
+| `events.states.sleep_state: NREM` | `[GB2016]` | `[DATA]` | Neither paper's main text describes the sleep scoring. The labels are in the released `sessInfo`. |
+| `behavior.require_linearized: true` | `[GB2016] implicit` | `[DATA]` | "Implicit" is not "stated". It follows from `OneDLocation` being the released linearisation, which is a fact about the file. |
+| `criteria.min_peak_rate_hz: 1.0` | `[PROVISIONAL]` | `[CHEN2016]` | **The opposite error.** "All putative pyramidal neurons selected for analysis had peak firing rate > 1 Hz" is theirs, and we had been calling it our own choice — which D5.4 and the README both knew, and the config did not. |
+
+**Three more overstate the agreement without being flatly wrong**, and are reworded rather
+than retagged:
+
+- `place_fields.smoothing_sigma_bins: 1.0`. Chen et al.: "smoothed using a Gaussian
+  template (5×1 for one-dimensional …) **with a half SD**". The literal reading is
+  σ = 0.5 bins; we use 1.0, **twice as wide**. The old comment quoted the "5×1" and
+  omitted the "half SD" — the half of the sentence that fixes the width and disagrees with
+  us. Retagged `[PROVISIONAL]` with the literal reading written beside it. The value is
+  unchanged: re-running place fields at σ = 0.5 would move every downstream number, and
+  that is a decision with its own evidence, not a correction.
+- `sequences.min_bins: 5`. Their sentence is self-inconsistent: "greater than five temporal
+  bins (i.e., 100 ms)", and five 20 ms bins *is* 100 ms. Both ">5" and "≥5" are readings;
+  we take the looser one, now said so in place.
+- `decoding.prior: uniform`. Follows from the formulation they give and from "assuming no
+  temporal prior", but is never written down. Marked inferred.
+
+**What the audit does not change.** No parameter value moved. Seventeen tags were accurate,
+including every one that carries a number the replication's headline rests on — the 20 ms
+scoring bin, the 1.65 significance threshold, the 10 cm spatial bin, the 15 cm/s running
+threshold, the 2 cm/s immobility threshold, the 150–300 Hz band, the 3 SD multi-unit peak,
+and the 491-cell target.
+
+**Why this class of error survives everything else in the project.** The six silent
+failures in METHODS.md were all caught because something independent disagreed — a
+measurement, a control, a physical expectation. The placement-0 path error was caught by
+reading code. **A mislabelled tag is caught by neither.** The code is correct, every test
+passes, every control passes, and the number is a perfectly reasonable one; the only thing
+wrong is a claim about who chose it, and the only way to find it is to read the tag against
+the paper. It is a failure of the audit's coverage rather than of the output, and it is now
+recorded in METHODS.md as a seventh and separate entry.
+
+### D10.4 — The Cicero_09012014 asymmetry, and what it demands of any future boundary change
+
+Recorded here rather than left inside D10.2, because it is a condition on future work
+rather than a finding about the present pipeline.
+
+The boundary threshold stays at **1.0 SD**. If a later step proposes loosening it — and
+D10.2 shows the case is real: 1.9–3.3× more scorable events, 9.0–10.5 bins per event
+against the present 6.0–7.0, with ripple association and multi-shank support both unmoved —
+then one thing has to be understood **before** it is applied, not noticed afterwards.
+
+In four sessions the PRE-minus-POST gap in the scorable fraction is stable across the whole
+sweep, within a few points of where it starts. **In Cicero_09012014 it widens from −4.8 to
+−14.6 percentage points**: POST gains far more scorable events than PRE as the boundary
+drops. A parameter change that admits more events into one epoch than the other moves the
+denominator of the PRE/POST comparison, in the session with the smallest ensemble (16 place
+cells) and the weakest Phase 1 result. That is the shape of a change that would manufacture
+an effect.
+
+So the condition on adoption is: **explain the asymmetry first**, and show the explanation
+on the other four sessions too. Candidate explanations that would have to be separated —
+POST non-REM is shorter in that session (106.5 against 112.9 minutes) so its baseline is
+estimated from less data; its events may sit differently relative to the baseline mean; or
+the merging behaviour at low thresholds may differ between epochs. None of these is tested
+here, and none should be assumed. Adopting first and explaining later would put a
+denominator change inside the comparison the project exists to make.

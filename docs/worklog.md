@@ -1234,3 +1234,44 @@ other, in the session with the smallest ensemble. Nothing is adopted; that asymm
 have to be understood before anything could be.
 
 **Tests**: 489 passing, 3 skipped (5 new for `nearest_within`). **Time**: ~1.5 h.
+
+## 2026-10-27 — Auditing every citation tag, and a seventh failure mode
+
+D10.1 found one parameter credited to a paper that does not state it. This checked the
+other twenty-four tags in `config/params.yaml` against the sentences they cite.
+
+**Five were wrong, in three directions** (D10.3). A duration limit credited to Grosmark &
+Buzsáki when the "50 to 400 milliseconds" sentence is Chen et al.'s introduction. The
+ripple envelope's 3 SD threshold credited to Chen et al. when their 3 SD sits in a
+parenthesis attached to *multi-unit activity* — and decisions.md had said exactly that
+since D8.1, so the config contradicted the decision log and the config was the file being
+read. A sleep-state label credited to a paper that never describes the scoring, when the
+labels come from the released `sessInfo`. A `require_linearized` flag tagged "[GB2016]
+implicit", where implicit is not stated. And the opposite error: `min_peak_rate_hz: 1.0`
+is **Chen et al.'s** stated criterion and we had been calling it our own choice.
+
+Three more overstate the agreement without being wrong, and were reworded rather than
+retagged. The sharpest is place-field smoothing: Chen et al. write "a Gaussian template
+(5×1 …) **with a half SD**", which reads as σ = 0.5 bins, and we use 1.0 — twice as wide.
+The old comment quoted the "5×1" and omitted the half-SD clause, which is the part of the
+sentence that fixes the width and disagrees with us. The value is unchanged; changing it
+would move every downstream number and is a decision with its own evidence, not a
+correction.
+
+No parameter value moved. Seventeen tags were accurate, including every one the headline
+rests on.
+
+**METHODS.md now lists seven silent failures rather than six**, and the lead says plainly
+that three different things caught them: six by a cross-check that disagreed, one by
+reading code (the placement-0 path, which would have moved every number together), and
+this one by reading a tag against its paper. Nothing about a mislabelled tag is detectable
+from output — the code is right, the controls pass, the number is reasonable. What it
+changes is whether anyone ever questions the number, and the boundary threshold went
+un-swept until Phase 4 needed longer events.
+
+**D10.4** records the Cicero_09012014 asymmetry as a condition on future work: the boundary
+stays at 1.0 SD, and if a later step proposes loosening it, the PRE/POST scorable-fraction
+gap widening from −4.8 to −14.6 points in that one session has to be explained first, on
+all five sessions, before it is applied.
+
+**Tests**: 489 passing, 3 skipped. **Time**: ~45 min.

@@ -55,7 +55,9 @@ behavior:
   # Start from the authors' own definition of track running: the samples where
   # OneDLocation is defined. Required for 1-D rate maps -- a sample without a
   # linearised position has no spatial bin. See decision D3.4.
-  require_linearized: true         # [GB2016] implicit in the released data
+  require_linearized: true         # [DATA] (D10.3: not stated in either paper;
+                                   # it follows from OneDLocation being the
+                                   # released linearisation)
   # Speed threshold separating running from immobility, applied on top of the
   # authors' mask. NOT a formality: it removes 3-11% of the authors' mask in
   # 3 sessions but 31-52% in the other 5 (docs/decisions.md D3.4).
@@ -87,9 +89,12 @@ units:
 place_fields:
   bin_size_cm: 10.0                # [CHEN2016]
   # Gaussian smoothing applied to both the spike-count and occupancy maps
-  # before taking their ratio. Chen et al. describe smoothing over ~5 bins;
-  # we read that as a kernel of ~5 bins full width, i.e. sigma ~1 bin.
-  smoothing_sigma_bins: 1.0        # [CHEN2016] / [PROVISIONAL] interpretation
+  # before taking their ratio. Chen et al.: "smoothed using a Gaussian template
+  # (5x1 for one-dimensional ...) with a half SD". Read literally that is
+  # sigma = 0.5 bins; we use 1.0, twice as wide, reading the "5x1" as the
+  # kernel's full width. The divergence is ours and is stated rather than
+  # folded into the tag (D10.3).
+  smoothing_sigma_bins: 1.0        # [PROVISIONAL] (literal reading: 0.5)
   smoothing_truncate_bins: 4.0     # [PROVISIONAL]
   # Spatial bins with less than this much occupancy are treated as unvisited
   # (NaN) rather than as zero-rate.
@@ -106,7 +111,9 @@ place_fields:
   # --- place-cell inclusion criteria ---
   criteria:
     min_spikes: 50                 # [PROVISIONAL] spikes during running, per direction
-    min_peak_rate_hz: 1.0          # [PROVISIONAL]
+    # "all putative pyramidal neurons selected for analysis had peak firing
+    # rate >1Hz" -- theirs, not ours; tagged provisional until D10.3.
+    min_peak_rate_hz: 1.0          # [CHEN2016]
     # Spatial information must beat the shuffle null at `shuffle.alpha`; no
     # absolute bits/spike threshold is imposed, because the paper gives none
     # and an absolute cut would depend on bin size and smoothing.
@@ -135,8 +142,10 @@ decoding:
   # here on running data to show what that bin size costs when most cells
   # contribute no spikes.
   time_bins_s: [0.25, 0.02]        # [CHEN2016] / [GB2016]
-  # Memoryless Poisson decoder with a spatially uniform prior.
-  prior: uniform                   # [CHEN2016]
+  # Memoryless Poisson decoder with a spatially uniform prior. Chen et al.
+  # give the decoder's form and say "assuming no temporal prior"; a uniform
+  # spatial prior follows from that formulation but is not written down.
+  prior: uniform                   # [CHEN2016] inferred, not stated (D10.3)
   # Small constant added to tuning curves so that a zero-rate bin cannot
   # veto a position outright.
   rate_floor_hz: 0.01              # [PROVISIONAL]
@@ -233,8 +242,10 @@ sequences:
   time_bin_s: 0.02               # [CHEN2016]
   # Bins with no spikes are dropped before scoring (their posterior describes
   # the place fields, not the animal), so this is a floor on *kept* bins.
-  # Chen et al. require more than five bins.
-  min_bins: 5                    # [CHEN2016]
+  # Chen et al.: "The time length is greater than five temporal bins (i.e.,
+  # 100ms ...)". Those two halves disagree -- five 20 ms bins IS 100 ms -- so
+  # ">5" and ">=5" are both readings. We take the looser one (D10.3).
+  min_bins: 5                    # [CHEN2016] ambiguous; >=5 is the loose reading
   # Shuffles per event per shuffle kind. 500 gives the z-score a null with a
   # standard error of about 3% of its own standard deviation, which is finer
   # than the differences being compared.
@@ -316,8 +327,9 @@ lfp:
 events:
   # Where events may be detected, per epoch.
   states:
-    # PRE and POST: scored non-REM sleep from sessInfo.Epochs.
-    sleep_state: NREM              # [GB2016]
+    # PRE and POST: scored non-REM sleep, as released in sessInfo. Neither
+    # paper's main text describes how the states were scored (D10.3).
+    sleep_state: NREM              # [DATA]
     # MAZE: quiet wakefulness, i.e. immobility on the track.
     maze_immobility_speed_cm_s: 2.0        # [CHEN2016]
     speed_smoothing_sigma_s: 0.1   # [PROVISIONAL] as in behavior.speed_cm_s
@@ -344,7 +356,9 @@ events:
     # (D10.1). docs/decisions.md and METHODS.md always had it as provisional.
     threshold_low_sd: 1.0          # [PROVISIONAL] boundaries extend to this
     min_duration_ms: 30            # [PROVISIONAL]
-    max_duration_ms: 400           # [GB2016] SPW-Rs last 50-400 ms
+    max_duration_ms: 400           # [CHEN2016] "SPW-ripples, lasting between
+                                   # 50 to 400 milliseconds" -- their intro,
+                                   # not Grosmark & Buzsaki's (D10.3)
     merge_gap_ms: 30               # [PROVISIONAL]
     # Spike-jitter null (D6.5): displace each cell's spikes independently by
     # U(-w, +w). Must exceed the event duration (57-68 ms here) so that
@@ -358,9 +372,13 @@ events:
   ripples:
     # Chen et al. screen candidate events on "hippocampal LFP ripple band
     # (150-300 Hz) power combined with hippocampal multi-unit activity
-    # (threshold > mean + 3SD)". The band and the high threshold are theirs.
+    # (threshold > mean + 3SD)". The band is theirs. The 3 SD sits inside the
+    # parenthesis attached to multi-unit activity, so carrying it over to the
+    # LFP envelope is our reading, not their statement -- which is what
+    # decisions.md has said since D8.1, while this file claimed otherwise
+    # until D10.3.
     band: [150.0, 300.0]           # [CHEN2016]
-    threshold_high_sd: 3.0         # [CHEN2016]
+    threshold_high_sd: 3.0         # [PROVISIONAL] their 3 SD is for the MUA
     # The envelope is smoothed before thresholding: a single cycle's trough can
     # otherwise split one ripple into two events. 8 ms is about 1.5 ripple
     # cycles at 190 Hz, short enough not to blur event boundaries.

@@ -544,14 +544,19 @@ The five in bold are the ones the headline result depends on.
 
 ---
 
-## Six silent failures
+## Seven silent failures
 
 Every one of these produced plausible output instead of an error. None raised an
-exception, none made a number look obviously wrong, and in every case the thing that
-caught it was a **cross-check against something the result had to agree with** — a second
-measurement, a physical expectation, a control, or a document — rather than the code
-complaining. That is the argument for the controls in the previous section: they are not
-ceremony, they are the only detector this project has.
+exception and none made a number look obviously wrong. **Three different things caught
+them, and the differences matter more than the count.** Six were caught by a
+**cross-check against something the result had to agree with** — a second measurement, a
+physical expectation, a control, a document — which is the argument for the controls in
+the previous section: they are not ceremony, they are this project's main detector. One
+was caught by **reading the code**, because it would have moved every number in the same
+direction and so no cross-check could have seen it. The seventh was caught by **reading a
+citation against its paper**, because nothing about it was wrong except who got the credit
+for choosing it — and a parameter that looks like the authors' is a parameter nobody
+sweeps.
 
 | # | What broke | What it produced instead of an error | What caught it |
 |---|---|---|---|
@@ -561,6 +566,7 @@ ceremony, they are the only detector this project has.
 | 4 | A cell-count confound in the shank-concentration test (D6.23) | Apparent confirmation: unmatched events did have more concentrated activity | A per-event null drawing the same number of cells, built before accepting a result that agreed with the hypothesis |
 | 5 | p-values below 1 × 10⁻⁵ rounding to zero in saved tables (step 8c) | `p = 0.0` in two results CSVs while the printed report showed 3.4 × 10⁻⁶ | A verification script comparing the README's numbers against the CSVs, which flagged six "mismatches" that were the file's fault |
 | 6 | An undefined statistic compared against a null (step 9b) | `p = 0.048`, the smallest value a 20-draw null can express, for a gap that was NaN | Reading the printed line beside the medians it came from, which were NaN too |
+| 7 | A parameter credited to a paper that does not state it (step 10a-bis) | Nothing. Correct code, reasonable value, every test and control passing — and a number nobody thought to sweep | Reading the citation tag against the paper; five tags of twenty-five were wrong (D10.3) |
 
 **1. Band-passing across the probe instead of across time.** The first channel-power
 analysis indexed `data[channel]` — a single time point across 134 channels — instead of
@@ -620,6 +626,28 @@ observation and discards non-finite draws, and by `subsets.finite_in_both`, whic
 event from *both* halves when either half cannot score it — so the two halves are always
 compared on one event set. Both are unit-tested on exactly these cases.
 
+**A seventh entry belongs here, and it is a different kind of failure from the six
+above.** `config/params.yaml` attributed the multi-unit detector's boundary threshold to
+Chen et al., who state only the 3 SD peak and say nothing about where a candidate's
+boundaries extend to. The number was ours. An audit of all twenty-five citation tags
+(D10.3) found four more: a duration limit credited to the wrong paper, a ripple threshold
+carried over from a sentence about multi-unit activity, a sleep-state label credited to a
+paper that does not describe the scoring, and — the opposite error — a 1 Hz peak-rate
+criterion that **is** Chen et al.'s and that we had been calling our own choice.
+
+**No test, control or cross-check could have found any of them.** The code was correct,
+every number was reasonable, nothing disagreed with anything. The output of a pipeline is
+identical whether a parameter is the authors' or ours; what differs is whether anyone ever
+questions it. A parameter that looks settled does not get swept, and the boundary threshold
+went un-swept for that reason until Phase 4 needed longer events and went looking. The
+step-8a audit could not have caught it either, because it asked which parameters had been
+*checked on more than two sessions*, not which attributions were true — a coverage gap in
+the audit rather than a fault in the output.
+
+The detection mode is therefore unique in this list: not a second measurement, not a
+control, not reading the code, but **reading the tag against the paper it cites**. That is
+now done for every tag, and the result is D10.3.
+
 **Two near-misses belong in the same section, because they were caught differently.**
 
 The first was caught by **reading code rather than output**, which is the detection mode
@@ -642,7 +670,8 @@ template hands the shuffles the same freedom. It was caught by checking lap coun
 direction before trusting the output — again a cross-check, not an error.
 
 What the five have in common is worth stating plainly, because it generalises past this
-project: **a numerical pipeline fails by returning a number.** Three of the six — the
+project: **a numerical pipeline fails by returning a number** — or, in the seventh case,
+by returning the right number for a reason nobody checked. Three of the six — the
 cell-count confound, the rounded p-values and the NaN comparison — produced results that
 *supported* the hypothesis under test or made it look stronger, which is the most dangerous
 shape a silent failure can take, and the only reason any of them was found is that
