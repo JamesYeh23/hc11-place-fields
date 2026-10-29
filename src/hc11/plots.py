@@ -1265,3 +1265,81 @@ def plot_boundary_sweep(rows, path: Path, params: dict) -> Path:
                  color=INK, fontsize=10)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+def plot_hmm_running(rows, path: Path, params: dict) -> Path:
+    """Step 10b: does the state model recover position, and is it merely sticky?
+
+    Left: Claim A, every restart as a point, against the band Chen et al.
+    report and against the same fit on shuffled training data. Middle: how long
+    the model stays in a state, against how long the animal takes to cross one
+    position bin — a model far above that line is smooth because it is sticky,
+    not because the states are places. Right: the two state orderings, one
+    built from behaviour and one from the transition matrix alone; their gap is
+    the quantity Claim B rests on.
+    """
+    real = [r for r in rows if r.get("kind") == "real"]
+    null = [r for r in rows if r.get("kind") == "shuffled"]
+    states = sorted({r["n_states"] for r in real})
+    fig, axes = plt.subplots(1, 3, figsize=(13.0, 4.3))
+
+    ax = axes[0]
+    low, high = params.get("chen_reference_r", (0.73, 0.79))
+    ax.axhspan(low, high, color="#009E73", alpha=0.14)
+    ax.text(states[0], high, " Chen et al., 0.73–0.79", fontsize=7.5, color="#007d5a",
+            va="bottom")
+    for label, group, colour, offset in (("real", real, "#0072B2", -0.35),
+                                         ("shuffled fit", null, "#D55E00", 0.35)):
+        for m in states:
+            values = [r["claim_a_r"] for r in group if r["n_states"] == m
+                      and np.isfinite(r.get("claim_a_r", np.nan))]
+            if not values:
+                continue
+            ax.plot(np.full(len(values), m + offset), values, "o", markersize=4,
+                    color=colour, alpha=0.65,
+                    label=label if m == states[0] else None)
+            ax.plot([m + offset - 0.25, m + offset + 0.25], [np.median(values)] * 2,
+                    "-", color=colour, linewidth=2)
+    ax.axhline(0.0, color=MUTED, linewidth=0.8, linestyle=":")
+    ax.set_xlabel("states (m)")
+    ax.set_ylabel("Claim A: correlation with true position")
+    ax.set_title("Do the states track position?", fontsize=9, color=INK)
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    _style(ax)
+
+    ax = axes[1]
+    crossing = params.get("crossing_time_s", np.nan)
+    if np.isfinite(crossing):
+        ax.axhline(crossing, color="#009E73", linewidth=1.2, linestyle="--")
+        ax.text(states[0], crossing, " the animal crosses one position bin",
+                fontsize=7.5, color="#007d5a", va="bottom")
+    for label, group, colour in (("real", real, "#0072B2"),
+                                 ("shuffled fit", null, "#D55E00")):
+        medians = [np.median([r["median_dwell_s"] for r in group
+                              if r["n_states"] == m]) if any(
+            r["n_states"] == m for r in group) else np.nan for m in states]
+        ax.plot(states, medians, "o-", color=colour, markersize=5, label=label)
+    ax.set_xlabel("states (m)")
+    ax.set_ylabel("median dwell time per state (s)")
+    ax.set_title("Or is the model just sticky?", fontsize=9, color=INK)
+    ax.set_ylim(bottom=0)
+    ax.legend(frameon=False, fontsize=8)
+    _style(ax)
+
+    ax = axes[2]
+    for label, key, colour in (("ordered by behaviour", "claim_b_position", "#0072B2"),
+                               ("ordered by the model", "claim_b_spectral", "#CC79A7")):
+        medians = [np.median([r[key] for r in real if r["n_states"] == m])
+                   for m in states]
+        ax.plot(states, medians, "o-", color=colour, markersize=5, label=label)
+    ax.set_xlabel("states (m)")
+    ax.set_ylabel("Claim B: |weighted correlation|, 2 s running windows")
+    ax.set_title("Claim A's ordering against Claim B's", fontsize=9, color=INK)
+    ax.set_ylim(bottom=0)
+    ax.legend(frameon=False, fontsize=8)
+    _style(ax)
+
+    fig.suptitle("Step 10b: the receptive-field-free model on running, "
+                 "all restarts shown", color=INK, fontsize=10)
+    fig.tight_layout()
+    return _save(fig, path, params)

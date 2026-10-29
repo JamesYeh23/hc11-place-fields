@@ -1432,7 +1432,7 @@ against more than the two Achilles sessions?
 |---|---|---|---|---|
 | `place_fields.bin_size_cm` | 10 cm | [CHEN2016] | 8 | session-general |
 | `criteria.max_field_width_frac` | 0.75 | [PROVISIONAL] | 8 (`place_cell_sensitivity.csv`) | session-general **by construction** — it replaced a fixed 120 cm precisely because that was 75 % of one maze and 41 % of another (D5.2) |
-| `criteria.min_spikes` / `min_peak_rate_hz` / `alpha` / `min_stability_r` | 50 / 1 Hz / 0.05 / 0.3 | [PROVISIONAL] | 8 | applied to 8, but the *yield* ranges 29–79 % of pyramidal cells, so the criteria are uniform and their consequences are not |
+| `criteria.min_spikes` / `min_peak_rate_hz` / `alpha` / `min_stability_r` | 50 / 1 Hz / 0.05 / 0.3 | [PROVISIONAL] *(wrong for `min_peak_rate_hz`, which is [CHEN2016] — corrected in D10.3, after this table was written)* | 8 | applied to 8, but the *yield* ranges 29–79 % of pyramidal cells, so the criteria are uniform and their consequences are not |
 | `behavior.speed_threshold_cm_s` | 15 | [CHEN2016] | 8, with a sensitivity run on Achilles_10252013 **and Cicero_09012014** | session-general; the one sensitivity check that already includes a non-Achilles session |
 | `sequences.min_laps_per_direction` | 5 | [PROVISIONAL] | 2 | **not Achilles-specific — it is a circular/linear discriminator** (below) |
 | `events.mua.threshold_high_sd` | 3.0 | [CHEN2016], but stated there for the *ripple envelope*, not for a population rate | 2 | **untested on 6** |
@@ -2625,3 +2625,41 @@ estimated from less data; its events may sit differently relative to the baselin
 the merging behaviour at low thresholds may differ between epochs. None of these is tested
 here, and none should be assumed. Adopting first and explaining later would put a
 denominator change inside the comparison the project exists to make.
+
+### D10.5 — `decisions.md` is authoritative for provenance, and a test keeps the config honest
+
+Twice the config has credited a parameter to Chen et al. where this decision log already
+recorded the choice as ours: the multi-unit boundary threshold (D10.1) and the ripple
+envelope's 3 SD threshold (D10.3, where D8.1's table had said "band [CHEN2016], rest
+[PROVISIONAL]" since step 8). Both times the config was the file being read and the
+decision log was the file that was right.
+
+**So the rule is: `docs/decisions.md` is authoritative for provenance, and the comment in
+`config/params.yaml` is a convenience copy of it.** Where they disagree, the decision log
+wins and the config is corrected, not the other way round.
+
+**That rule is not enough on its own, and this project has the counterexample.** The third
+error ran the other way: `criteria.min_peak_rate_hz: 1.0` is Chen et al.'s stated criterion
+— "all putative pyramidal neurons selected for analysis had peak firing rate > 1 Hz" — and
+**D8.1's own audit table called it provisional**, as did `METHODS.md`'s parameter table,
+while D5.4 three hundred lines earlier quoted the sentence correctly. A designated
+authority that is itself wrong in one place is a rule with a hole in it. Both have been
+corrected, with the correction noted in place rather than silently applied.
+
+**The check.** `tests/test_params_provenance.py` freezes the set of `[CHEN2016]`,
+`[GB2016]` and `[DATA]` tags in `config/params.yaml` — twenty-four of them — as an explicit
+dictionary of parameter path to source. A parameter cannot gain an attribution, lose one,
+or change which paper it credits without someone editing that dictionary, and the test says
+in its failure message what editing it means: open the paper and find the sentence. The
+test deliberately checks only *who is said to have chosen* each value, never the value
+itself, because values move for good reasons and have their own tests.
+
+It also pins the two that were wrong: `events.mua.threshold_low_sd` and
+`events.ripples.threshold_high_sd` must carry no citation at all. If either acquires one
+again, the suite fails.
+
+This is the weakest guard in the project, and knowing why is the point. It cannot tell
+whether an attribution is *true* — only whether it changed without anyone looking. Nothing
+automatic can do better: the fact being asserted lives in a PDF, not in the data. What the
+test buys is that the next wrong tag has to be typed deliberately, in a file whose only
+purpose is to make someone check.

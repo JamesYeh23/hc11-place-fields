@@ -118,14 +118,27 @@ spikes into periods the cell was not being measured in.
 | speed smoothing σ | 0.1 s | [PROVISIONAL] — ~4 samples; suppresses chatter across the threshold |
 | bridge short dips / minimum run | 0.2 s / 0.5 s | [PROVISIONAL] |
 | spatial bin | 10 cm | [CHEN2016] |
-| rate-map smoothing σ | 1 bin | [PROVISIONAL] — Chen et al. describe smoothing over ~5 bins, read as kernel support |
+| rate-map smoothing σ | 1 bin | [PROVISIONAL] — **twice Chen et al.'s stated width**; see the divergence note below |
 | minimum occupancy | 0.1 s | [PROVISIONAL] |
-| place cell: min spikes / peak rate / α / stability | 50 / 1 Hz / 0.05 / 0.3 | [PROVISIONAL], D4.6, D5.3 |
+| place cell: peak rate | 1 Hz | **[CHEN2016]** — "all putative pyramidal neurons selected for analysis had peak firing rate > 1 Hz"; this project called it provisional until D10.3 |
+| place cell: min spikes / α / stability | 50 / 0.05 / 0.3 | [PROVISIONAL], D4.6, D5.3 |
 | maximum field width | 0.75 of track extent | [PROVISIONAL], D5.2 |
 
 The field-width cap is a fraction rather than a fixed length because a fixed 120 cm was
 75 % of the 1.6 m track but only 41 % of the circular one, so the same cell shape was
 judged differently by which maze it was recorded on (D5.2).
+
+**A known divergence from Chen et al., stated here rather than buried in a config
+comment.** Their methods read: place fields "smoothed using a Gaussian template (5×1 for
+one-dimensional …) **with a half SD**". The literal reading of that is σ = 0.5 spatial
+bins, i.e. 5 cm at our 10 cm binning. **We use σ = 1 bin — twice as wide.** The value was
+chosen by reading the "5×1" as the kernel's full support and inferring σ ≈ 1 from it,
+which is a defensible reading of half the sentence and not of the other half. It is left
+unchanged because every rate map, place-cell count, decoding error and sequence score in
+Phases 1 to 3 was computed with it, so changing it is a re-run of the project rather than
+a correction — but a reader comparing our place-field widths or our 304-against-491 cell
+count with theirs should know that our maps are smoothed twice as hard as the paper
+specifies (D10.3).
 
 ### Validation
 

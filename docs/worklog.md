@@ -1275,3 +1275,52 @@ gap widening from −4.8 to −14.6 points in that one session has to be explain
 all five sessions, before it is applied.
 
 **Tests**: 489 passing, 3 skipped. **Time**: ~45 min.
+
+## 2026-10-29 — Step 10b: the receptive-field-free model recovers position, with caveats
+
+**Three corrections first.** `min_peak_rate_hz: 1.0` is Chen et al.'s stated criterion and
+METHODS.md's parameter table and D8.1's audit table both called it ours; both corrected in
+place (README was already right). The Gaussian smoothing divergence is now a named note in
+METHODS.md's place-field stage rather than only a config comment — their "(5×1 …) with a
+half SD" reads as σ = 0.5 bins and we use 1.0, twice as wide, unchanged because changing it
+re-runs the project. And D10.5 records that `decisions.md` is authoritative for provenance
+with `tests/test_params_provenance.py` as the enforcement: all twenty-four external tags
+frozen, so no parameter can gain, lose or change an attribution without someone editing a
+file whose only purpose is to make them open the paper. The decision log was itself wrong
+once, which is why the rule needed a test rather than a designation.
+
+**`scripts/fit_hmm.py` had not landed** before the connection dropped — checked before
+rewriting rather than clobbering.
+
+**A control that was not controlling anything.** The first shuffle control rolled each
+cell's counts within each bout and scored **+0.47 to +0.52 against the real fit's +0.41** —
+a null beating the data. Bouts run a median of six bins and the animal is in one place for
+all of them, so a cell's rate within a bout identifies the position whatever the order is;
+rolling inside a bout destroys nothing. Replaced with a circular shift along the whole
+running timeline, the same idiom as the step-4 place-cell shuffle, which drops the null to
+0.05–0.16. Believed as first written, it would have reported that the model learns nothing.
+
+**Claim A passes the go/no-go.** Fitted on 92 pyramidal cells, 403 bouts, 3019 bins,
+91,681 spikes: held-out decoding error **10.7–15.7 cm against ~71 cm chance**, median
+correlation 0.71 at m = 12, best restarts reaching **0.80–0.87** against Chen et al.'s
+0.73–0.79, shuffled-fit null at 0.05–0.16.
+
+**Three caveats that travel with it.** Restarts within one (m, fold) cell differ by up to
+**0.52** — all converged, so this is EM finding different optima, and a best-fit report
+would have shown 0.85 where the median is 0.61. One fold of three is markedly worse (fold
+medians 0.41–0.71, 0.75–0.82, 0.36–0.53), so which third is held out matters more than m
+does. And the model dwells **1.5–2.3× longer per state than the animal takes to cross one
+position bin** (0.48–0.77 s against 0.33 s), with the shuffled fit at 0.36–0.50 s — so much
+of the stickiness is available with no population structure, which is the failure mode 10a
+named. Every sleep score in 10d gets read against the shuffled-fit model on the same
+events, not against zero.
+
+**Claim A and Claim B agree on running** (D10.8): the behaviour-free spectral ordering
+scores within 0.012–0.033 of the behaviour-derived one, on a quantity whose own value is
+0.35. That is the licence for scoring sleep events without any behavioural measure.
+
+**A tension that 10c has to confront**: held-out likelihood rises monotonically with m
+across the whole grid while Claim A peaks at m = 12. The criterion that will select m does
+not agree with the control that says whether the states are places.
+
+**Tests**: 506 passing, 3 skipped (13 for the HMM, 4 for provenance). **Time**: ~2.5 h.
