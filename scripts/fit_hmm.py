@@ -56,11 +56,35 @@ from place_fields import prepare  # noqa: I001  (sibling script)
 
 log = logging.getLogger("hmm")
 
-DEFAULT_STATES = (8, 12, 16, 20, 24, 28)
+STATE_GRID = (6, 8, 10, 12, 14, 16, 20, 24, 28)
 DEFAULT_RESTARTS = 5
 N_FOLDS = 3
 N_MAP_PERMUTATIONS = 20
 CLAIM_B_WINDOW_S = 2.0
+
+# The largest number of states each session's running data supports, from the
+# step 10a sufficiency arithmetic. They are hard-coded rather than recomputed
+# because 10a weighed several quantities that no single formula reproduces --
+# running bins, cells, spikes and the number of position bins -- and the caps
+# it reported are the ones this phase is held to. The running data behind them
+# is in the table in decisions.md D10.9 so a reader can check the order.
+# Note that step 10b swept m up to 28 on Achilles_11012013, one above its cap;
+# 10c drops that point and says so rather than quietly keeping it.
+SESSION_CAPS = {
+    "Achilles_10252013": 14,
+    "Achilles_11012013": 27,
+    "Cicero_09012014": 20,
+    "Cicero_09102014": 19,
+    "Gatsby_08022013": 17,
+}
+
+
+def grid_for(name: str) -> list[int]:
+    """The state grid truncated at this session's 10a cap."""
+    cap = SESSION_CAPS.get(name)
+    if cap is None:
+        raise SystemExit(f"no 10a cap recorded for {name}; add one before sweeping it")
+    return [m for m in STATE_GRID if m <= cap]
 
 
 def running_sequences(session, running, cluster_ids, bin_s):
@@ -237,10 +261,16 @@ def fine_windows(session, running, cluster_ids, test_indices, bin_s, window_s):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("session", nargs="?", default="Achilles_11012013")
-    parser.add_argument("--states", type=int, nargs="*", default=list(DEFAULT_STATES))
+    parser.add_argument("--states", type=int, nargs="*", default=None,
+                        help="default: the STATE_GRID truncated at the 10a cap")
     parser.add_argument("--restarts", type=int, default=DEFAULT_RESTARTS)
-    parser.add_argument("--no-shuffle-control", action="store_true")
+    parser.add_argument("--kinds", nargs="*", default=["real", "shuffled"],
+                        choices=["real", "shuffled"],
+                        help="run the shuffled control on its own first, then the "
+                             "real fits, so the control is read before any result")
     args = parser.parse_args()
+    if args.states is None:
+        args.states = grid_for(args.session)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     params = config.load_params()
@@ -274,10 +304,7 @@ def main() -> None:
             windows = fine_windows(session, running, pyr, test, fine_bin_s,
                                    CLAIM_B_WINDOW_S)
             for seed in range(args.restarts):
-                for kind in ("real", "shuffled"):
-                    if kind == "shuffled" and (args.no_shuffle_control
-                                               or fold_index != 0):
-                        continue
+                for kind in args.kinds:
                     fit_on = (train_counts if kind == "real" else
                               roll_cells(train_counts,
                                          np.random.default_rng(5000 + seed)))
@@ -302,34 +329,41 @@ def main() -> None:
                     rows.append(row)
             here = [r for r in rows if r["n_states"] == n_states
                     and r["fold"] == fold_index and r["kind"] == "real"]
-            log.info("  fold %d  Claim A r over %d restarts: %s", fold_index, len(here),
-                     "  ".join(f"{r['claim_a_r']:+.2f}" for r in here))
-            log.info("          error %.0f-%.0f cm (chance %.0f) | Claim B position "
-                     "%.2f-%.2f vs spectral %.2f-%.2f | dwell %.2f-%.2f s",
-                     min(r["median_error_cm"] for r in here),
-                     max(r["median_error_cm"] for r in here),
-                     np.median([r["chance_error_cm"] for r in here]),
-                     min(r["claim_b_position"] for r in here),
-                     max(r["claim_b_position"] for r in here),
-                     min(r["claim_b_spectral"] for r in here),
-                     max(r["claim_b_spectral"] for r in here),
-                     min(r["median_dwell_s"] for r in here),
-                     max(r["median_dwell_s"] for r in here))
+            if here:
+                log.info("  fold %d  Claim A r over %d restarts: %s (median %+.2f)",
+                         fold_index, len(here),
+                         "  ".join(f"{r['claim_a_r']:+.2f}" for r in here),
+                         float(np.median([r["claim_a_r"] for r in here])))
+                log.info("          error %.0f-%.0f cm (chance %.0f) | Claim B position "
+                         "%.2f-%.2f vs spectral %.2f-%.2f | dwell %.2f-%.2f s",
+                         min(r["median_error_cm"] for r in here),
+                         max(r["median_error_cm"] for r in here),
+                         np.median([r["chance_error_cm"] for r in here]),
+                         min(r["claim_b_position"] for r in here),
+                         max(r["claim_b_position"] for r in here),
+                         min(r["claim_b_spectral"] for r in here),
+                         max(r["claim_b_spectral"] for r in here),
+                         min(r["median_dwell_s"] for r in here),
+                         max(r["median_dwell_s"] for r in here))
             shuffled = [r for r in rows if r["n_states"] == n_states
                         and r["fold"] == fold_index and r["kind"] == "shuffled"]
             if shuffled:
-                log.info("          SHUFFLED control: Claim A r %s | dwell %.2f-%.2f s",
+                log.info("  fold %d  SHUFFLED control: Claim A r %s (median %+.2f) | "
+                         "dwell %.2f-%.2f s", fold_index,
                          "  ".join(f"{r['claim_a_r']:+.2f}" for r in shuffled),
+                         float(np.median([r["claim_a_r"] for r in shuffled])),
                          min(r["median_dwell_s"] for r in shuffled),
                          max(r["median_dwell_s"] for r in shuffled))
 
-    # Merge on (session, m): the grid is run in pieces to fit the time budget,
-    # so a later call must not delete the m values an earlier one computed.
+    # Merge on (session, m, kind): the grid is run in pieces to fit the time
+    # budget, and the shuffled control is run as its own pass before the real
+    # one, so a later call must not delete what an earlier one computed.
     path = config.results_dir() / "hmm_running_fit.csv"
     fresh = pd.DataFrame(rows)
     if path.exists():
         kept = pd.read_csv(path)
-        kept = kept[~((kept.session == name) & (kept.n_states.isin(args.states)))]
+        kept = kept[~((kept.session == name) & (kept.n_states.isin(args.states))
+                      & (kept.kind.isin(args.kinds)))]
         fresh = pd.concat([kept, fresh], ignore_index=True)
     fresh.sort_values(["session", "n_states", "kind", "fold", "seed"]).round(5).to_csv(
         path, index=False)
@@ -337,11 +371,24 @@ def main() -> None:
              "git_commit": config.git_commit(),
              "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
              "states": list(args.states), "restarts": args.restarts, "folds": N_FOLDS,
+             "kinds": list(args.kinds), "state_cap_10a": SESSION_CAPS.get(name),
              "bin_s": bin_s, "fine_bin_s": fine_bin_s,
              "claim_b_window_s": CLAIM_B_WINDOW_S,
              "crossing_time_s": crossing, "chen_reference_r": [0.73, 0.79]}
-    (config.results_dir() / "hmm_running_fit.json").write_text(
-        json.dumps(stamp, indent=2) + "\n")
+    # One stamp per session, merged, because the sweep runs session by session.
+    stamp_path = config.results_dir() / "hmm_running_fit.json"
+    stamps = {}
+    if stamp_path.exists():
+        existing = json.loads(stamp_path.read_text())
+        # Step 10b wrote a single flat stamp; from 10c on it is keyed by session.
+        stamps = {k: v for k, v in existing.items() if isinstance(v, dict)}
+    previous = stamps.get(name, {})
+    merged = dict(previous)
+    merged.update(stamp)
+    merged["states"] = sorted(set(previous.get("states", [])) | set(args.states))
+    merged["kinds"] = sorted(set(previous.get("kinds", [])) | set(args.kinds))
+    stamps[name] = merged
+    stamp_path.write_text(json.dumps(stamps, indent=2, sort_keys=True) + "\n")
     log.info("\nwrote %s", (config.results_dir() / "hmm_running_fit.csv").relative_to(
         config.repo_root()))
 

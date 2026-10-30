@@ -2663,3 +2663,278 @@ whether an attribution is *true* — only whether it changed without anyone look
 automatic can do better: the fact being asserted lives in a PDF, not in the data. What the
 test buys is that the next wrong tag has to be typed deliberately, in a file whose only
 purpose is to make someone check.
+
+### D10.6 — A fixed-*m* Poisson HMM by EM, not Chen et al.'s HDP-HMM
+
+*Backfilled. This entry and the two that follow were announced in step 10b's commit message
+and never written to this file; `docs/worklog.md` cites D10.8 and D10.8 did not exist. The
+numbers below are step 10b's, re-derived by step 10c's sweep, which reproduces them exactly
+at the overlapping values of m (same seeds, same folds).*
+
+Chen et al. (2016) fit a **hierarchical Dirichlet process** HMM by MCMC, which infers the
+number of states rather than being told it. This project fits a **fixed-*m* Poisson HMM by
+expectation-maximisation** and sweeps *m*. The reason is testability: the available HDP-HMM
+implementations are unmaintained, and a library this project cannot test is worse than a
+simpler model it can. `src/hc11/hmm.py` is 295 lines with thirteen tests, including
+forward-backward checked against brute-force enumeration of all eight paths of a
+two-state, three-bin model, and an exact check that the per-bin scaling offset is added
+back. **This is a divergence from the paper being replicated and the sweep over *m* is the
+consequence of it, not a design preference** — D10.10 is where the sweep gets resolved.
+
+Three implementation choices, each of which could have been made silently:
+
+* **Sequences are never concatenated.** Running comes in bouts; no transition is allowed
+  to span the gap between two of them. This is the D6.2 rule applied to fitting, and it is
+  tested.
+* **The posterior used for scoring events is memoryless.** A transition matrix estimated at
+  250 ms bins is wrong at the 20 ms bins events are scored in — it would let the state move
+  twelve times too fast. Event scoring uses emissions with a uniform prior, which matches
+  Chen et al.'s "no temporal prior" and this project's own `hc11.decode`.
+* **Emissions carry a per-bin maximum offset.** With ninety-odd cells the raw likelihoods
+  underflow; the offset is factored out and added back exactly.
+
+**A control that was not controlling anything, caught because it beat the data.** The first
+shuffle rolled each cell's counts circularly *within* each running bout. It scored Claim A
+at +0.47 and +0.52 against the real fit's +0.41. Bouts run a median of five to nine bins
+and the animal is in essentially one place for all of them, so a cell's rate within a bout
+identifies the position whatever order the bins arrive in; rolling inside a bout destroys
+nothing. Replaced with a circular shift along the whole concatenated running timeline — the
+step-4 place-cell shuffle idiom — which drops the null to 0.05–0.16 on that session.
+Believed as first written, it would have ended the phase. It is the eighth entry in the
+`METHODS.md` silent-failure catalogue and the first one there whose failure pointed toward
+a *negative*.
+
+### D10.7 — Claim A passes the go/no-go on Achilles_11012013, with three caveats
+
+*Backfilled with D10.6.*
+
+On 92 pyramidal cells, 403 running bouts, 3019 bins of 250 ms and 91,681 spikes: held-out
+decoding error **10.7–15.7 cm against ~71 cm chance**, median circular correlation **0.71**
+at *m* = 12, best restarts **0.80–0.87** against Chen et al.'s reported 0.73–0.79, and a
+shuffled-fit null at 0.05–0.16. The phase continues.
+
+Three caveats travel with that number wherever it goes:
+
+1. **Restarts within a single (m, fold) cell differ by up to 0.52**, all converged. This is
+   EM finding different optima, not a convergence failure. A best-restart report would have
+   printed 0.85 where the median is 0.61.
+2. **Which third is held out matters more than *m* does** — fold medians 0.41–0.71,
+   0.75–0.82 and 0.36–0.53. Step 10c found the same pattern on all five sessions (D10.11).
+3. **The model dwells 1.5–2.3× longer in a state than the animal takes to cross one
+   position bin** (0.48–0.77 s against 0.33 s), and the shuffled fit dwells 0.36–0.50 s. So
+   most of the stickiness is available with no population structure at all, which is the
+   failure mode step 10a named. Per-session baselines are in D10.13.
+
+### D10.8 — Claim A's ordering and Claim B's agree on running
+
+*Backfilled with D10.6.*
+
+Claim B orders the states by the Fiedler vector of the symmetrised transition matrix and
+uses no behaviour at all; Claim A's ordering comes from the state-to-position map. On
+Achilles_11012013's running the two score within **0.012–0.033** of each other on a
+quantity whose own value is about 0.35. That is the licence for scoring sleep events with
+no behavioural measure anywhere in the scoring: on data where the right answer is known,
+the behaviour-free ordering is not measurably worse than the behaviour-derived one. The gap
+is reported at every milestone from here, because a gap that opens in sleep is the
+interesting case and it cannot be seen unless both numbers are always printed. Step 10c
+confirms the agreement on all five sessions: the Claim A/B gap at the chosen *m* runs
+−0.002 to +0.030.
+
+### D10.9 — The per-session cap on *m* is fixed from step 10a and hard-coded
+
+Each session is swept only up to the number of states its running data supports, as
+established by the step 10a sufficiency arithmetic: Achilles_10252013 ≤ 14,
+Achilles_11012013 ≤ 27, Cicero_09012014 ≤ 20, Cicero_09102014 ≤ 19, Gatsby_08022013 ≤ 17.
+They are a hard-coded dictionary in `scripts/fit_hmm.py` rather than a formula, because
+10a weighed several quantities together — running bins, cells, spikes and the number of
+position bins — and no single expression reproduces all five. `grid_for` raises rather than
+guessing for a session with no recorded cap.
+
+The running data behind them, so a reader can check the order of magnitude:
+
+| Session | Pyramidal cells | Bouts | Bins (250 ms) | Transitions | Spikes | Track | Position bins | Cap | *m* swept |
+|---|---|---|---|---|---|---|---|---|---|
+| Achilles_10252013 | 120 | 57 | 504 | 447 | 26,482 | 1.60 m linear | 16 | 14 | 6–14 |
+| Achilles_11012013 | 92 | 403 | 3019 | 2616 | 91,681 | 2.90 m circular | 29 | 27 | 6–24 |
+| Cicero_09012014 | 55 | 176 | 1251 | 1075 | 18,697 | 1.60 m linear | 16 | 20 | 6–20 |
+| Cicero_09102014 | 81 | 202 | 1332 | 1130 | 23,909 | 2.84 m circular | 28 | 19 | 6–16 |
+| Gatsby_08022013 | 66 | 70 | 693 | 623 | 15,294 | 1.60 m linear | 16 | 17 | 6–16 |
+
+Two honest notes. **Step 10b swept *m* = 28 on Achilles_11012013, one above that session's
+cap.** It was in the default grid and nobody checked it against the cap. The point is
+dropped in 10c and said here rather than quietly removed. And the grid tops out at 24, so
+three sessions are swept to the grid's edge rather than to their cap — which matters for
+reading the likelihood curve (D10.10).
+
+### D10.10 — *m* is selected by Claim A, not by held-out likelihood
+
+Step 10b left a tension: held-out likelihood rose monotonically across the whole grid while
+Claim A peaked at *m* = 12. **The decision is to select *m* by Claim A and to report the
+likelihood curve beside it at every *m*.**
+
+The two criteria measure different things. Held-out likelihood measures how well the model
+predicts *spikes*, and it rises close to monotonically as more states carve the observation
+space more finely: there is nearly always a little more predictable structure to buy. Claim
+A measures whether the states correspond to *positions*, which saturates at roughly one
+state per position bin and then degrades, because a single position begins to fragment
+across several states and the state-to-position map stops being a map. The 10a cap
+arithmetic already landed at about one state per position bin, and 10b's Claim A peak at
+*m* = 12 against 29 position bins is consistent with that. This phase exists to ask whether
+a receptive-field-free method recovers positional structure, so the phase's own criterion
+selects the model.
+
+**What the likelihood actually did**, measured rather than assumed: it is strictly monotone
+across the whole swept grid on three of five sessions (Achilles_10252013,
+Achilles_11012013, Cicero_09102014), monotone for the first five of seven values on
+Cicero_09012014 before a single dip and a new high at the top, and on Gatsby_08022013 alone
+does it turn over inside the grid, at *m* = 14 of 16. On **four of five sessions it would
+choose the largest *m* swept.**
+
+**The divergence, stated plainly.** On three sessions the two criteria choose differently:
+Achilles_11012013 (Claim A 12, likelihood 24), Cicero_09012014 (12 against 20),
+Gatsby_08022013 (8 against 14). On the other two they choose the same *m* — and **that
+agreement is not evidence, because both are the top of the grid.** The likelihood was still
+rising when the sweep stopped, so it agrees with Claim A only in the sense that it was
+prevented from disagreeing. The table records `likelihood_rising_at_cap` for exactly this
+reason; a reader should not count those two as independent concordance, and this project
+does not.
+
+So the standard model-selection criterion would have chosen a larger model on every session
+where it was free to, and we did not follow it. What we gain by not following it is a model
+whose states are places; what we give up is the claim that this model predicts spikes best.
+Both are true and both are printed.
+
+### D10.11 — Selection on medians across restarts and folds, and the choice is not stable
+
+Every selection statistic is the **median across the five restarts and the three folds** —
+never the best. EM has local optima here and the restart spread within a single (m, fold)
+cell reaches 0.52 (D10.7); choosing by the best restart would be choosing the model by its
+luckiest initialisation.
+
+**On all five sessions the three folds prefer different *m***: 14/14/8, 12/16/12, 20/20/12,
+6/16/16 and 6/14/8. By the strict test — all three folds' preferred *m* within one grid step
+— **no session has a stable choice**, and the figure's panel titles say so.
+
+That is the right finding, but it is not the whole of it, and the second half matters more.
+On three of five sessions the Claim A curve is **flatter across *m* than the restart noise
+at the chosen *m***: Cicero_09012014 spans 0.04 against an IQR of 0.23, Gatsby_08022013
+0.07 against 0.65, Cicero_09102014 0.39 against 0.94. Where the curve is that flat, the
+argmax is moving on nothing and *m* barely matters; the instability is real but harmless.
+On Achilles_10252013 the curve is also flat (0.07) but so is the noise (0.06), and the
+curve is monotone rising to the cap. Only **Achilles_11012013** has a curve that varies by
+more than its noise (0.33 against 0.18), and it is also the session whose folds come closest
+to agreeing — two grid steps apart, against three to five elsewhere — though still not
+within the one-step test. On every session the chosen *m* sits, in every fold, within that
+fold's restart IQR of that fold's own best *m*; the disagreement is between argmaxes, not
+between distinguishable preferences.
+
+**So the honest statement is: *m* is not determined by this data on any session, and on
+three of five it does not need to be.** A single number is reported for each session because
+the downstream steps need one, and it is reported as a choice, not as an estimate.
+
+### D10.12 — The fit-on-shuffled-data control is not a null on four of five sessions
+
+Step 10b's control was read on one session, where it behaved: Claim A 0.05–0.16 against a
+real fit of 0.41–0.71. Step 10c ran it on all five **before any real number was looked at**,
+and on four of them it does not behave.
+
+| Session | Claim A at the chosen *m* | Shuffled fit, median | Shuffled fit, 95th pct | Margin | Shuffled fits beating a real one |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 0.91 | 0.51 | 0.65 | +0.41 | 0 % |
+| Achilles_11012013 | 0.71 | 0.16 | 0.36 | +0.56 | 1 % |
+| Cicero_09012014 | 0.70 | 0.48 | 0.64 | +0.22 | **16 %** |
+| Cicero_09102014 | 0.72 | 0.21 | 0.49 | +0.50 | **30 %** |
+| Gatsby_08022013 | 0.79 | 0.34 | 0.50 | +0.46 | **27 %** |
+
+The control beats chance on decoding *error* too, not only on the correlation: on
+Achilles_10252013 the shuffled fit decodes held-out position to 32 cm against a 49 cm
+permuted-map chance, and on Cicero_09012014 to 30 cm against 48 cm. So a model fitted to
+spike trains with the cross-cell alignment destroyed still carries real positional
+information.
+
+**One hypothesis was tested and rejected.** Running bouts are directed runs, so the bin's
+*index within its bout* might predict position with no spikes involved, and a shuffled fit
+that learned only "the population is autocorrelated on the bout timescale" could ride it.
+`scripts/bout_phase_baseline.py` decodes held-out position from the within-bout index alone,
+through the same folds and the same statistic: the median across folds is **+0.08, −0.11,
++0.01, +0.03 and −0.22** on the five sessions. Bout timing explains none of it. The script
+is kept because the negative is the useful part.
+
+**The mechanism is not established.** What is established is the consequence, and it is the
+part that constrains everything after it:
+
+* **The margin over the shuffled fit, not the raw correlation, is the statistic.** On
+  Cicero_09012014 the real median (0.70) sits inside the shuffled distribution's upper tail
+  (p95 = 0.64) and one shuffled fit in six beats a real one. Claim A is **not established on
+  that session**, whatever the headline 0.70 looks like.
+* **The split is by track geometry.** The three linear-track sessions have shuffled medians
+  of 0.34–0.51; the two circular ones 0.16–0.21. A Pearson correlation on a linear track
+  rewards coarse, one-bit positional information heavily, where a circular correlation on a
+  ring does not. That is a plausible contributor and it is not a demonstration.
+* **10d inherits this.** Every sleep score is read against the shuffled-fit model scored on
+  the same events, per session, and never against zero — and on the three sessions above it
+  will take a large margin to mean anything at all.
+
+### D10.13 — Per-session stickiness baselines, for step 10d
+
+Step 10b's stickiness numbers were Achilles_11012013's. Sleep scoring needs each session's
+own, because a dwell time is only interpretable against how fast that animal crossed that
+track.
+
+| Session | Animal crosses one position bin | Fitted model dwells (chosen *m*) | Shuffled fit dwells | Fitted ÷ crossing |
+|---|---|---|---|---|
+| Achilles_10252013 | 0.17 s | 0.47 s (*m* = 14) | 0.43 s | 2.7× |
+| Achilles_11012013 | 0.33 s | 0.64 s (*m* = 12) | 0.48 s | 1.9× |
+| Cicero_09012014 | 0.34 s | 0.75 s (*m* = 12) | 0.57 s | 2.2× |
+| Cicero_09102014 | 0.32 s | 0.62 s (*m* = 16) | 0.52 s | 1.9× |
+| Gatsby_08022013 | 0.28 s | 0.87 s (*m* = 8) | 0.65 s | 3.1× |
+
+Two things to carry into 10d. The fitted model is **sticky on every session** — 1.9 to 3.1
+times slower than the animal — so a smooth state path is the model's default and not
+evidence of anything. And **the shuffled fit is nearly as sticky**, 0.43–0.65 s against the
+real 0.47–0.87 s, reaching 91 % of the real dwell on Achilles_10252013: most of the
+stickiness needs no population structure at all. A sleep event that scores well because the
+state path is smooth has not told us anything that a shuffled model would not also produce.
+
+### D10.14 — Claim B on running scales with ensemble size, which bounds what 10d can find
+
+Claim B is scored on *running* windows here, where the answer is known to be yes. Its value
+at each session's chosen *m*, against that session's pyramidal count:
+
+| Session | Pyramidal cells | Claim B (behaviour ordering) | Claim B (spectral ordering) | Gap |
+|---|---|---|---|---|
+| Achilles_10252013 | 120 | 0.61 | 0.30 | +0.30 |
+| Achilles_11012013 | 92 | 0.35 | 0.33 | +0.02 |
+| Cicero_09102014 | 81 | 0.21 | 0.21 | −0.00 |
+| Gatsby_08022013 | 66 | 0.08 | 0.07 | +0.01 |
+| Cicero_09012014 | 55 | 0.06 | 0.05 | +0.01 |
+
+The ordering is monotone in ensemble size across all five sessions, with no exception. This
+is the Phase 2 sensitivity floor arriving in Phase 4 by a different route: the same five
+sessions, ordered the same way, with the same consequence. **On the two smallest ensembles
+Claim B is near zero on running, where the structure is certainly there** — so a null result
+in sleep on those sessions would carry no information about sleep. Five points cannot
+establish a relationship and no line is fitted through them; the ordering is reported as
+suggestive and read together with the Phase 2 figure.
+
+The Claim A/B gap at the chosen *m* runs −0.002 to +0.030 on four sessions and +0.30 on
+Achilles_10252013, the one ensemble large enough for Claim B to have room to differ.
+
+### D10.15 — On Cicero_09102014, the two Claim A statistics disagree in sign on one fold
+
+Fold 0 of Cicero_09102014 returns circular correlations of −0.40 to −0.63 at *m* ≥ 12 while
+the *same fits* decode held-out position to 10–19 cm against a 68 cm permuted-map chance.
+A decode that good cannot be anticorrelated with the truth, so one of the two statistics is
+misreporting on that fold.
+
+The likely cause is the circular correlation itself: the Jammalamadaka–SenGupta statistic is
+referred to each variable's mean direction, and when the decoded positions are concentrated
+on one arc of the ring, a minority of bins decoded to the far side can move that mean
+direction far enough to flip the sign of the sum. This is not established either, and no
+statistic was changed to make the number look better.
+
+What is done about it: **the median error against its permuted-map chance is reported beside
+the correlation everywhere**, both are in `results/hmm_state_selection.csv`, and the
+disagreement is stated rather than resolved. It is also the reason Cicero_09102014's fold
+spread (6/16/16, curve range 0.39 against a restart IQR of 0.94) is reported as instability
+rather than as an *m* preference — a fold whose statistic has flipped sign is not voting.

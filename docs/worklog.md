@@ -1324,3 +1324,74 @@ across the whole grid while Claim A peaks at m = 12. The criterion that will sel
 not agree with the control that says whether the states are places.
 
 **Tests**: 506 passing, 3 skipped (13 for the HMM, 4 for provenance). **Time**: ~2.5 h.
+
+## 2026-10-30 — Step 10c: the m-sweep on five sessions, and a control that stops being one
+
+**A documentation miss first, found while writing this up.** Step 10b's commit message
+announces D10.6, D10.7 and D10.8, the worklog entry cites D10.8 — and none of the three was
+ever written to `decisions.md`. The commit touched the file, but only for D10.5 and a
+correction to D8.1's table. All three are backfilled here from 10b's numbers, which this
+step's sweep reproduces exactly at the overlapping values of *m* (same seeds, same folds).
+Worth noting as its own kind of failure: a commit message asserting a file's contents is
+not a check on them, and the dangling cross-reference sat in a pushed public document for a
+day.
+
+**The control was run on all five sessions and read before any real number, as scoped. On
+four of them it is not a null.**
+
+| Session | Claim A at chosen *m* | Shuffled fit | p95 | Margin | Shuffled beating a real fit |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 0.91 | 0.51 | 0.65 | +0.41 | 0 % |
+| Achilles_11012013 | 0.71 | 0.16 | 0.36 | +0.56 | 1 % |
+| Cicero_09012014 | 0.70 | 0.48 | 0.64 | +0.22 | **16 %** |
+| Cicero_09102014 | 0.72 | 0.21 | 0.49 | +0.50 | **30 %** |
+| Gatsby_08022013 | 0.79 | 0.34 | 0.50 | +0.46 | **27 %** |
+
+It beats chance on error, not only on correlation — 32 cm against a 49 cm permuted-map
+chance on Achilles_10252013. **Claim A is not established on Cicero_09012014**: the real
+median sits inside the shuffled distribution's upper tail. One hypothesis for the leak was
+tested and rejected — bout timing, decoded from the within-bout index with no spikes at all,
+gives +0.08, −0.11, +0.01, +0.03 and −0.22 across the five sessions
+(`scripts/bout_phase_baseline.py`, kept because the negative is the useful part). The
+mechanism is undetermined; the split is by track geometry (linear 0.34–0.51, circular
+0.16–0.21). D10.12.
+
+**m selected by Claim A, likelihood reported beside it (D10.10).** The likelihood is
+strictly monotone across the whole swept grid on three of five sessions, nearly so on a
+fourth, and turns over inside the grid only on Gatsby_08022013. It would choose the largest
+*m* swept on four of five. The two criteria diverge on Achilles_11012013 (12 against 24),
+Cicero_09012014 (12 against 20) and Gatsby_08022013 (8 against 14) — and **the two
+"agreements" are truncation artifacts**, both at the top of the grid with the likelihood
+still rising. There is no session where the two criteria independently concur.
+
+**No session has a stable choice of *m* (D10.11).** Folds prefer 14/14/8, 12/16/12,
+20/20/12, 6/16/16 and 6/14/8. But on three of five the Claim A curve is flatter across *m*
+than the restart noise at the chosen *m* (0.04 against 0.23; 0.07 against 0.65; 0.39 against
+0.94), so the argmax is moving on nothing. Only Achilles_11012013 has a curve that varies by
+more than its noise. Everything is a median across five restarts and three folds, never the
+best.
+
+**Per-session stickiness baselines for 10d (D10.13).** Crossing time 0.17–0.34 s; fitted
+dwell 0.47–0.87 s, 1.9–3.1× the crossing time on every session; shuffled fit 0.43–0.65 s,
+reaching 91 % of the real dwell on Achilles_10252013. A smooth state path is the model's
+default, and most of that is available with no population structure.
+
+**Claim B on running scales monotonically with ensemble size (D10.14)**: 0.61, 0.35, 0.21,
+0.08, 0.06 against 120, 92, 81, 66 and 55 pyramidal cells, no exception. The Phase 2
+sensitivity floor arriving by a different route. On the two smallest ensembles Claim B is
+near zero *on running*, where the structure is certainly present — so a sleep null on those
+sessions would carry no information. No line is fitted through five points.
+
+**One statistic disagrees with itself (D10.15).** Cicero_09102014 fold 0 returns circular
+correlations of −0.40 to −0.63 at *m* ≥ 12 while the same fits decode to 10–19 cm against a
+68 cm chance. Probable cause is the circular correlation's mean-direction reference on a
+concentrated decode; stated, not resolved, and nothing was changed to improve the number.
+
+**Also**: `scripts/fit_hmm.py` gained per-session caps (D10.9) and a `--kinds` flag so the
+control runs as its own pass; step 10b's *m* = 28 on Achilles_11012013 was one above that
+session's cap and is dropped, said rather than quietly removed. The eighth silent failure —
+the within-bout shuffle — is in the METHODS catalogue, flagged as **the first one whose
+failure pointed toward a negative**; every previous one with a direction flattered the
+hypothesis.
+
+**Tests**: 519 passing, 3 skipped (13 new for state selection). **Time**: ~2 h.

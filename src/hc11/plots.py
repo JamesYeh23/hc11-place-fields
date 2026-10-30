@@ -1343,3 +1343,75 @@ def plot_hmm_running(rows, path: Path, params: dict) -> Path:
                  "all restarts shown", color=INK, fontsize=10)
     fig.tight_layout()
     return _save(fig, path, params)
+
+
+def plot_hmm_state_selection(per_m, decisions, path: Path) -> Path:
+    """Step 10c: the criterion that chose m, and the one that would have chosen
+    differently.
+
+    Top row, one panel per session: Claim A against the number of states. The
+    heavy line is the median across restarts *and* folds -- the selection
+    statistic -- the thin lines are the three folds taken separately, and the
+    shaded band is the same fit on shuffled training data. A session whose thin
+    lines peak in different places has no stable choice, and the panel title
+    says so.
+
+    Bottom row: the held-out log likelihood on the same grid. It is the
+    standard model-selection criterion and it is reported here precisely
+    because it mostly disagrees: it keeps rising as states carve the
+    observation space more finely, while Claim A saturates near one state per
+    position bin and then falls. The two choices are marked on both rows.
+    """
+    sessions = list(decisions.session)
+    fig, axes = plt.subplots(2, len(sessions), figsize=(3.0 * len(sessions), 6.4),
+                             sharex=False)
+    axes = np.atleast_2d(axes)
+    fold_columns = sorted(c for c in per_m.columns if c.startswith("claim_a_fold"))
+    for column, name in enumerate(sessions):
+        table = per_m[per_m.session == name].sort_values("n_states")
+        choice = decisions[decisions.session == name].iloc[0]
+        states = table.n_states.to_numpy()
+
+        ax = axes[0, column]
+        ax.fill_between(states, table.shuffled_median, table.shuffled_p95,
+                        color="#D55E00", alpha=0.16, linewidth=0)
+        ax.plot(states, table.shuffled_median, "-", color="#D55E00", linewidth=1.0,
+                label="shuffled fit")
+        for fold in fold_columns:
+            ax.plot(states, table[fold], "-", color="#9ecae1", linewidth=0.9)
+        ax.plot(states, table.claim_a_median, "o-", color="#0072B2", markersize=4,
+                linewidth=2.0, label="median over folds")
+        ax.axvline(choice.m_by_claim_a, color="#0072B2", linewidth=1.0, linestyle="--")
+        ax.axvline(choice.m_by_likelihood, color="#CC79A7", linewidth=1.0,
+                   linestyle=":")
+        ax.axhline(0.0, color=MUTED, linewidth=0.8, linestyle=":")
+        ax.set_ylim(-0.7, 1.0)
+        ax.set_title(f"{name}\nm = {int(choice.m_by_claim_a)}"
+                     + ("  (unstable)" if choice.folds_unstable else ""),
+                     fontsize=8.5, color=INK)
+        if column == 0:
+            ax.set_ylabel("Claim A: correlation with position")
+            ax.legend(frameon=False, fontsize=7, loc="lower left")
+        _style(ax)
+
+        ax = axes[1, column]
+        ax.plot(states, table.held_out_ll_median, "o-", color="#CC79A7",
+                markersize=4, linewidth=1.6)
+        ax.axvline(choice.m_by_claim_a, color="#0072B2", linewidth=1.0, linestyle="--")
+        ax.axvline(choice.m_by_likelihood, color="#CC79A7", linewidth=1.0,
+                   linestyle=":")
+        ax.set_xlabel("states (m)")
+        if column == 0:
+            ax.set_ylabel("held-out log likelihood")
+        _style(ax)
+
+    handles = [Line2D([], [], color="#0072B2", linestyle="--", label="chosen by Claim A"),
+               Line2D([], [], color="#CC79A7", linestyle=":",
+                      label="would be chosen by likelihood"),
+               Line2D([], [], color="#9ecae1", label="one fold")]
+    fig.legend(handles=handles, frameon=False, fontsize=8, ncol=3,
+               loc="lower center", bbox_to_anchor=(0.5, -0.01))
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path

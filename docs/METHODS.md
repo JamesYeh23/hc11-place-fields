@@ -557,19 +557,19 @@ The five in bold are the ones the headline result depends on.
 
 ---
 
-## Seven silent failures
+## Eight silent failures
 
 Every one of these produced plausible output instead of an error. None raised an
-exception and none made a number look obviously wrong. **Three different things caught
-them, and the differences matter more than the count.** Six were caught by a
+exception and none made a number look obviously wrong. **Two different things caught the
+eight, and the differences matter more than the count.** Seven were caught by a
 **cross-check against something the result had to agree with** — a second measurement, a
 physical expectation, a control, a document — which is the argument for the controls in
-the previous section: they are not ceremony, they are this project's main detector. One
-was caught by **reading the code**, because it would have moved every number in the same
-direction and so no cross-check could have seen it. The seventh was caught by **reading a
-citation against its paper**, because nothing about it was wrong except who got the credit
-for choosing it — and a parameter that looks like the authors' is a parameter nobody
-sweeps.
+the previous section: they are not ceremony, they are this project's main detector. The
+seventh entry was caught by **reading a citation against its paper**, because nothing about
+it was wrong except who got the credit for choosing it — and a parameter that looks like
+the authors' is a parameter nobody sweeps. A third detection mode, **reading the code**,
+appears only among the near-misses below, where the error would have moved every number in
+the same direction and so no cross-check could have seen it.
 
 | # | What broke | What it produced instead of an error | What caught it |
 |---|---|---|---|
@@ -580,6 +580,7 @@ sweeps.
 | 5 | p-values below 1 × 10⁻⁵ rounding to zero in saved tables (step 8c) | `p = 0.0` in two results CSVs while the printed report showed 3.4 × 10⁻⁶ | A verification script comparing the README's numbers against the CSVs, which flagged six "mismatches" that were the file's fault |
 | 6 | An undefined statistic compared against a null (step 9b) | `p = 0.048`, the smallest value a 20-draw null can express, for a gap that was NaN | Reading the printed line beside the medians it came from, which were NaN too |
 | 7 | A parameter credited to a paper that does not state it (step 10a-bis) | Nothing. Correct code, reasonable value, every test and control passing — and a number nobody thought to sweep | Reading the citation tag against the paper; five tags of twenty-five were wrong (D10.3) |
+| 8 | A shuffle that preserved the thing it was meant to destroy (step 10b) | A null that beat the data: Claim A +0.47 and +0.52 against the real fit's +0.41, reading as "the model has learned nothing" | The sign — a null outscoring the data is the null's fault until shown otherwise |
 
 **1. Band-passing across the probe instead of across time.** The first channel-power
 analysis indexed `data[channel]` — a single time point across 134 channels — instead of
@@ -648,6 +649,28 @@ carried over from a sentence about multi-unit activity, a sleep-state label cred
 paper that does not describe the scoring, and — the opposite error — a 1 Hz peak-rate
 criterion that **is** Chen et al.'s and that we had been calling our own choice.
 
+**8. A shuffle that preserved the thing it was meant to destroy.** The fit-on-shuffled-data
+control of step 10b (D10.6) rolled each cell's spike counts circularly *within* each running
+bout, meaning to keep every cell's rate and burstiness while destroying the alignment
+between cells. It destroyed nothing. Running bouts are a median of five to nine 250 ms bins
+and the animal is in essentially one place for all of them, so a cell's rate within a bout
+identifies the position whatever order the bins arrive in. The control scored Claim A at
++0.47 and +0.52 against the real fit's +0.41 — a null outscoring the data, which taken at
+face value says the model has learned nothing and the phase should stop. *Prevented now by*
+rolling along the whole concatenated running timeline instead, which is this project's
+existing place-cell shuffle idiom from step 4; the null then falls to 0.05–0.16 on that
+session. Caught by the sign, not by a test: a null is not supposed to beat the data, and
+when one does the null is the first suspect.
+
+**This is the first entry in the list whose failure pointed toward a negative, and that is
+worth saying.** Every other one that had a direction — the cell-count confound, the rounded
+p-values, the NaN comparison — made a hypothesis look *better* supported than it was, and
+the habit of mind those three train is to be most suspicious of a result you like. This one
+runs the other way: believed as written, it would have discarded a real effect because its
+control was broken in the data's favour. A control that kills a result deserves exactly the
+same scrutiny as a result that confirms one, and nothing in the first seven entries would
+have prompted it.
+
 **No test, control or cross-check could have found any of them.** The code was correct,
 every number was reasonable, nothing disagreed with anything. The output of a pipeline is
 identical whether a parameter is the authors' or ours; what differs is whether anyone ever
@@ -663,8 +686,9 @@ now done for every tag, and the result is D10.3.
 
 **Two near-misses belong in the same section, because they were caught differently.**
 
+
 The first was caught by **reading code rather than output**, which is the detection mode
-none of the six above had. In the first draft of the per-cell contribution estimator the
+none of the eight above had. In the first draft of the per-cell contribution estimator the
 real template was scored through one code path and the shifted templates through another:
 the unperturbed mean came from the step-5 results table, the perturbed means from the
 estimator's own loop. Nothing it produced would have looked wrong — the difference between
@@ -682,15 +706,17 @@ much as the effect being measured, because the score maximises over directions a
 template hands the shuffles the same freedom. It was caught by checking lap counts per
 direction before trusting the output — again a cross-check, not an error.
 
-What the five have in common is worth stating plainly, because it generalises past this
+What they have in common is worth stating plainly, because it generalises past this
 project: **a numerical pipeline fails by returning a number** — or, in the seventh case,
-by returning the right number for a reason nobody checked. Three of the six — the
+by returning the right number for a reason nobody checked. Three of the eight — the
 cell-count confound, the rounded p-values and the NaN comparison — produced results that
 *supported* the hypothesis under test or made it look stronger, which is the most dangerous
 shape a silent failure can take, and the only reason any of them was found is that
 something independent had to agree and did not. (Of the first five, two had that shape; the
-NaN comparison makes three of six. The count is kept honest here because it is the kind of
-number that drifts upward in retelling.)
+NaN comparison makes three. The count is kept honest here because it is the kind of number
+that drifts upward in retelling.) **Exactly one of the eight, the newest, pointed the other
+way** — toward abandoning something real — which is why the catalogue is kept by detection
+mode rather than by whether the error flattered the hypothesis.
 
 ---
 

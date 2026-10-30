@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import h5py
@@ -161,3 +162,14 @@ def real_sessions():
         return cache[name]
 
     return get
+
+
+# ---------------------------------------------------------------------------
+# Importing the pipeline scripts
+# ---------------------------------------------------------------------------
+
+# Some analysis logic lives in ``scripts/`` rather than in the package -- the
+# state-selection rules of step 10c, for instance, which are reporting
+# decisions rather than library code. They still need tests, so the directory
+# is importable from the test suite.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
