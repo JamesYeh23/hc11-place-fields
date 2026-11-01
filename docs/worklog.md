@@ -1430,3 +1430,51 @@ an entry says what the citation claims, and commit messages stay out of reach.
 ring and asserts the coefficient does not move — the reason for using it over Pearson.
 
 **Tests**: 532 passing, 3 skipped.
+
+## 2026-11-01 (later) — Step 10d: sleep events scored without receptive fields
+
+Phase 1's events, Phase 1's scorer, Phase 4's posterior. All pyramidal cells rather than
+place cells, model fitted on every running bout, memoryless posterior at 20 ms, both state
+orderings, five restarts, and the shuffled-fit model scored on the same events with the same
+shuffles (D10.17). 4,417 PRE and 3,453 POST events scorable across the five sessions.
+
+**Two of three informative sessions replicate the direction, receptive-field-free** (D10.18).
+Rank-biserial of POST over PRE under the model's own ordering, with no behaviour anywhere in
+the scoring: **+0.081** (p = 0.001) on Achilles_10252013 and **+0.136** (p = 2 × 10⁻⁵) on
+Achilles_11012013, against Phase 1's place-field answers of +0.114 and +0.071. On
+Achilles_11012013 **the receptive-field-free method finds a larger separation than the
+place-field decoder did** — the best number this phase has produced. Cicero_09102014 gives
++0.025 (p = 0.41) against a shuffled fit of +0.041: a negative on an informative session,
+reported as one.
+
+**The control separates POST from PRE too, and that is a result (D10.19).** The shuffled-fit
+model reaches p < 0.02 on three sessions and on Gatsby_08022013 **beats the real model**
+(+0.110 against +0.071). As a fraction of the real behaviour-free effect it reproduces
+40–46 % on both Achilles sessions and on Gatsby, and 67 % on Cicero_09102014. Part of the
+PRE/POST difference belongs to the *event sets*, not to what the model learned. Phase 1's
+identity shuffle said the same thing from a different direction — +25 %, +42 %, +62 % on
+three sessions (D8.8) — and the two controls agree on which session is worst. They disagree
+on Achilles_10252013 (−2 % against 46 %), where they destroy different things and the larger
+is the one to believe.
+
+**The Claim A/B gap closes on running and opens in sleep, in both directions** (D10.20).
+POST medians by position against by the model: +0.28 on Achilles_10252013, +0.03 on
+Achilles_11012013, +0.07 on Cicero_09102014, and **−0.24 and −0.30** on the two vacuous
+sessions, where the behaviour-free ordering *outscores* the position one. No account of why.
+What survives: on the best-powered session the gap is 0.03, so there the method's promise —
+replay read without place fields — holds up against its own controls.
+
+**Gatsby_08022013 and Cicero_09012014 were marked uninformative before their sleep numbers
+were read** (D10.21), from their running Claim B of 0.08 and 0.06 (D10.14), in the script's
+constants and in the figure. Phase 3's rule, applied again: a session that cannot test the
+hypothesis is not a session that failed to confirm it. Their numbers are computed, written
+and plotted — shaded and excluded from the count.
+
+**Also**: `read_retrying`, because the repository lives in an iCloud-synced folder and a
+just-deleted file can answer `exists()` and then fail the read with `[Errno 35] Resource
+deadlock avoided`. Swallowing that would have dropped every other session's provenance
+stamp, so it retries and then refuses.
+
+**Tests**: 543 passing, 3 skipped (11 new for 10d, including one that asserts a nearly
+absorbing transition matrix changes no event score — the memoryless property, pinned).
+**Time**: ~1.5 h.

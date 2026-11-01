@@ -2984,3 +2984,147 @@ is that "undetermined" in D10.12 is now a stronger statement than it was — two
 cheap explanations have been tested and neither survives — and that rate is a *named
 contributor* on Gatsby_08022013, where any Claim A margin should be read knowing that 91 %
 of its null is reproducible from population rate alone.
+
+### D10.17 — How sleep events are scored by the state model
+
+`scripts/score_events_hmm.py` scores the **same candidate events** Phase 1 scored, with
+**Phase 1's scorer** — `sequences.score_event`, 20 ms bins, 500 within-event shuffles of
+both kinds, the same maximisation over circular offset applied identically to the
+observation and to every shuffle. Only the posterior handed to it is different. Six
+choices are worth recording because each could have been made silently:
+
+1. **All pyramidal cells, not place cells.** Phase 4's premise is that no receptive field
+   is needed, so the decoding ensemble is the one the model was fitted on. This makes more
+   events scorable than Phase 1 — 702 against 695 PRE on Achilles_11012013, 1672 against
+   1646 on Achilles_10252013 — and each row carries `scored_in_phase1` so the two event
+   sets can be separated later. It also means the **absolute** rz levels of the two phases
+   are not comparable; only the PRE-to-POST differences are.
+2. **The model is fitted on every running bout**, not a training fold. Sleep is the
+   held-out data, so there is nothing to hold out.
+3. **The posterior is memoryless**, as in D10.6: the transition matrix was estimated at
+   250 ms and would be wrong at 20 ms. There is a test that asserts a nearly absorbing
+   transition matrix changes no event score.
+4. **Both orderings, always.** Ordered by position (uses behaviour, comparable to Phase 1)
+   and ordered by the model's own transition matrix (behaviour-free; this is the one that
+   would mean replay can be read without place fields).
+5. **Five restarts, never the best.** Each event carries the median, minimum and maximum
+   rz across the five fits.
+6. **The shuffled-fit model scores the same events with the same shuffles**, five restarts
+   of it too, so every comparison in D10.18 is a pair.
+
+The secondary shuffle (`time_permutation`) is run on the real model's first restart only,
+as a cross-check rather than a second grid, because Phase 1 found the two shuffle kinds
+give the same answer.
+
+### D10.18 — PRE against POST, read receptive-field-free
+
+Rank-biserial of POST over PRE, each ordering beside the model fitted to shuffled training
+data, with Phase 1's place-field answer on the same sessions for comparison. The two
+sessions marked uninformative in advance (D10.21) are listed last and are not counted
+either way.
+
+| Session | Phase 1 (place fields) | By position | its shuffled fit | By the model | its shuffled fit | Margin (by the model) |
+|---|---|---|---|---|---|---|
+| Achilles_10252013 | +0.114 | **+0.170** | +0.061 | **+0.081** | +0.041 | +0.040 |
+| Achilles_11012013 | +0.071 | **+0.103** | +0.052 | **+0.136** | +0.075 | +0.062 |
+| Cicero_09102014 | +0.058 | +0.060 | +0.035 | +0.025 | +0.041 | **−0.016** |
+| *Cicero_09012014* | +0.073 | −0.029 | +0.076 | +0.066 | −0.038 | +0.104 |
+| *Gatsby_08022013* | +0.110 | +0.071 | +0.110 | +0.041 | +0.060 | **−0.019** |
+
+**On the two Achilles sessions the direction replicates receptive-field-free.** POST events
+score above PRE under the model's own ordering with no behaviour anywhere in the scoring:
+rank-biserial +0.081 (p = 0.001) and +0.136 (p = 2 × 10⁻⁵), against Phase 1's +0.114 and
++0.071 with place fields. On **Achilles_11012013 the receptive-field-free method finds a
+larger separation than the place-field decoder did** — +0.136 against +0.071 — which is the
+single most encouraging number in this phase.
+
+**On Cicero_09102014 it does not.** The behaviour-free ordering gives +0.025 (p = 0.41)
+against a shuffled fit of +0.041: the control is larger than the result. This is a negative
+on an informative session and is reported as one.
+
+So: **two of three informative sessions, in the predicted direction, with the control
+subtracted.** That is the same two-of-five-style arithmetic Phase 1 and Phase 3 produced,
+and it is stated with the same honesty: the effect is present where the ensemble is largest
+and absent where it is not.
+
+### D10.19 — The shuffled-fit model also separates POST from PRE, and that is a result
+
+The control was not expected to do anything. It does.
+
+| Session | Shuffled fit, by position | p | Shuffled fit, by the model | p |
+|---|---|---|---|---|
+| Achilles_10252013 | +0.061 | **0.013** | +0.041 | 0.098 |
+| Achilles_11012013 | +0.052 | 0.107 | +0.075 | **0.019** |
+| Cicero_09012014 | +0.076 | **0.017** | −0.038 | 0.235 |
+| Cicero_09102014 | +0.035 | 0.239 | +0.041 | 0.175 |
+| Gatsby_08022013 | +0.110 | **0.001** | +0.060 | 0.083 |
+
+A model fitted to spike trains with the cross-cell alignment destroyed, scored on the same
+events with the same shuffles, separates POST from PRE at p < 0.02 on three sessions — and
+on Gatsby_08022013 it separates them **better than the real model does** (+0.110 against
++0.071). Expressed as a fraction of the real effect, the control reproduces 40–46 % of the
+behaviour-free difference on Achilles_10252013, Achilles_11012013 and Gatsby_08022013, 67 %
+on Cicero_09102014, and more than all of it on Gatsby under the position ordering.
+
+**What it means.** Part of the PRE-to-POST difference is a property of the *event sets*,
+not of what the model learned: POST events differ from PRE events in ways — length, active
+cells, spikes per bin — that raise a sequence score under any model with plausible emission
+rates. This is the same phenomenon Phase 1 measured with its identity shuffle, where the
+column-cycle residual ran +25 %, +42 % and +62 % of the real gap on Achilles_11012013,
+Cicero_09102014 and Gatsby_08022013 (D8.8), arrived at from a different direction and
+agreeing with it. Two independent controls, two phases apart, putting a similar fraction of
+the PRE/POST effect outside the replay — and **agreeing on which session is worst**, since
+Gatsby_08022013 is the one where both controls exceed or nearly exceed the real effect.
+
+They disagree on Achilles_10252013, where Phase 1's identity shuffle left −2 % and this
+phase's shuffled fit leaves 46 % of the behaviour-free difference. The two controls destroy
+different things — the identity shuffle detaches cells from fields and leaves the decoder
+intact; the shuffled fit destroys the fit and leaves each cell's real emission rates — so
+neither is a check on the other, and the larger of the two is the one to believe.
+
+It is also why every number in D10.18 is reported as a pair and why the margin, not the
+raw effect, is the claim. A reader who takes the +0.170 on Achilles_10252013 at face value
+is reading an effect of which a third belongs to the events.
+
+### D10.20 — The Claim A / Claim B gap closes on running and opens in sleep, unevenly
+
+D10.8 recorded that the behaviour-derived and behaviour-free orderings agree on running, to
+within 0.012–0.033. In sleep they do not agree, and they do not disagree in a consistent
+direction:
+
+| Session | POST median rz, by position | by the model | Gap |
+|---|---|---|---|
+| Achilles_10252013 | 0.45 | 0.17 | **+0.28** |
+| Cicero_09102014 | 0.15 | 0.08 | +0.07 |
+| Achilles_11012013 | 0.39 | 0.36 | +0.03 |
+| Cicero_09012014 | −0.16 | 0.08 | **−0.24** |
+| Gatsby_08022013 | −0.19 | 0.11 | **−0.30** |
+
+On Achilles_10252013 the behaviour-free ordering gives up most of the effect; on
+Cicero_09012014 and Gatsby_08022013 it *outscores* the position ordering. The project has
+no account of why, and the sessions where the gap is largest in each direction are the ones
+with the least to say — Achilles_10252013 has the largest ensemble and the strongest
+shuffled-fit leak (D10.12), and the other two are the vacuous pair.
+
+What can be said is narrower and is the part that matters for the method's promise:
+**on the best-powered session the gap is 0.03, and the behaviour-free ordering loses nothing
+worth having.** On that session, and only that session, the claim "replay can be read
+without place fields" survives its own controls.
+
+### D10.21 — Two sessions are marked uninformative before the sleep result is read
+
+Claim B on *running* — where the sequential structure is certainly present, since the animal
+is running along the track — is 0.08 on Gatsby_08022013 and 0.06 on Cicero_09012014, the two
+smallest ensembles at 66 and 55 pyramidal cells (D10.14). A method that cannot see structure
+on running cannot be asked about sleep.
+
+Both sessions are therefore declared **uninformative in advance**, in the script's own
+constants and in the figure, rather than after their sleep numbers were seen. This follows
+Phase 3's treatment of its unpowered comparisons (D9.7, rule 2): a session that cannot test the
+hypothesis is not a session that failed to confirm it, and listing it as a negative would
+inflate the count of negatives exactly as listing it as a positive would inflate the count
+of positives.
+
+Their numbers are still computed, still written to `results/hmm_replay_comparison.csv` and
+still plotted — shaded, labelled and excluded from the two-of-three count in D10.18. The
+reader can disagree with the exclusion and recount; they cannot miss that it was made.

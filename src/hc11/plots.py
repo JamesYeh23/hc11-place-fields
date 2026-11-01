@@ -1415,3 +1415,79 @@ def plot_hmm_state_selection(per_m, decisions, path: Path) -> Path:
     fig.savefig(path, dpi=200)
     plt.close(fig)
     return path
+
+
+def plot_hmm_replay(table, path: Path) -> Path:
+    """Step 10d: the PRE-to-POST effect, each one beside the control that bounds it.
+
+    Left: the rank-biserial effect of POST over PRE, per session. Three filled
+    markers -- Phase 1's place-field decoder, this phase's model ordered by
+    position, and this phase's model ordered by itself -- against the open
+    markers for the *same* model fitted to shuffled training data and scored on
+    the same events. A filled marker close to its open one has not shown
+    anything the control does not also show.
+
+    Right: the margin, real minus shuffled, which is the quantity that means
+    something (D10.12). Sessions whose Claim B on *running* is too small for a
+    sleep null to carry information (D10.14) are shaded and labelled: they are
+    uninformative, not negative.
+    """
+    sessions = sorted(table.session.unique())
+    y = np.arange(len(sessions))
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 0.9 * len(sessions) + 2.6),
+                             sharey=True)
+    series = (("position", "#0072B2", "model, ordered by position", -0.16),
+              ("spectral", "#CC79A7", "model, ordered by itself", +0.16))
+
+    for ax in axes:
+        for index, name in enumerate(sessions):
+            row = table[table.session == name].iloc[0]
+            if row.vacuous_by_running_claim_b:
+                ax.axhspan(index - 0.45, index + 0.45, color=GRID, alpha=0.8,
+                           linewidth=0)
+        ax.axvline(0.0, color=MUTED, linewidth=0.9, linestyle=":")
+        _style(ax)
+
+    ax = axes[0]
+    for index, name in enumerate(sessions):
+        part = table[table.session == name]
+        ax.plot(part.phase1_rank_biserial.iloc[0], index, "s", markersize=6,
+                color="#009E73",
+                label="Phase 1 place fields" if index == 0 else None)
+        for ordering, colour, label, offset in series:
+            row = part[part.ordering == ordering].iloc[0]
+            ax.plot([row.shuffled_rank_biserial, row.real_rank_biserial],
+                    [index + offset] * 2, "-", color=colour, linewidth=1.0)
+            ax.plot(row.real_rank_biserial, index + offset, "o", markersize=6,
+                    color=colour, label=label if index == 0 else None)
+            ax.plot(row.shuffled_rank_biserial, index + offset, "o", markersize=6,
+                    markerfacecolor="white", color=colour,
+                    label="the same fit on shuffled data"
+                    if (index == 0 and ordering == "spectral") else None)
+    ax.set_yticks(y)
+    ax.set_yticklabels([f"{name}\n(uninformative)"
+                        if table[table.session == name].iloc[0]
+                        .vacuous_by_running_claim_b else name
+                        for name in sessions], fontsize=8)
+    ax.set_xlabel("POST over PRE: rank-biserial effect")
+    ax.set_title("Does the model separate POST from PRE?", fontsize=9, color=INK)
+    ax.legend(frameon=False, fontsize=7.5, loc="lower right")
+    ax.invert_yaxis()
+
+    ax = axes[1]
+    for index, name in enumerate(sessions):
+        part = table[table.session == name]
+        for ordering, colour, label, offset in series:
+            row = part[part.ordering == ordering].iloc[0]
+            ax.barh(index + offset, row.margin_rank_biserial, height=0.28,
+                    color=colour, alpha=0.85,
+                    label=label if index == 0 else None)
+    ax.set_xlabel("margin: real minus shuffled fit")
+    ax.set_title("What is left once the control is subtracted", fontsize=9,
+                 color=INK)
+    ax.legend(frameon=False, fontsize=7.5, loc="lower right")
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
