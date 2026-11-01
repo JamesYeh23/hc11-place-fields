@@ -2860,8 +2860,10 @@ through the same folds and the same statistic: the median across folds is **+0.0
 +0.01, +0.03 and −0.22** on the five sessions. Bout timing explains none of it. The script
 is kept because the negative is the useful part.
 
-**The mechanism is not established.** What is established is the consequence, and it is the
-part that constrains everything after it:
+**The mechanism is not established.** A second candidate — population firing rate, which
+the shuffle leaves free to carry position — was tested afterwards and also rejected
+(D10.16). What is established is the consequence, and it is the part that constrains
+everything after it:
 
 * **The margin over the shuffled fit, not the raw correlation, is the statistic.** On
   Cicero_09012014 the real median (0.70) sits inside the shuffled distribution's upper tail
@@ -2938,3 +2940,47 @@ the correlation everywhere**, both are in `results/hmm_state_selection.csv`, and
 disagreement is stated rather than resolved. It is also the reason Cicero_09102014's fold
 spread (6/16/16, curve range 0.39 against a restart IQR of 0.94) is reported as instability
 rather than as an *m* preference — a fold whose statistic has flipped sign is not voting.
+
+### D10.16 — The population-rate hypothesis is rejected as the mechanism for the leak
+
+D10.12 left the shuffled-fit control's leak undetermined after bout timing was ruled out.
+The remaining cheap candidate: the shuffle destroys *which* cell fires but not that a
+fitted model's states differ in **total population rate**, and the posterior is then
+evaluated on real spikes with a map built from real training behaviour. If population rate
+varies with position — near reward sites, at turnarounds, wherever the animal slows — the
+whole decode would be available from rate alone, with no cell identity anywhere in it. It
+also predicts the geometry split, since reward structure differs between a linear track
+with two ends and a ring with one reward site.
+
+`scripts/population_rate_baseline.py` tests it with no model involved: the plain
+rate-against-position association (Pearson on a linear track; the circular-linear
+coefficient on a ring, where Pearson would depend on where the ring is cut), and a
+rate-only decoder quantile-binned into as many levels as that session's chosen *m* and
+scored through the same folds, the same statistic and the same permuted-map chance as
+Claim A.
+
+| Session | Track | Rate ~ position | Rate-only decode | Shuffled-fit Claim A | Real Claim A | Leak explained |
+|---|---|---|---|---|---|---|
+| Achilles_10252013 | linear | 0.31 | +0.29 | 0.51 | 0.91 | about half |
+| Achilles_11012013 | circular | 0.22 | +0.03 | 0.16 | 0.71 | none |
+| Cicero_09012014 | linear | 0.09 | +0.04 | 0.48 | 0.70 | **none** |
+| Cicero_09102014 | circular | 0.15 | +0.04 | 0.21 | 0.72 | none |
+| Gatsby_08022013 | linear | 0.22 | +0.31 | 0.34 | 0.79 | nearly all |
+
+**Rejected as the mechanism.** It accounts for almost the whole leak on Gatsby_08022013
+and about half on Achilles_10252013, and for essentially none of it on the other three —
+including **Cicero_09012014, the session where the leak does the most damage** (one
+shuffled fit in six beats a real one) and which has the *weakest* rate-position association
+of all five at 0.09. The geometry prediction fails on its own terms: the linear-track
+sessions span 0.09 to 0.31, so track shape does not sort them. The rate-only decoder also
+barely beats chance on error — 40 cm against 45, 62 against 67, 45 against 48, 66 against
+70, 47 against 52 — where the shuffled *fit* decodes to 32 cm against 49 and 30 against 48.
+Rate is not carrying what the shuffled fit is carrying.
+
+**Consequence, as scoped.** The second null that would destroy the rate envelope is
+therefore **not added**: it was conditional on this being the mechanism, and on the one
+session that most needs a better null it would change nothing. What the result buys instead
+is that "undetermined" in D10.12 is now a stronger statement than it was — two concrete,
+cheap explanations have been tested and neither survives — and that rate is a *named
+contributor* on Gatsby_08022013, where any Claim A margin should be read knowing that 91 %
+of its null is reproducible from population rate alone.

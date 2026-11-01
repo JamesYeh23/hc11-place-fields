@@ -13,6 +13,7 @@ import pytest
 
 import bout_phase_baseline as phase
 import fit_hmm
+import population_rate_baseline as rate
 import select_hmm_states as select
 
 
@@ -161,3 +162,42 @@ def test_the_bout_phase_map_pools_indices_past_the_cap():
     mapped = phase.phase_map(positions, 2, circular=False, extent=100.0)
     assert mapped[0] == pytest.approx(0.0)
     assert mapped[1] == pytest.approx(20.0)  # bins 1, 2 and 3 pooled
+
+
+# ---------------------------------------------------------------------------
+# The population-rate baseline
+# ---------------------------------------------------------------------------
+
+
+class Linear:
+    is_circular = False
+    extent = 1.0
+
+
+def test_rate_levels_are_cut_on_the_training_bins_only():
+    """A held-out bin above everything seen in training belongs in the top level."""
+    train = np.array([0.0, 1.0, 2.0, 3.0])
+    test = np.array([-5.0, 99.0])
+    train_level, test_level = rate.rate_levels(train, test, 4)
+    assert list(train_level) == [0, 1, 2, 3]
+    assert list(test_level) == [0, 3]
+
+
+def test_the_rate_decoder_recovers_a_position_that_rate_determines():
+    position = np.array([0.0, 0.25, 0.5, 0.75] * 8)
+    level = np.array([0, 1, 2, 3] * 8)
+    r, error, chance = rate.decode(level, position, level, position, 4, Linear(),
+                                   np.random.default_rng(0))
+    assert r == pytest.approx(1.0)
+    assert error == pytest.approx(0.0)
+    assert chance > error
+
+
+def test_the_rate_decoder_finds_nothing_when_rate_is_unrelated_to_position():
+    rng = np.random.default_rng(3)
+    position = rng.uniform(0, 1, 600)
+    level = rng.integers(0, 4, 600)
+    r, error, chance = rate.decode(level, position, level, position, 4, Linear(),
+                                   np.random.default_rng(0))
+    assert abs(r) < 0.2
+    assert error == pytest.approx(chance, rel=0.3)

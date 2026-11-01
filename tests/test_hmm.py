@@ -200,3 +200,39 @@ def test_circular_distance_and_correlation():
         -1.0, abs=1e-6), "a reversal should come back as -1"
     rng = np.random.default_rng(8)
     assert abs(hmm.circular_correlation(truth, rng.permutation(truth), 2.9)) < 0.3
+
+
+def test_circular_linear_correlation_is_one_for_a_perfect_cosine():
+    angle = np.linspace(0, 2 * np.pi, 400, endpoint=False)
+    extent = 2.9
+    value = np.cos(angle)
+    r = hmm.circular_linear_correlation(angle * extent / (2 * np.pi), value, extent)
+    assert r == pytest.approx(1.0, abs=1e-6)
+
+
+def test_circular_linear_correlation_is_near_zero_for_an_unrelated_value():
+    rng = np.random.default_rng(0)
+    extent = 2.9
+    position = rng.uniform(0, extent, 2000)
+    value = rng.normal(size=2000)
+    assert abs(hmm.circular_linear_correlation(position, value, extent)) < 0.1
+
+
+def test_circular_linear_correlation_does_not_depend_on_where_the_ring_is_cut():
+    """The point of using it: a Pearson correlation here would move with the cut."""
+    rng = np.random.default_rng(1)
+    extent = 2.9
+    position = rng.uniform(0, extent, 1500)
+    value = np.cos(2 * np.pi * position / extent) + 0.3 * rng.normal(size=1500)
+    first = hmm.circular_linear_correlation(position, value, extent)
+    rotated = (position + 0.37 * extent) % extent
+    second = hmm.circular_linear_correlation(rotated, value, extent)
+    assert first == pytest.approx(second, abs=1e-9)
+
+
+def test_circular_linear_correlation_is_never_negative():
+    rng = np.random.default_rng(2)
+    extent = 1.6
+    position = rng.uniform(0, extent, 500)
+    value = -np.cos(2 * np.pi * position / extent)
+    assert hmm.circular_linear_correlation(position, value, extent) > 0.9

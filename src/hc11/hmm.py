@@ -293,3 +293,36 @@ def circular_correlation(a: np.ndarray, b: np.ndarray, extent: float) -> float:
     denominator = np.sqrt(np.sum(np.sin(a - a_mean) ** 2)
                           * np.sum(np.sin(b - b_mean) ** 2))
     return float(numerator / denominator) if denominator > 0 else float("nan")
+
+
+def circular_linear_correlation(angle: np.ndarray, value: np.ndarray,
+                                extent: float) -> float:
+    """Association between a circular variable and a linear one, in [0, 1].
+
+    Used to ask whether population firing rate -- a linear quantity -- tracks
+    position on a ring, where a Pearson correlation would depend on where the
+    ring was cut. This is the standard circular-linear coefficient: the
+    multiple correlation of the linear variable on the sine and cosine of the
+    angle, corrected for their own correlation (Mardia 1976; Zar, *Biostatistical
+    Analysis*, eq. 27.47).
+
+    It is non-negative by construction and so is not comparable in sign to
+    :func:`circular_correlation`; only its magnitude is.
+    """
+    angle = 2 * np.pi * np.asarray(angle, dtype=float) / extent
+    value = np.asarray(value, dtype=float)
+    keep = np.isfinite(angle) & np.isfinite(value)
+    angle, value = angle[keep], value[keep]
+    if angle.size < 3 or np.std(value) == 0:
+        return float("nan")
+    cosine, sine = np.cos(angle), np.sin(angle)
+    if np.std(cosine) == 0 or np.std(sine) == 0:
+        return float("nan")
+    r_xc = float(np.corrcoef(value, cosine)[0, 1])
+    r_xs = float(np.corrcoef(value, sine)[0, 1])
+    r_cs = float(np.corrcoef(cosine, sine)[0, 1])
+    denominator = 1.0 - r_cs ** 2
+    if denominator <= 0:
+        return float("nan")
+    squared = (r_xc ** 2 + r_xs ** 2 - 2 * r_xc * r_xs * r_cs) / denominator
+    return float(np.sqrt(max(squared, 0.0)))

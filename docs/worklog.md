@@ -1395,3 +1395,38 @@ failure pointed toward a negative**; every previous one with a direction flatter
 hypothesis.
 
 **Tests**: 519 passing, 3 skipped (13 new for state selection). **Time**: ~2 h.
+
+## 2026-11-01 — The population-rate hypothesis, rejected; and a test for dangling decision numbers
+
+**Rate is not the mechanism (D10.16).** The hypothesis was that a shuffled fit's states
+differ in total population rate, and that rate tracks position, so the whole leak would be
+available with no cell identity in it. Measured with no model: the rate-only decoder,
+quantile-binned to each session's chosen *m* and scored through the same folds and the same
+statistic as Claim A, reaches **+0.29, +0.03, +0.04, +0.04, +0.31** against shuffled-fit
+Claim A of 0.51, 0.16, 0.48, 0.21, 0.34.
+
+It explains nearly all of Gatsby_08022013's leak and about half of Achilles_10252013's, and
+**none of Cicero_09012014's** — the session where the leak does the most damage, and the one
+with the weakest rate-position association of the five (0.09). The geometry prediction fails
+on its own terms: the three linear sessions span 0.09 to 0.31. The rate-only decoder also
+barely beats chance on error (40 vs 45 cm, 62 vs 67, 45 vs 48, 66 vs 70, 47 vs 52) where the
+shuffled fit reaches 32 vs 49 and 30 vs 48.
+
+So the second null is **not added** — the condition for it was that rate be the mechanism,
+and on the session that most needs a better null it would change nothing. What the negative
+buys: two concrete cheap explanations have now been tested and neither survives, which makes
+"undetermined" a stronger statement than it was. Rate stays a named contributor on
+Gatsby_08022013, where 91 % of the null is reproducible from population rate alone.
+
+**`tests/test_decision_references.py`.** Every `Dx.y` written in the tracked markdown,
+Python and YAML must resolve to a `### Dx.y` heading in `decisions.md`; no number may be
+defined twice; D10.6–D10.8 are named explicitly because they are the ones that got away.
+Verified by planting a nonexistent decision number in this file and watching the check fail
+with the file named — and then by hitting it for real, because the first draft of this
+paragraph quoted the planted number and the suite caught that too. It cannot tell whether
+an entry says what the citation claims, and commit messages stay out of reach.
+
+**Also**: `hmm.circular_linear_correlation`, with four tests including one that rotates the
+ring and asserts the coefficient does not move — the reason for using it over Pearson.
+
+**Tests**: 532 passing, 3 skipped.
