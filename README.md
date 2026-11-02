@@ -509,7 +509,7 @@ sessions, against Chen et al.'s reported 0.73–0.79. The go/no-go passes.
 Three caveats travel with that number. Restarts of expectation-maximisation within a single
 fold differ by up to **0.52** — all converged, so this is EM finding different optima, and
 a best-restart report would show 0.85 where the median is 0.61. Which third of the data is
-held out matters more than how many states the model has. And the model **dwells 1.9–3.1×
+held out matters more than how many states the model has. And the model **dwells 2.0–3.1×
 longer in a state than the animal takes to cross one position bin**, so a smooth state path
 is the model's default rather than evidence of anything.
 

@@ -1372,7 +1372,7 @@ more than its noise. Everything is a median across five restarts and three folds
 best.
 
 **Per-session stickiness baselines for 10d (D10.13).** Crossing time 0.17–0.34 s; fitted
-dwell 0.47–0.87 s, 1.9–3.1× the crossing time on every session; shuffled fit 0.43–0.65 s,
+dwell 0.47–0.87 s, 2.0–3.1× the crossing time on every session; shuffled fit 0.43–0.65 s,
 reaching 91 % of the real dwell on Achilles_10252013. A smooth state path is the model's
 default, and most of that is available with no population structure.
 

@@ -2886,12 +2886,12 @@ track.
 | Session | Animal crosses one position bin | Fitted model dwells (chosen *m*) | Shuffled fit dwells | Fitted ÷ crossing |
 |---|---|---|---|---|
 | Achilles_10252013 | 0.17 s | 0.47 s (*m* = 14) | 0.43 s | 2.7× |
-| Achilles_11012013 | 0.33 s | 0.64 s (*m* = 12) | 0.48 s | 1.9× |
+| Achilles_11012013 | 0.33 s | 0.64 s (*m* = 12) | 0.48 s | 2.0× |
 | Cicero_09012014 | 0.34 s | 0.75 s (*m* = 12) | 0.57 s | 2.2× |
-| Cicero_09102014 | 0.32 s | 0.62 s (*m* = 16) | 0.52 s | 1.9× |
+| Cicero_09102014 | 0.32 s | 0.62 s (*m* = 16) | 0.52 s | 2.0× |
 | Gatsby_08022013 | 0.28 s | 0.87 s (*m* = 8) | 0.65 s | 3.1× |
 
-Two things to carry into 10d. The fitted model is **sticky on every session** — 1.9 to 3.1
+Two things to carry into 10d. The fitted model is **sticky on every session** — 2.0 to 3.1
 times slower than the animal — so a smooth state path is the model's default and not
 evidence of anything. And **the shuffled fit is nearly as sticky**, 0.43–0.65 s against the
 real 0.47–0.87 s, reaching 91 % of the real dwell on Achilles_10252013: most of the
