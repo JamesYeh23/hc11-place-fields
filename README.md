@@ -4,7 +4,9 @@ An independent replication of **Grosmark & Buzsáki (2016)**, *Science* **351**:
 from scratch in Python against the public CRCNS **hc-11** dataset — from raw MATLAB session
 files through place fields, a Bayesian position decoder and candidate-event detection, to
 the sequence-score distributions of the paper's Figure 1C and the per-cell analysis behind
-its Figures 2 to 4.
+its Figures 2 to 4 — and then, in a fourth phase, the same replay question asked again with
+a method that never sees the animal's position at all (Chen, Grosmark, Penagos & Wilson,
+2016, *Sci Rep* **6**:32193).
 
 ## The arc, in one minute
 
@@ -38,6 +40,24 @@ cannot resolve the per-cell structure the paper reports** — and two calibratio
 by how much it falls short. A reader who takes Phase 3 as evidence that the paper is wrong
 is taking more from it than the data supports.
 
+**Phase 4 — a method that needs no place fields works where the data is already good, and
+does not rescue the sessions where it is not.** A hidden Markov model fitted to population
+spiking alone, with no behavioural measure anywhere in the fit, recovers position on
+running (circular correlation 0.70–0.91) and separates post-sleep from pre-sleep events on
+the two largest ensembles — **+0.081 and +0.136 rank-biserial, against its own control's
++0.041 and +0.075**. Those are the two sessions where place fields already worked. The
+model had 1.3–3.4× more cells than the place-field decoder on every session and the extra
+cells bought nothing on the three below Phase 2's floor: two of those cannot test the
+question at all on their own running control, and the third is a negative.
+
+**What Phase 4 is and is not.** The result is real and it is narrow: on the best-powered
+sessions, replay can be read without receptive fields, at about twice what the same model
+fitted to shuffled data achieves on the same events. It is not an order of magnitude, it is
+not five sessions, and it comes with an unexplained caveat — on four of five sessions a
+model fitted to **shuffled** spike trains also decodes position and also separates POST
+from PRE. Two mechanisms for that were proposed, tested and rejected. Every number in Phase
+4 is reported against that control rather than against zero.
+
 **Scope.** Five of the eight hc-11 sessions are analysed — Achilles_10252013,
 Achilles_11012013, Cicero_09012014, Cicero_09102014 and Gatsby_08022013. Buddy_06272013,
 Cicero_09172014 and Gatsby_08282013 are omitted because their local field potential
@@ -59,6 +79,8 @@ candidate-event detection, which needs the LFP. This is five of eight, never "th
 | **rZ** | the sequence score: a weighted correlation standardised against within-event shuffles |
 | **EMG** | electromyogram — neck-muscle activity, recorded alongside the probe |
 | **PRE / MAZE / POST** | the three epochs of each session: sleep, track running, sleep |
+| **HMM** | hidden Markov model — here, one whose states are fitted to population spiking |
+| **EM** | expectation-maximisation, the algorithm used to fit it |
 
 ---
 
@@ -457,6 +479,173 @@ manufacture a negative — but it is stated rather than left to be found.
 
 ---
 
+## Phase 4: replay without receptive fields
+
+Phases 1 to 3 all run through the same instrument: place fields built from running, used
+to decode sleep. Phase 2 measured that instrument's floor and Phase 3 hit it. Phase 4 asks
+whether a different instrument gets past it — Chen et al.'s **DecodewoRF**, a hidden Markov
+model (HMM) fitted directly to binned population spiking, with no position anywhere in the
+fit. If the states it finds are places, replay can be scored without ever building a
+receptive field, and every cell becomes usable rather than only the ones that pass a
+place-cell test.
+
+Two claims are kept apart throughout, because only the second is about replay:
+
+* **Claim A — the states correspond to track positions.** Behaviour is used to *assess*,
+  never to fit: each state is mapped to a position using training behaviour, held-out
+  running is decoded, and the two are compared.
+* **Claim B — events traverse states in orderly sequences.** No behaviour at all: the
+  states are ordered by the Fiedler vector of the fitted transition matrix. This is the
+  one that would make the method worth having.
+
+The **gap** between the two is reported at every milestone.
+
+### The model recovers position, with three caveats
+
+Fitted on running, held-out decoding error runs **9–21 cm against a 48–71 cm chance level**
+and the circular correlation with true position runs **0.70–0.91** across the five
+sessions, against Chen et al.'s reported 0.73–0.79. The go/no-go passes.
+
+Three caveats travel with that number. Restarts of expectation-maximisation within a single
+fold differ by up to **0.52** — all converged, so this is EM finding different optima, and
+a best-restart report would show 0.85 where the median is 0.61. Which third of the data is
+held out matters more than how many states the model has. And the model **dwells 1.9–3.1×
+longer in a state than the animal takes to cross one position bin**, so a smooth state path
+is the model's default rather than evidence of anything.
+
+![Choosing the number of states](docs/figures/hmm_state_selection.png)
+
+*Top: Claim A against the number of states, per session. The heavy line is the median
+across five restarts and three folds — the selection statistic — the thin lines are the
+folds taken separately, and the shaded band is the same fit on shuffled training data.
+Bottom: the held-out log likelihood on the same grid, which is the standard model-selection
+criterion and which mostly disagrees.*
+
+### Choosing the number of states, and why not by likelihood
+
+Held-out likelihood measures how well a model predicts spikes and rises as more states
+carve the observation space more finely; it is **strictly monotone across the whole swept
+grid on three of five sessions** and would choose the largest model available on four of
+five. Claim A measures whether the states are *places*, which saturates near one state per
+position bin and then degrades. The phase's own question selects the model, and the
+likelihood curve is printed beside it everywhere so a reader can see that the standard
+criterion would have chosen differently.
+
+On two sessions the two criteria pick the same number — and that agreement is not evidence,
+because both picked the top of the grid with the likelihood still rising. There is no
+session where they independently concur.
+
+**No session has a stable choice.** The three folds prefer different numbers of states on
+all five. On three of five the Claim A curve is flatter across the grid than the
+restart-to-restart noise, so the argmax is moving on nothing and the choice does not
+matter; on one session it does vary by more than its noise. A single number is reported per
+session because the next step needs one, and it is reported as a choice rather than an
+estimate.
+
+### The control that stopped being one
+
+The phase's main caveat. A model fitted to spike trains with the **cross-cell alignment
+destroyed** — each cell circularly shifted along the running timeline — should decode
+nothing. On Achilles_11012013 it decodes at 0.16 against the real fit's 0.71. On the other
+four sessions it reaches **0.21 to 0.51**, and on Cicero_09012014 one shuffled fit in six
+beats a real one, which means Claim A is **not established on that session**. It beats
+chance on decoding error too, not only on correlation.
+
+Two mechanisms were proposed and both were tested and rejected:
+
+| Explanation | What it predicts | What it gives |
+|---|---|---|
+| **Bout timing** — a directed run makes bin-index-within-bout predict position with no spikes | the leak, on every session | +0.08, −0.11, +0.01, +0.03, −0.22 — none of it |
+| **Population rate** — states differing in total rate, with rate tracking position | the leak, and the linear/circular split | +0.29, +0.03, +0.04, +0.04, +0.31 against leaks of 0.51, 0.16, 0.48, 0.21, 0.34 |
+
+Population rate explains nearly all of Gatsby_08022013's leak and about half of
+Achilles_10252013's, and **none** of Cicero_09012014's — the session where the leak does
+the most damage and the one with the weakest rate-position association of the five. The
+geometry prediction fails on its own terms.
+
+So the leak is real, measured per session, subtracted from every claim in this phase, and
+**unexplained**. Anyone building on this method should measure the same control before
+believing any of its numbers.
+
+### Sleep, read without receptive fields
+
+The same candidate events as Phase 1, scored by the same scorer, with the state posterior
+in place of the place-field posterior and every pyramidal cell in place of the place cells.
+Every comparison appears beside the same model fitted to shuffled training data, scored on
+the same events with the same shuffles.
+
+![PRE against POST, receptive-field-free](docs/figures/hmm_replay_comparison.png)
+
+*POST over PRE per session. Filled markers are the real fit, open markers the same fit on
+shuffled training data, green squares Phase 1's place-field answer. Shaded rows were marked
+uninformative in advance — their running control cannot see structure where it is certainly
+present, so their sleep numbers carry no information.*
+
+**Two of three informative sessions replicate the direction with no behaviour in the
+scoring**: rank-biserial **+0.081** (p = 0.001) on Achilles_10252013 and **+0.136**
+(p = 2 × 10⁻⁵) on Achilles_11012013, against Phase 1's place-field answers of +0.114 and
++0.071. On the circular session the receptive-field-free method finds a **larger**
+separation than the place-field decoder did. Cicero_09102014 gives +0.025 (p = 0.41)
+against a control of +0.041 — a negative on an informative session, reported as one.
+
+**The control separates POST from PRE too, and that is a result.** The shuffled-fit model
+reaches p < 0.02 on three sessions, and on Gatsby_08022013 it beats the real model. As a
+fraction of the real effect it reproduces 40–46 % on both Achilles sessions and 67 % on
+Cicero_09102014. Part of the PRE-to-POST difference belongs to the **event sets**, not to
+what the model learned. Phase 1's identity shuffle said the same thing from a different
+direction, and the two controls agree on which session is worst.
+
+### The floor neither method clears
+
+![Both methods against ensemble size](docs/figures/method_comparison.png)
+
+*Each session appears twice, joined by a line: once at its place-cell count with Phase 1's
+decoder, once at its pyramidal count with Phase 4's model. The line is the result — a
+session moves right, because the second method sees more cells, and does not move up.*
+
+| Session | Place cells | Pyramidal | × | Phase 1 margin | Phase 4 margin |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 77 | 120 | 1.6 | **+0.096** | **+0.040** |
+| Achilles_11012013 | 73 | 92 | 1.3 | **+0.039** | **+0.062** |
+| Cicero_09102014 | 36 | 81 | 2.2 | +0.026 | **−0.016** |
+| *Gatsby_08022013* | 30 | 66 | 2.2 | +0.059 | −0.019 |
+| *Cicero_09012014* | 16 | 55 | 3.4 | +0.215 | +0.104 |
+
+*Margins are each method's effect minus its own control. The two italicised sessions are
+uninformative; both their margins are inflated by controls that run the other way, which is
+a sign the control is doing the work.*
+
+The two sessions where the receptive-field-free method works are the two above Phase 2's
+sensitivity floor — the two where place fields already worked. More cells did not convert
+into resolution on any session that needed them. Both methods' sensitivity on running,
+where the structure is certainly present, orders the five sessions the same way and by
+ensemble size.
+
+### What Phase 4 claims
+
+**The method works where the data is good, does not rescue the sessions where it is not,
+and carries a control leak we could not explain.** That is narrower than the phase set out
+to show and it is a real result:
+
+* On the two best-powered sessions, a model that never saw an animal's position separates
+  post-sleep events from pre-sleep events in the direction the paper reports, at roughly
+  **2:1 over its own control** — not an order of magnitude. Two of five sessions at that
+  margin is a qualified positive and is written as one.
+* The behaviour-free ordering costs little where the ensemble is large: on the
+  best-powered session the gap between it and the behaviour-derived ordering is 0.03. That
+  is the method's promise, and it holds on one session.
+* On the two uninformative sessions the behaviour-free ordering *outscores* the
+  behaviour-derived one, by 0.24 and 0.30. This reads as good news and should not: those
+  are exactly the sessions whose running control cannot find structure where it is certain.
+  An ordering that scores nothing where the answer is known and well where it is in
+  question is more likely to have fitted noise. **Unexplained**, and the reason the count
+  stays at two of three.
+* Nothing here says the method is wrong. Chen et al. ran it on their own recordings with
+  their own ensembles; this ran it on five public sessions whose largest has 120 pyramidal
+  cells. The claim is about what these data can resolve, as in Phase 3.
+
+---
+
 ## The pipeline
 
 Each stage has a module in `src/hc11/`, a command-line script in `scripts/`, and its
@@ -520,6 +709,16 @@ far the real placement sits above the average placement as that cell's contribut
 same placements serve as the null labels, at no extra cost. `hc11.subsets` splits an
 ensemble into halves — by firing rate, or at random, which is the control for splitting at
 all.
+
+**7. The state model.** `hc11.hmm` fits a fixed-*m* Poisson hidden Markov model to binned
+population spiking by expectation-maximisation, with no behaviour anywhere in the fit.
+Sequences are never concatenated, so no transition spans the gap between two running
+bouts; the posterior used to score events is memoryless, because a transition matrix
+estimated at 250 ms is wrong at the 20 ms bins events are scored in; and emissions carry a
+per-bin maximum offset, because with ninety-odd cells the raw likelihoods underflow. Chen
+et al. use a hierarchical Dirichlet process HMM fitted by MCMC, which infers the number of
+states; the available implementations are unmaintained, so this fixes *m* and sweeps it,
+and the divergence is recorded rather than elided.
 
 ---
 
@@ -670,6 +869,29 @@ one, and one the EMG or theta/delta channels of the LFP would settle.
 - **The removal and shuffle curves of the paper's Fig. 2D/E were not built.** They would
   measure an estimator whose resolution is now bounded below the effects they would look
   for; the reasoning is in D9.6 rather than in an unfinished script.
+- **Phase 4's control leaks, and we could not explain why.** On four of five sessions a
+  model fitted to spike trains with the cross-cell alignment destroyed still decodes
+  held-out running position (0.21–0.51) and, on three sessions, still separates POST sleep
+  events from PRE at p < 0.02. Two concrete mechanisms — bout timing and population rate —
+  were tested and rejected (D10.16, D10.25). Every Phase 4 number is reported against that
+  control; none is reported against zero. **Anyone reusing this method should measure the
+  same control first.**
+- **Phase 4's positive is two of five sessions at roughly 2:1 over its own control**, not
+  an order of magnitude, and those two are the two sessions above Phase 2's sensitivity
+  floor — the ones where place fields already worked (D10.22, D10.23).
+- **Two sessions are uninformative for Phase 4 by their own running control** and are
+  marked so in advance, in the script's constants, rather than after their sleep numbers
+  were read (D10.21). Their numbers are computed and plotted, shaded and excluded from the
+  count.
+- **The number of states is not determined by this data on any session.** The three
+  cross-validation folds prefer different values on all five; on three of five the curve is
+  flatter than the restart-to-restart noise, so the choice does not matter there (D10.11).
+  The standard criterion, held-out likelihood, would have chosen differently and is printed
+  beside the choice everywhere.
+- **On the two uninformative sessions the behaviour-free state ordering outscores the
+  behaviour-derived one in sleep** by 0.24 and 0.30, on exactly the sessions that cannot
+  find structure on running. This is recorded as suspicious and unexplained rather than as
+  a finding (D10.24).
 - Nothing here addresses the paper's within-session learning curves (Fig. 3B), its
   pair-wise coactivation analyses (Fig. 4B/C) or its ripple-gain groups (Fig. 4E).
 
@@ -741,7 +963,20 @@ uv run python scripts/firing_rate_split.py             # Phase 3: the paper's Fi
 uv run python scripts/per_cell_contribution.py <session> --chunk 1/20   # PCC, in pieces
 uv run python scripts/per_cell_contribution.py <session> --validate 40000
 uv run python scripts/per_cell_contribution.py <session> --summarise
+uv run python scripts/boundary_threshold_sweep.py      # Phase 4: can events be lengthened?
+uv run python scripts/fit_hmm.py <session> --kinds shuffled   # the control, read first
+uv run python scripts/fit_hmm.py <session> --kinds real       # the m-sweep
+uv run python scripts/bout_phase_baseline.py           # is the leak bout timing?   (no)
+uv run python scripts/population_rate_baseline.py      # is it population rate?      (no)
+uv run python scripts/select_hmm_states.py             # choose m, by Claim A
+uv run python scripts/score_events_hmm.py <session>    # sleep, receptive-field-free
+uv run python scripts/replay_comparison_hmm.py         # PRE against POST
+uv run python scripts/method_comparison.py             # both methods on one axis
 ```
+
+The Phase 4 order matters in one place: `fit_hmm.py --kinds shuffled` is run and read
+**before** any real fit, so the control is not interpreted in the light of the result it is
+meant to bound.
 
 All of these default to the five sessions whose LFP is present (`config.LFP_SESSIONS`);
 `place_fields.py` and `decode_position.py` run on all eight.
@@ -754,7 +989,7 @@ itself is the slow part, at roughly three minutes per session.
 ### Tests
 
 ```
-484 passed, 3 skipped
+547 passed, 3 skipped
 ```
 
 The three skips are a parametrised test that does not apply to circular mazes. **Seventeen
@@ -771,7 +1006,8 @@ touches under 10 kB.
 
 ```
 src/hc11/        the package: loader, behaviour, fields, decoder, events, ripples,
-                 sequences, subsets (ensemble halves), pcc (per-cell contribution)
+                 sequences, subsets (ensemble halves), pcc (per-cell contribution),
+                 hmm (the receptive-field-free state model)
 config/          params.yaml — every tunable number, with its provenance
 scripts/         command-line entry points; each writes to results/
 tests/           pytest suite, synthetic fixtures plus data-dependent checks
@@ -781,7 +1017,9 @@ data/            raw data (gitignored)
 ```
 
 `docs/decisions.md` records every methodological choice with its reasoning, numbered
-D1.1 through D9.7 and cross-referenced from `docs/METHODS.md`. `docs/worklog.md` is the
+D1.1 through D10.25 and cross-referenced from `docs/METHODS.md`. A test
+(`tests/test_decision_references.py`) checks that every decision number cited anywhere in
+the repository resolves to an entry that exists, because three of them once did not. `docs/worklog.md` is the
 running diary, including what went wrong and when.
 
 ---
@@ -801,7 +1039,9 @@ The evidence for how that went is in the repository rather than in this paragrap
 `docs/decisions.md` records every methodological choice with its reasoning and the
 measurement that settled it, numbered and cross-referenced. `docs/worklog.md` is the
 session-by-session diary, including the dead ends. `docs/METHODS.md` has a section on the
-five bugs that produced plausible numbers instead of errors, and on what caught each one.
+eight bugs that produced plausible numbers instead of errors, and on what caught each one
+— including the one, found in Phase 4, whose failure would have made us discard a real
+effect rather than keep a false one.
 
 ---
 

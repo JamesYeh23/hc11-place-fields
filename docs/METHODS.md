@@ -532,6 +532,88 @@ threshold on a per-cell score does when each cell carries a larger share of the 
 
 ---
 
+## 7. The receptive-field-free state model — `hc11.hmm`
+
+### What it does
+
+Fits a fixed-*m* **Poisson hidden Markov model** to binned population spiking during
+running, with no behavioural measure anywhere in the fit, and then uses its states in place
+of place fields everywhere downstream. This is Chen et al. (2016)'s DecodewoRF, with one
+divergence recorded below.
+
+`hmm.fit` runs expectation-maximisation over a list of **sequences** — one per running
+bout, never concatenated, so no transition spans the gap between two bouts (the D6.2 rule
+applied to fitting). `hmm.posterior` gives the state posterior under the fitted
+transitions; `hmm.memoryless_posterior` gives it under a uniform prior, which is what
+scores events, because a transition matrix estimated at 250 ms bins would be wrong at the
+20 ms bins events are scored in. `hmm.spectral_order` orders states by the Fiedler vector
+of the symmetrised transition matrix, which is the behaviour-free ordering;
+`hmm.state_positions` maps states to positions using behaviour, which is the ordering used
+for comparison and for assessment only.
+
+Two claims are kept apart and both are always reported, with their gap:
+
+* **Claim A** — the states correspond to track positions. Behaviour assesses, never fits.
+* **Claim B** — events traverse states in orderly sequences. No behaviour at all.
+
+### Parameters
+
+| Parameter | Value | Why |
+|---|---|---|
+| fit bin | 250 ms | `decoding.time_bin_s`, the project's existing running bin |
+| scoring bin | 20 ms | `sequences.time_bin_s` [CHEN2016] |
+| states *m* | swept per session, capped at the step 10a limit | D10.9; the caps are 14, 27, 20, 19 and 17 |
+| restarts | 5 | EM has local optima here; all five are reported, never the best (D10.7) |
+| folds | 3 contiguous blocks of bouts | a fold is a stretch of the epoch, not a random scatter |
+| rate floor | 0.01 Hz | matches the Poisson decoder |
+
+The number of states is selected by **Claim A**, not by held-out likelihood, and the
+likelihood curve is reported beside it at every *m* (D10.10). The two measure different
+things: likelihood measures prediction of spikes and rises monotonically as states carve
+the observation space more finely, while Claim A measures whether states correspond to
+positions and saturates near one state per position bin. No session has a stable choice
+across folds (D10.11).
+
+### Divergence from Chen et al.
+
+They fit a **hierarchical Dirichlet process** HMM by MCMC, which infers the number of
+states. The available implementations are unmaintained, and a library this project cannot
+test is worse than a simpler model it can, so *m* is fixed and swept. This is a real
+divergence and the sweep is its consequence (D10.6).
+
+Their Gaussian smoothing of the state-by-position map is also narrower than ours; see the
+note in stage 2.
+
+### Validation
+
+* **Forward-backward against brute force.** The scaled recursion is checked against
+  explicit enumeration of all eight state paths of a two-state, three-bin model.
+* **EM never decreases the likelihood**, and recovers the rates it generated given
+  restarts — and a test asserts that restarts *can* disagree, which is why all five are
+  reported.
+* **Sequences are never concatenated**, pinned by a test.
+* **The per-bin offset is added back exactly**, pinned by a test, because with ninety-odd
+  cells the raw likelihoods underflow.
+* **The event posterior is memoryless**, pinned by a test that gives the model a nearly
+  absorbing transition matrix and asserts no event score changes.
+* **Claim A against Chen et al.**: held-out decoding error 9–21 cm against a 48–71 cm
+  chance level, circular correlation 0.70–0.91 against their reported 0.73–0.79.
+
+### Outcome, and the control that bounds it
+
+On the two largest ensembles, POST sleep events score above PRE under the behaviour-free
+ordering: rank-biserial +0.081 and +0.136, against the same model fitted to shuffled
+training data at +0.041 and +0.075. Roughly 2:1, on two of five sessions, which are the two
+above the Phase 2 sensitivity floor (D10.22, D10.23).
+
+**The fit-on-shuffled-data control is not a null on four of five sessions** (D10.12). It
+decodes held-out running position at 0.21–0.51 and separates POST from PRE at p < 0.02 on
+three sessions. Bout timing and population rate were each proposed as the mechanism, tested
+and rejected (D10.16). The leak is measured per session and subtracted from every claim;
+it is not explained.
+
+---
+
 ## Controls and validation, in one place
 
 | Control | Question | Result | Where |
@@ -843,3 +925,48 @@ smallest-ensemble session is also the one with the lowest scorable fraction. Ens
 geometry and event count all move together here, so `results/sensitivity_floor.png` is a
 floor — a statement of where the method stops working — and not a calibration curve. No rZ
 in this repository is corrected by it.
+
+### Phase 4's control leaks, and the mechanism is unknown
+
+**What would settle it:** a shuffle that provably removes everything the fitted model could
+use to decode position, with the cell-to-position relationship the only thing destroyed —
+or a session set where ensemble size and track geometry vary independently.
+
+The fit-on-shuffled-data control decodes held-out running position at circular correlation
+0.21–0.51 on four of five sessions, and on Cicero_09012014 one shuffled fit in six beats a
+real one, which means Claim A is not established there. It beats chance on decoding error
+as well as on correlation — 32 cm against 49 on Achilles_10252013 — so it is not an
+artifact of the correlation statistic alone. In sleep the same control separates POST from
+PRE at p < 0.02 on three sessions and on Gatsby_08022013 beats the real model.
+
+Two mechanisms were proposed and both were measured with no model involved. **Bout timing**
+— a directed run makes the bin index within a bout predict position without any spikes —
+gives +0.08, −0.11, +0.01, +0.03, −0.22 and explains none of it. **Population rate** — a
+fitted model's states differ in total rate, and rate might track position — gives +0.29,
++0.03, +0.04, +0.04, +0.31 against leaks of 0.51, 0.16, 0.48, 0.21, 0.34: nearly all of
+Gatsby_08022013's leak, about half of Achilles_10252013's, and none of Cicero_09012014's,
+the session where the leak matters most (D10.16). The leak is larger on the linear-track
+sessions than the circular ones, which is a pattern and not an explanation.
+
+Every Phase 4 number is reported against this control, per session, and none against zero.
+What the control cannot do is tell us what it is measuring.
+
+### Two sessions cannot test Phase 4's question, and one statistic disagrees with itself
+
+**What would settle the first:** larger ensembles. **The second:** a statistic whose
+behaviour on a concentrated circular decode is understood.
+
+Gatsby_08022013 and Cicero_09012014 have running Claim B of 0.08 and 0.06 — the
+behaviour-free ordering cannot find sequential structure where the animal is demonstrably
+running along a track. They are marked uninformative in advance (D10.21), in the comparison
+script's own constants rather than after their sleep numbers were read, and excluded from
+the two-of-three count. On exactly those two sessions the behaviour-free ordering
+*outscores* the behaviour-derived one in sleep, by 0.24 and 0.30; this reads as a finding
+and is recorded as suspicious instead (D10.24).
+
+Separately, fold 0 of Cicero_09102014 returns circular correlations of −0.40 to −0.63 at
+*m* ≥ 12 while the same fits decode held-out position to 10–19 cm against a 68 cm chance
+level. A decode that good cannot be anticorrelated with the truth. The likely cause is the
+Jammalamadaka–SenGupta statistic's mean-direction reference on a concentrated decode, which
+is not established; the median error is therefore reported beside the correlation
+everywhere and the disagreement is stated rather than resolved (D10.15).

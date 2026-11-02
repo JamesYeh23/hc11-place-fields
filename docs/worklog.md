@@ -1524,3 +1524,34 @@ z (13.2, 7.5, 5.6, 3.3, 1.8) and Phase 4's running Claim B by position (0.61, 0.
 small to read anything into.
 
 **Tests**: 547 passing, 3 skipped.
+
+## 2026-11-02 (later) — Step 10f: Phase 4 written up, public documents updated
+
+**The claim, settled before the prose:** the method works where the data is good, does not
+rescue the sessions where it is not, and carries a control leak we could not explain. That
+is narrower than the phase set out to show and it is a real result. Everything in the
+write-up is arranged to make that one sentence checkable rather than to argue for it.
+
+**README**: a `Phase 4: replay without receptive fields` section between Phase 3 and the
+pipeline, with the model, the state-selection divergence, the control that stopped being
+one, the sleep result, the ensemble-size comparison and a closing `What Phase 4 claims`.
+Two paragraphs added to the one-minute arc, the second of them `What Phase 4 is and is
+not`, on the Phase 3 pattern — a reader who takes a qualified positive for a clean one is
+taking more than the data supports, in both directions. Pipeline stage 7, four new
+limitation bullets, the Phase 4 scripts in the run order with a note that the shuffled
+control is run and read before any real fit, HMM and EM spelled out in the abbreviations
+table, and the test count updated.
+
+**METHODS**: stage 7 for `hc11.hmm` in the same form as the other six — what it does,
+parameters, the HDP-HMM divergence, six validation items, outcome — plus two limitation
+sections, one for the leak with both rejected mechanisms and their numbers, one for the
+uninformative pair and the Cicero_09102014 statistic that disagrees with itself. The
+silent-failure catalogue was already at eight from 10c.
+
+**Three figures** copied into `docs/figures/`: state selection, the sleep comparison, and
+the two methods on one axis.
+
+The decision log now holds **108 entries**, D1.1 through D10.25, with the cross-reference
+test guarding every citation of them.
+
+**Tests**: 547 passing, 3 skipped. **Time**: ~1 h.
