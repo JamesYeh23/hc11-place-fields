@@ -1478,3 +1478,49 @@ stamp, so it retries and then refuses.
 **Tests**: 543 passing, 3 skipped (11 new for 10d, including one that asserts a nearly
 absorbing transition matrix changes no event score — the memoryless property, pinned).
 **Time**: ~1.5 h.
+
+## 2026-11-02 — Step 10e: both methods on one axis, and the floor neither of them clears
+
+The question was settled by 10d, so this step draws it rather than re-deriving it (D10.22).
+
+| Session | Place cells | Pyramidal | × | Phase 1 margin | Phase 4 margin |
+|---|---|---|---|---|---|
+| Achilles_10252013 | 77 | 120 | 1.6 | **+0.096** | **+0.040** |
+| Achilles_11012013 | 73 | 92 | 1.3 | **+0.039** | **+0.062** |
+| Cicero_09102014 | 36 | 81 | 2.2 | +0.026 | **−0.016** |
+| *Gatsby_08022013* | 30 | 66 | 2.2 | +0.059 | −0.019 |
+| *Cicero_09012014* | 16 | 55 | 3.4 | +0.215 | +0.104 |
+
+**The method does not clear the Phase 2 sensitivity floor.** The two sessions where it
+works are the two where place fields already worked — the only two above the floor. Of the
+three below it, two are uninformative on their own running Claim B and the third is a
+negative with its control above the effect. Every session gave the model 1.3–3.4× more
+cells and the extra cells bought nothing where they were needed; the largest ratio, 3.4×,
+belongs to the session with the fewest place cells and a Phase 1 control that already ran
+backwards.
+
+In the figure a session appears twice, joined by a line: it moves **right** between the two
+methods and does not move **up**. That line is the result.
+
+**The positive is qualified and is written as one (D10.23).** +0.081 against a control of
++0.041, and +0.136 against +0.075 — roughly 2:1, not an order of magnitude, on two of five
+sessions. It beats the place-field decoder on one of them and loses to it on the other.
+
+**The vacuous pair's Claim A/B inversion is suspicious, not promising (D10.24).** The
+behaviour-free ordering outscores the position one by 0.24 and 0.30 on exactly the two
+sessions whose running Claim B is 0.08 and 0.06 — an ordering that finds nothing where the
+structure is certain and much where it is in question. More likely an arrangement found in
+noise than structure place fields missed. Unexplained, and the reason the count stays at
+two of three.
+
+**The leak is the phase's main caveat (D10.25)**, with both tested mechanisms named and
+rejected: bout timing explains none of it, population rate explains Gatsby almost entirely
+and Cicero_09012014 not at all.
+
+Two measures that order the sessions identically by ensemble size: Phase 2's running-window
+z (13.2, 7.5, 5.6, 3.3, 1.8) and Phase 4's running Claim B by position (0.61, 0.35, 0.21,
+0.08, 0.06). The behaviour-free ordering gives 0.30, 0.33, 0.21, 0.07, 0.05 — the same order
+**except that the two largest swap**, the one non-monotone measure in the phase and too
+small to read anything into.
+
+**Tests**: 547 passing, 3 skipped.

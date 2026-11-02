@@ -3128,3 +3128,100 @@ of positives.
 Their numbers are still computed, still written to `results/hmm_replay_comparison.csv` and
 still plotted — shaded, labelled and excluded from the two-of-three count in D10.18. The
 reader can disagree with the exclusion and recount; they cannot miss that it was made.
+
+### D10.22 — The method does not clear the Phase 2 sensitivity floor
+
+Step 10d settled this, and 10e does not re-derive it. The statement, with the numbers that
+support it on one axis:
+
+| Session | Place cells (Phase 1) | Pyramidal (Phase 4) | × | Phase 1 effect | its control | margin | Phase 4 effect | its control | margin |
+|---|---|---|---|---|---|---|---|---|---|
+| Achilles_10252013 | 77 | 120 | 1.6 | +0.114 | +0.018 | **+0.096** | +0.081 | +0.041 | **+0.040** |
+| Achilles_11012013 | 73 | 92 | 1.3 | +0.071 | +0.032 | **+0.039** | +0.136 | +0.075 | **+0.062** |
+| Cicero_09102014 | 36 | 81 | 2.2 | +0.058 | +0.032 | +0.026 | +0.025 | +0.041 | **−0.016** |
+| *Gatsby_08022013* | 30 | 66 | 2.2 | +0.110 | +0.051 | +0.059 | +0.041 | +0.060 | −0.019 |
+| *Cicero_09012014* | 16 | 55 | 3.4 | +0.073 | −0.142 | +0.215 | +0.066 | −0.038 | +0.104 |
+
+**The two sessions where the receptive-field-free method works are the two where place
+fields also worked** — 77 and 73 place cells, the only two above Phase 2's floor. Of the
+three below it, two are uninformative on their own running Claim B (D10.21) and the third,
+Cicero_09102014, is a negative with the control above the effect. The method had 1.3–3.4×
+more cells on every session and the extra cells **did not convert into resolution on any
+session that needed them**: the largest ratio, 3.4× on Cicero_09012014, is also the session
+with the fewest place cells and the one whose Phase 1 control already ran backwards.
+
+The two methods' sensitivity on *running*, where the structure is certainly present, orders
+the sessions the same way and by ensemble size: Phase 2's window z-score runs 13.2, 7.5,
+5.6, 3.3, 1.8 and Phase 4's running Claim B runs 0.61, 0.35, 0.21, 0.08, 0.06 by the
+position ordering. The behaviour-free ordering gives 0.30, 0.33, 0.21, 0.07, 0.05, which is
+the same order **except that the two largest ensembles swap** — the only place in this
+phase where a measure is not monotone in cell count, and too small a difference to read
+anything into.
+
+Margins on the two uninformative sessions are not comparable to the rest, and the reason is
+worth stating: both are inflated by controls that run the *other* way (−0.142 and −0.038),
+so the margin exceeds the effect. D8.8 recorded the same thing about Cicero_09012014 in
+Phase 1 at −183 % of the real gap. A margin larger than the effect is a sign the control is
+doing the work, not the method.
+
+### D10.23 — The positive is qualified, and the qualification is the margin
+
+On Achilles_10252013 the behaviour-free effect is **+0.081 against a control of +0.041** —
+roughly double, not an order of magnitude. On Achilles_11012013 it is **+0.136 against
++0.075**, the same ratio. Two of five sessions at roughly 2:1 over their own control is a
+**qualified positive** and this project writes it as one.
+
+What it is not: it is not two of five sessions showing an effect where the control shows
+nothing. It is not a demonstration that the method is as good as place fields — it beats
+the place-field decoder on one session (+0.136 against +0.071) and loses to it on the other
+(+0.081 against +0.114). And it is not five sessions, or even three; it is the two with the
+largest ensembles, which are also the two where the question was easiest.
+
+What it is: on the two best-powered sessions, a model that never saw an animal's position
+separates post-sleep events from pre-sleep events in the direction the paper reports, by
+about twice what the same model fitted to shuffled data achieves on the same events. That
+is a real result and a narrow one.
+
+### D10.24 — The Claim A/B inversion on the uninformative pair is suspicious, not promising
+
+On Cicero_09012014 and Gatsby_08022013 the **behaviour-free** ordering outscores the
+position-derived one in sleep, by −0.24 and −0.30 on the POST median rz (D10.20). Read
+without context that is the phase's best news: the ordering that needs no behaviour beating
+the one that does.
+
+It should be read the other way. Those two sessions have running Claim B of 0.08 and 0.06
+(D10.14) — the behaviour-free ordering cannot find sequential structure on *running*, where
+the animal is demonstrably traversing the track. An ordering that scores nothing where the
+structure is certain and scores well in sleep, where it is in question, is more likely to
+have found an arrangement that fits noise than structure that place fields missed. The
+spectral ordering has one free choice per state and the weighted correlation rewards any
+monotone arrangement; on a small ensemble with sparse events there is room to find one.
+
+**This is unexplained.** No test here distinguishes "the model found something place fields
+could not" from "the ordering fitted the noise", and the project is not going to resolve it
+on the two sessions least able to support an answer. It is recorded as the open question it
+is, and it is the reason D10.18's count stays at two of three rather than four of five.
+
+### D10.25 — The phase's main caveat: a control leak with no explanation
+
+Carried forward as the first thing any reader of Phase 4 should know. The fit-on-shuffled-
+data control is not a null on four of five sessions (D10.12): a model fitted to spike trains
+with the cross-cell alignment destroyed decodes held-out running position at r = 0.34–0.51
+on the linear-track sessions, and separates POST sleep events from PRE at p < 0.02 on three
+sessions (D10.19).
+
+Two concrete mechanisms were proposed and both were tested and rejected:
+
+* **Bout timing.** Running bouts are directed runs, so the within-bout bin index might
+  predict position with no spikes involved. Decoded through the same folds and statistic it
+  gives +0.08, −0.11, +0.01, +0.03, −0.22. It explains none of it.
+* **Population rate.** The shuffle leaves a fitted model free to have states that differ in
+  total rate, and rate might track position. The rate-only decoder gives +0.29, +0.03,
+  +0.04, +0.04, +0.31 against leaks of 0.51, 0.16, 0.48, 0.21, 0.34 (D10.16) — nearly all of
+  Gatsby_08022013's leak, about half of Achilles_10252013's, and **none** of
+  Cicero_09012014's, the session where the leak does the most damage.
+
+So the leak is real, measured per session, subtracted from every claim in this phase, and
+**unexplained**. Two cheap explanations have been eliminated, which makes the statement
+stronger than it was in D10.12, and a third has not been found. Anyone building on this
+method should measure the same control before believing any of its numbers.

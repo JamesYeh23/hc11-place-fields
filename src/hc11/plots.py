@@ -1491,3 +1491,105 @@ def plot_hmm_replay(table, path: Path) -> Path:
     fig.savefig(path, dpi=200)
     plt.close(fig)
     return path
+
+
+def plot_method_comparison(table, path: Path) -> Path:
+    """Step 10e: both methods against the ensemble each of them had.
+
+    Left: the POST-over-PRE effect. Each session appears twice -- once at its
+    place-cell count with Phase 1's place-field decoder, once at its pyramidal
+    count with Phase 4's receptive-field-free model -- joined by a line. The
+    line is the result: a session moves **right**, because the second method
+    sees more cells, and does not move **up**. Open markers are each method's
+    own control, which destroy different things and are not checks on each
+    other.
+
+    Middle: what is left after each method's control is subtracted.
+
+    Right: both methods' sensitivity on *running*, where the sequential
+    structure is certainly present. Phase 2's window z-score and Phase 4's
+    behaviour-free running Claim B are on different scales and different axes.
+    They order the five sessions the same way except at the top, where the two
+    largest ensembles swap: Phase 4's behaviour-free measure is slightly higher
+    on the 92-cell session than on the 120-cell one. The ordering by position is
+    monotone in ensemble size with no exception (D10.14); the behaviour-free one
+    is not, and the figure shows the measure matched to the effect beside it.
+    """
+    table = table.sort_values("n_place_cells", ascending=False)
+    fig, axes = plt.subplots(1, 3, figsize=(14.5, 4.6))
+    phase1_colour, phase4_colour = "#009E73", "#CC79A7"
+
+    ax = axes[0]
+    for _, row in table.iterrows():
+        style = "-" if row.informative else ":"
+        ax.plot([row.n_place_cells, row.n_pyramidal],
+                [row.phase1_rank_biserial, row.phase4_rank_biserial],
+                style, color=MUTED, linewidth=0.9, zorder=1)
+        alpha = 1.0 if row.informative else 0.45
+        ax.plot(row.n_place_cells, row.phase1_rank_biserial, "s", markersize=7,
+                color=phase1_colour, alpha=alpha, zorder=3)
+        ax.plot(row.n_place_cells, row.phase1_control_rank_biserial, "s",
+                markersize=7, markerfacecolor="white", color=phase1_colour,
+                alpha=alpha, zorder=2)
+        ax.plot(row.n_pyramidal, row.phase4_rank_biserial, "o", markersize=7,
+                color=phase4_colour, alpha=alpha, zorder=3)
+        ax.plot(row.n_pyramidal, row.phase4_control_rank_biserial, "o",
+                markersize=7, markerfacecolor="white", color=phase4_colour,
+                alpha=alpha, zorder=2)
+        animal, date = row.session.split("_")
+        ax.annotate(f"{animal[:3]} {date[:4]}",
+                    (row.n_pyramidal, row.phase4_rank_biserial),
+                    textcoords="offset points", xytext=(7, -2), fontsize=7,
+                    color=MUTED)
+    ax.axhline(0.0, color=MUTED, linewidth=0.8, linestyle=":")
+    ax.set_xlabel("cells the method had")
+    ax.set_ylabel("POST over PRE: rank-biserial")
+    ax.set_title("More cells, same answer", fontsize=9, color=INK)
+    handles = [Line2D([], [], color=phase1_colour, marker="s", linestyle="",
+                      label="Phase 1, place fields"),
+               Line2D([], [], color=phase4_colour, marker="o", linestyle="",
+                      label="Phase 4, behaviour-free"),
+               Line2D([], [], color=MUTED, marker="o", linestyle="",
+                      markerfacecolor="white", label="each method's own control"),
+               Line2D([], [], color=MUTED, linestyle=":",
+                      label="uninformative session")]
+    ax.legend(handles=handles, frameon=False, fontsize=7, loc="lower right")
+    _style(ax)
+
+    ax = axes[1]
+    for _, row in table.iterrows():
+        alpha = 1.0 if row.informative else 0.45
+        ax.plot([row.n_place_cells, row.n_pyramidal],
+                [row.phase1_margin, row.phase4_margin],
+                "-" if row.informative else ":", color=MUTED, linewidth=0.9)
+        ax.plot(row.n_place_cells, row.phase1_margin, "s", markersize=7,
+                color=phase1_colour, alpha=alpha)
+        ax.plot(row.n_pyramidal, row.phase4_margin, "o", markersize=7,
+                color=phase4_colour, alpha=alpha)
+    ax.axhline(0.0, color=MUTED, linewidth=0.8, linestyle=":")
+    ax.set_xlabel("cells the method had")
+    ax.set_ylabel("effect minus its own control")
+    ax.set_title("What survives the control", fontsize=9, color=INK)
+    _style(ax)
+
+    ax = axes[2]
+    ax.plot(table.n_place_cells, table.running_rz_phase1, "s-",
+            color=phase1_colour, markersize=7, linewidth=1.2,
+            label="Phase 2: running-window z")
+    ax.set_xlabel("cells the method had")
+    ax.set_ylabel("Phase 2: running-window z", color=phase1_colour)
+    ax.tick_params(axis="y", labelcolor=phase1_colour)
+    twin = ax.twinx()
+    twin.plot(table.n_pyramidal, table.running_claim_b_phase4, "o-",
+              color=phase4_colour, markersize=7, linewidth=1.2)
+    twin.set_ylabel("Phase 4: running Claim B", color=phase4_colour)
+    twin.tick_params(axis="y", labelcolor=phase4_colour)
+    twin.spines["top"].set_visible(False)
+    ax.set_title("Both methods on running, where the answer is known",
+                 fontsize=9, color=INK)
+    _style(ax)
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
