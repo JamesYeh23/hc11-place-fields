@@ -505,8 +505,9 @@ cells**, so the difference is not a threshold we have mis-set.
 Where it plausibly comes from, none of which we can test with the released files:
 
 - **The released `OneDLocation` covers only part of the behaviour.** It is defined for
-  7–35 % of each MAZE epoch (docs/data_schema.md), so cells are scored on a fraction of
-  the running the authors had. 186 of 562 pyramidal cells fire fewer than 50 spikes in
+  **7.2–58.5 %** of each MAZE epoch (docs/data_schema.md; this figure was wrong here until
+  D11.1 — see that entry), so cells are scored on a fraction of the running the authors
+  had. 186 of 562 pyramidal cells fire fewer than 50 spikes in
   their best direction within our running periods, and 10 fire none at all. Place-cell
   fraction and running time rise together across the eight sessions (r = 0.63), which is
   *consistent with* this explanation but is not evidence for it: with n = 8 that
@@ -3379,3 +3380,60 @@ rather than *m* groups, and it was expected to bound the other two from above. I
 averaging the positions inside a cluster suppresses variance, so the *m*-way partition beats
 the single nearest neighbour on Achilles_10252013 and Gatsby_08022013. Both are reported and
 the larger is the one to read; calling either an upper bound would have been wrong.
+
+---
+
+## Phase 5 — does the measurement base explain the ensemble-size limit?
+
+Phase 5's steps are numbered **12a–12c**, not 11a–11c: step 11a was taken by the Phase 4
+follow-up that explained the control leak (D10.26–D10.29). The decision entries use the
+D11 series, so the phase has one prefix even though its steps start at 12.
+
+### D11.1 — Two corrections carried into Phase 5, and the scope measurements
+
+**The `OneDLocation` coverage figure was wrong in two public documents.** D5.4 and the
+README said the authors' mask covers "7–35 % of each MAZE epoch". The measured range across
+the eight sessions is **7.2–58.5 %**: 12.8, 58.5, 7.2, 21.8, 28.7, 32.1, 18.7 and 36.3 %,
+which `docs/data_schema.md` has had right since step 2 as "NaN for 42–93 %".
+
+**How it survived:** 35 % is the *linear-session maximum* (Cicero_09172014, 32.1 %, rounded
+up), quoted as if it covered all eight. Both sessions above it are circular — the two
+sessions a base-widening diagnostic cannot use — so the error ran in the direction that
+made the lever look more promising than it is, and nothing downstream depended on the
+number, so nothing contradicted it. Corrected in both places, with the decision log now
+carrying the measured per-session values.
+
+**A near-miss in the Phase 5 scope measurement itself.** Asked where the existing place
+fields peak, the first version normalised each session's field peaks by **the range of the
+peaks** rather than by the track extent, and reported 55–62 % of peaks in the outer 15 % of
+the track. Normalising by the track extent, which is what "outer 15 % of the track" means,
+gives **46 / 55 / 46 %** on Achilles_10252013, Cicero_09012014 and Gatsby_08022013, against
+**30 %** expected under uniform coverage. The error inflated an end-bias of 1.5–1.8× into
+one of about 4×, in the direction that would have made step 12b's quality check look
+alarming before it was run. Caught before the scope report was sent, so it is a **near-miss
+rather than a silent failure**, and the catalogue count stays at eight plus near-misses.
+
+**The scope measurements that step 12b is held to**, so they are on the record before the
+re-run rather than after it:
+
+| Session | Geometry | Pyramidal | Interneurons | Place cells, authors' base | extended base | Peak-rate-only, authors' base |
+|---|---|---|---|---|---|---|
+| Achilles_10252013 | linear | 120 | 17 | 77 | 83 | 91 |
+| Achilles_11012013 | circular | 92 | 12 | 73 | 65 | 83 |
+| Cicero_09012014 | linear | 55 | 18 | 16 | 29 | 27 |
+| Cicero_09102014 | circular | 81 | 24 | 36 | 32 | 51 |
+| Gatsby_08022013 | linear | 66 | 14 | 30 | 35 | 39 |
+
+What the extension adds, measured on the running samples it gains:
+
+| Session | Running samples, authors / extra | Median speed, authors / extra | In outer 15 % of track, authors / extra |
+|---|---|---|---|
+| Achilles_10252013 | 9,351 / 17,324 | 57.2 / 24.4 cm/s | 13 % / 60 % |
+| Cicero_09012014 | 19,595 / 21,024 | 30.3 / 21.5 cm/s | 10 % / 95 % |
+| Gatsby_08022013 | 14,710 / 47,939 | 44.8 / 24.4 cm/s | 13 % / 98 % |
+
+**Phase 5 is a linear-sessions-only phase.** On the three circular sessions our arc-length
+reconstruction reaches only r = 0.9724–0.9967 against `OneDLocation` and disagrees with it
+on extent, so those rows measure the reconstruction rather than the base — and all three
+*lose* cells under it. The restriction is better targeted than it sounds: Phase 4's two
+vacuous sessions, Cicero_09012014 and Gatsby_08022013, are both linear.

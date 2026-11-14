@@ -766,7 +766,7 @@ The detection mode is therefore unique in this list: not a second measurement, n
 control, not reading the code, but **reading the tag against the paper it cites**. That is
 now done for every tag, and the result is D10.3.
 
-**Two near-misses belong in the same section, because they were caught differently.**
+**Three near-misses belong in the same section, because they were caught differently.**
 
 
 The first was caught by **reading code rather than output**, which is the detection mode
@@ -779,7 +779,7 @@ contribution in the *same* direction, which is precisely the shape no downstream
 can see. It was found in review, before the estimator was ever run on more than four cells,
 and the fix was to compute the real placement through the same function as the other
 fifteen and keep the step-5 table as an independent check (agreement: 1.6 × 10⁻⁵ rZ). The
-lesson is narrow and worth stating: the six failures above were caught because something
+lesson is narrow and worth stating: the eight failures above were caught because something
 independent disagreed, and this one could not have been, because the error would have moved
 every number together.
 
@@ -787,6 +787,16 @@ The second: **a one-lap directional template** on the circular session (D7.3) de
 much as the effect being measured, because the score maximises over directions and a noise
 template hands the shuffles the same freedom. It was caught by checking lap counts per
 direction before trusting the output — again a cross-check, not an error.
+
+The third was caught by **reading a derived number against its own definition**. Asked
+where the existing place fields peak, the Phase 5 scope measurement first normalised each
+session's field peaks by the range of the peaks rather than by the track extent, and
+reported 55–62 % of peaks in the outer 15 % of the track where the correct figures are
+46 / 55 / 46 % against a 30 % uniform baseline (D11.1). It would have inflated an end-bias
+of 1.5–1.8× into one of roughly 4×, in the direction that makes the next step's quality
+check look alarming before it is run. Nothing would have disagreed with it: the number had
+no second source, and "outer 15 % of the track" is only wrong if you ask what "the track"
+was divided by. Caught before the scope report was sent.
 
 What they have in common is worth stating plainly, because it generalises past this
 project: **a numerical pipeline fails by returning a number** — or, in the seventh case,

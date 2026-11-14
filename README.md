@@ -760,8 +760,9 @@ spike floor — still yields 392, not 491. There is no setting of our criteria t
 
 Part of the gap is traceable. The released `OneDLocation` variable marks *being on the
 linearised track*, not running, and how strictly it was curated varies by session: it is
-defined for only 7–35 % of each MAZE epoch. Rebuilding everything on our own linearisation
-of the raw two-dimensional position over all tracked MAZE time widens the base to 68–98 %
+defined for only 7.2–58.5 % of each MAZE epoch, and for 7.2–32.1 % on the linear ones.
+Rebuilding everything on our own linearisation of the raw two-dimensional position over
+all tracked MAZE time widens the base to 68–98 %
 and raises the yield from 47 % to 59 % of pyramidal cells on the linear tracks — one
 session doubles, the one where the released mask was thinnest at 2.6 minutes of running.
 That is a real contributor, but 59 % is still well short of 87 %, and the remainder is
