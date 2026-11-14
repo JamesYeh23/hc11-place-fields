@@ -3437,3 +3437,83 @@ reconstruction reaches only r = 0.9724–0.9967 against `OneDLocation` and disag
 on extent, so those rows measure the reconstruction rather than the base — and all three
 *lose* cells under it. The restriction is better targeted than it sounds: Phase 4's two
 vacuous sessions, Cicero_09012014 and Gatsby_08022013, are both linear.
+
+### D11.2 — The extended base buys end cells, and costs more than they bring
+
+Step 12b ran the `--base extended` path through place fields and decoding on the three
+linear LFP sessions, with the authors' mask primary throughout and the extended base in its
+own files (`*_extended.csv`), so a run of one cannot overwrite the other.
+
+**Check 1 — where the gained cells' fields peak**, as a percentage in the outer 15 % of the
+track, against the 30 % a uniformly tiling population would put there:
+
+| Session | Retained cells, authors' base | Retained cells, extended base | **Gained cells** |
+|---|---|---|---|
+| Achilles_10252013 | 45 % (n = 95) | 64 % (n = 66) | **94 % (n = 17)** |
+| Cicero_09012014 | 55 % (n = 22) | 52 % (n = 23) | **88 % (n = 17)** |
+| Gatsby_08022013 | 46 % (n = 39) | 55 % (n = 47) | **75 % (n = 12)** |
+
+The gained cells are end cells, three to five times over. The middle column is the one that
+is easy to miss and it matters more: **widening the base moves the *retained* cells' peaks
+toward the ends too**, on two of three sessions. The extension does not only add cells of
+its own kind; it rebuilds the templates of the cells that were already working, over time
+in which the animal is slow and at a reward site.
+
+**Check 3 — median speed at each cell's in-field spikes**, cm/s: retained 36.0 / 32.5 /
+48.6 against gained **19.2 / 24.5 / 42.5**. On Achilles_10252013 the gained cells' fields
+are filled at 19 cm/s on a track the animal runs at 57. Consistent with check 1 and with
+the scope measurement (D11.1): what the extension adds is slow time at the ends.
+
+**Check 2 — decoding error by third of the track**, in the authors' coordinate, restricted
+to the stretch of track both bases cover, 250 ms bins:
+
+| Session | Base | Cells | Outer low | Middle | Outer high |
+|---|---|---|---|---|---|
+| Achilles_10252013 | authors | 77 | **4.4** | **8.3** | **5.8** |
+| | extended | 83 | 9.0 | 8.8 | 7.2 |
+| | extended, retained only | 66 | 8.8 | 9.0 | 9.4 |
+| Cicero_09012014 | authors | 16 | **10.3** | **13.5** | **14.0** |
+| | extended | 29 | 11.2 | 14.1 | 14.3 |
+| | extended, retained only | 16 | 12.3 | 15.3 | 15.3 |
+| Gatsby_08022013 | authors | 30 | **5.9** | 13.1 | **11.0** |
+| | extended | 35 | 8.9 | **12.3** | 14.2 |
+| | extended, retained only | 28 | 8.7 | 15.4 | 15.4 |
+
+**Eight of nine thirds are worse on the extended base** — with 1.3–1.8× more cells and
+1.8–4.3× more running time, both of which should help. The middle third, where replay has
+to resolve, improves on no session (8.3 → 8.8, 13.5 → 14.1, 13.1 → 12.3).
+
+The third row separates the cells from the base. It is bin-matched to the row above it —
+both share a base, so they decode the same bins, and only bins both ensembles decoded are
+compared; without that the smaller ensemble would be scored on the easier subset it could
+decode at all, which on the first run produced a 34.9 cm outer-low value that was an
+artifact of exactly that. Matched, the gained cells **do** help *within* the extended base:
+about 1 cm everywhere on Cicero_09012014, 3.1 cm in Gatsby_08022013's middle third, 2.2 cm
+in Achilles_10252013's outer-high. They are not worthless cells.
+
+**They just do not pay for the base that admits them.** Moving to the extended base costs
+more than the cells it adds recover, on every session.
+
+**Verdict: the measurement base does not explain the ensemble-size limit.** It buys cells —
++6, +13, +5 — that peak at the ends, fire at reward-site speeds, and leave decoding worse
+in eight thirds of track out of nine. Phase 5 stops here, as scoped: the question it was
+built to ask is answered and the answer is no.
+
+**The silent failure this check existed to catch.** A gain real in count and spurious in
+quality is invisible to everything else in the project: Phase 2's sensitivity floor is
+indexed by cell *count*, so a bad cell counts the same as a good one, and every downstream
+number — more place cells, a lower apparent floor, more scorable events — would have moved
+in the direction of success while the instrument got worse. Nothing would have raised an
+error and no existing control would have disagreed. It is not added to the catalogue
+because it never happened: the check was built first and it fired.
+
+**Two provisional choices**, both fixed in the 12a scope before any of these numbers
+existed and neither revisited since: the outer **15 %** a side that defines "the ends", and
+counting a spike as in-field when it falls within **half a field width** of the peak, which
+is the simplest reading of the two numbers the summary table carries.
+
+**What is not established.** Why the extended base degrades the retained cells is a
+hypothesis — end-inclusive time blurring templates — supported by check 1's middle column
+and not tested directly. The experiment that would test it is a decode with the authors'
+ensemble and extended templates, and it is not built: the phase's question is already
+answered and building it would be continuing past the stopping point.

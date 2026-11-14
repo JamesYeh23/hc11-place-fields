@@ -58,7 +58,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("sessions", nargs="*")
     parser.add_argument("--no-figures", action="store_true")
+    parser.add_argument("--base", choices=("authors", "extended"), default="authors",
+                        help="measurement base; 'extended' writes to its own files and "
+                             "never touches the primary ones (D11.1)")
     args = parser.parse_args()
+    suffix = "" if args.base == "authors" else "_extended"
+    if args.base == "extended":
+        args.no_figures = True
 
     params = config.load_params()
     dec = params["decoding"]
@@ -66,7 +72,7 @@ def main() -> None:
     rows, ensemble_rows = [], []
 
     for name in names:
-        session, track, running, laps = prepare(name, params)
+        session, track, running, laps = prepare(name, params, base=args.base)
         cells, per_direction = place_cells(session, track, running, laps, params)
         if len(cells) < dec["min_units_for_decoding"]:
             log.warning("%s: only %d place cells, below min_units_for_decoding=%d -- skipped",
@@ -148,12 +154,13 @@ def main() -> None:
 
     df = pd.DataFrame(rows)
     results = config.results_dir()
-    df.round(4).to_csv(results / "decoding_summary.csv", index=False)
-    pd.DataFrame(ensemble_rows).round(4).to_csv(results / "decoding_ensemble.csv", index=False)
-    (results / "decoding_summary.json").write_text(json.dumps({
+    df.round(4).to_csv(results / f"decoding_summary{suffix}.csv", index=False)
+    pd.DataFrame(ensemble_rows).round(4).to_csv(
+        results / f"decoding_ensemble{suffix}.csv", index=False)
+    (results / f"decoding_summary{suffix}.json").write_text(json.dumps({
         "script": "scripts/decode_position.py", "git_commit": config.git_commit(),
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "sessions": names, "params": params,
+        "sessions": names, "base": args.base, "params": params,
     }, indent=2) + "\n")
 
     print()
@@ -168,7 +175,7 @@ def main() -> None:
               f"{100 * r.fraction_undecodable:6.1f}%")
     print("-" * len(header))
     print("(errors in cm; 'chance' = tuning curves permuted between cells)")
-    print(f"\nwrote {(results / 'decoding_summary.csv').relative_to(config.repo_root())}")
+    print(f"\nwrote {(results / f'decoding_summary{suffix}.csv').relative_to(config.repo_root())}")
 
 
 if __name__ == "__main__":

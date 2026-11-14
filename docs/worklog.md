@@ -1617,3 +1617,54 @@ intended, and one that caught the rate floor turning an exemplar vector into som
 is not exactly a real bin.
 
 **Time**: ~1.5 h.
+
+## 2026-11-14 (later) — Step 12b: the wider base buys end cells, and they do not pay for it
+
+**Two corrections first**, both already public: the `OneDLocation` coverage figure
+(7–35 % → 7.2–58.5 %, D11.1) and the field-peak normalisation near-miss, now the third in
+the METHODS near-miss section. The catalogue stays at eight silent failures.
+
+**The `--base extended` path** is a flag on `place_fields.py` and `decode_position.py`,
+default `authors`, writing to `*_extended.csv` and suppressing per-session figures, so a
+run of the parallel column cannot touch a primary result. Verified after every run: the
+primary place-cell counts are still 77 / 73 / 16 / 36 / 25 / 30 / 31 / 16. A circular
+session passed `--base extended` raises rather than being scored on a reconstruction that
+measures itself.
+
+**Check 1 — the gained cells are end cells**, 94 / 88 / 75 % of their fields peaking in the
+outer 15 % of the track against retained cells at 64 / 52 / 55 % and a uniform 30 %. The
+column that matters more: on two of three sessions **the retained cells' own peaks move
+toward the ends too** when the base widens (45 → 64 %, 46 → 55 %). The extension does not
+only add cells of its own kind, it rebuilds the templates of the cells that worked.
+
+**Check 3 — median in-field speed** 19.2 / 24.5 / 42.5 cm/s for gained cells against
+36.0 / 32.5 / 48.6 for retained. On Achilles_10252013 the gained fields are filled at
+19 cm/s on a track the animal runs at 57.
+
+**Check 2, the decisive one — eight of nine thirds are worse on the extended base**, with
+1.3–1.8× more cells and 1.8–4.3× more running time. The middle third improves on no
+session: 8.3 → 8.8, 13.5 → 14.1, 13.1 → 12.3 cm.
+
+A third row separates the cells from the base — the extended base with only the retained
+cells, **bin-matched** to the row above, because a smaller ensemble leaves more bins
+undecodable and would otherwise be scored on the easier subset it could decode at all. The
+first run was not matched and produced a 34.9 cm outer-low value that was purely that
+artifact; caught by the off-track-bin counts disagreeing between rows that share a base.
+Matched, the gained cells **do** help within the extended base — about 1 cm everywhere on
+Cicero_09012014, 3.1 cm in Gatsby's middle — so they are not worthless cells. They simply
+do not pay for the base that admits them.
+
+**Verdict (D11.2): the measurement base does not explain the ensemble-size limit.** It
+buys cells that peak at the ends, fire at reward-site speeds, and leave decoding worse in
+eight thirds of track out of nine. Phase 5 stops here, as scoped.
+
+**The silent failure the check existed to catch did not happen, because the check was built
+first.** A gain real in count and spurious in quality is invisible to everything else here:
+Phase 2's floor is indexed by cell count, so a bad cell counts the same as a good one, and
+every downstream number would have moved toward success while the instrument got worse. Not
+added to the catalogue — it was caught by design rather than by accident.
+
+**Tests**: 563 passing, 3 skipped (7 new), including one that pins `prepare`'s default base
+so Phases 1–4 cannot move, and one that refuses a circular session on the extended base.
+
+**Time**: ~2 h.

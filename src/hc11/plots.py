@@ -1593,3 +1593,104 @@ def plot_method_comparison(table, path: Path) -> Path:
     fig.savefig(path, dpi=200)
     plt.close(fig)
     return path
+
+
+def plot_extended_base(peaks, errors, speeds, path: Path) -> Path:
+    """Step 12b: does widening the measurement base buy resolution?
+
+    Left: where the fields peak. Three groups per session -- the cells that
+    survive both bases scored the old way, the same cells scored on the wider
+    base, and the cells the wider base adds -- against the 30 % a uniformly
+    tiling population would put in the outer 15 % of the track. The middle bar
+    is the one that is easy to miss: widening the base moves the *retained*
+    cells' peaks toward the ends too.
+
+    Middle: decoding error by third of the track. Filled markers are each
+    base with its own ensemble; the open marker is the wider base restricted
+    to the cells that were already there, bin-matched to the row above it so
+    the two differ only in the cells. A gain worth having lowers the middle
+    third; the middle third is where replay has to resolve.
+
+    Right: the median speed at each cell's in-field spikes. A field whose
+    spikes arrive at 20 cm/s on a track the animal runs at 30-60 is a
+    reward-site response.
+    """
+    sessions = sorted(peaks.session.unique())
+    fig, axes = plt.subplots(1, 3, figsize=(14.0, 4.4))
+    groups = (("retained, authors' base", "#009E73", "retained, authors' base"),
+              ("retained", "#0072B2", "retained, wider base"),
+              ("gained", "#D55E00", "gained by the wider base"))
+
+    ax = axes[0]
+    width = 0.26
+    for index, (group, colour, label) in enumerate(groups):
+        values = [100 * peaks[(peaks.session == s) & (peaks.group == group)]
+                  .in_outer_ends.mean() for s in sessions]
+        ax.bar(np.arange(len(sessions)) + (index - 1) * width, values, width,
+               color=colour, label=label)
+    ax.axhline(30, color=MUTED, linewidth=1.0, linestyle="--")
+    ax.text(len(sessions) - 0.6, 31.5, "a uniformly tiling population",
+            fontsize=7.5, color=MUTED, ha="right")
+    ax.set_xticks(np.arange(len(sessions)))
+    ax.set_xticklabels([s.split("_")[0] for s in sessions], fontsize=8)
+    ax.set_ylabel("% of fields peaking in the outer 15 % of the track")
+    ax.set_title("Where the extra cells' fields sit", fontsize=9, color=INK)
+    ax.legend(frameon=False, fontsize=7)
+    _style(ax)
+
+    ax = axes[1]
+    order = ["outer low", "middle", "outer high"]
+    styles = (("authors", "#009E73", "o", "the authors' base"),
+              ("extended", "#D55E00", "o", "the wider base"),
+              ("extended, retained only", "#D55E00", "o",
+               "the wider base, retained cells only"))
+    for offset, session in enumerate(sessions):
+        part = errors[errors.session == session]
+        for base, colour, marker, label in styles:
+            here = part[part.base == base].set_index("third")
+            if here.empty:
+                continue
+            y = [here.median_error_cm.get(t, np.nan) for t in order]
+            x = np.arange(len(order)) + offset * (len(order) + 1)
+            hollow = base.endswith("retained only")
+            ax.plot(x, y, marker + "-", color=colour, markersize=5, linewidth=1.2,
+                    markerfacecolor="white" if hollow else colour,
+                    linestyle=":" if hollow else "-",
+                    label=label if offset == 0 else None)
+    top = ax.get_ylim()[1]
+    for offset, session in enumerate(sessions):
+        ax.text(1 + offset * (len(order) + 1), top, session.split("_")[0],
+                fontsize=7.5, color=MUTED, ha="center", va="top")
+    ax.set_xticks([i + o * 4 for o in range(len(sessions)) for i in range(3)])
+    ax.set_xticklabels(["low", "mid", "high"] * len(sessions), fontsize=7)
+    ax.set_ylabel("median decoding error (cm)")
+    ax.set_title("Error by third of the track", fontsize=9, color=INK)
+    ax.legend(frameon=False, fontsize=7, loc="upper left")
+    _style(ax)
+
+    ax = axes[2]
+    for index, session in enumerate(sessions):
+        for offset, (group, colour) in enumerate((("retained", "#0072B2"),
+                                                  ("gained", "#D55E00"))):
+            values = speeds[(speeds.session == session)
+                            & (speeds.group == group)].median_in_field_speed_cm_s
+            if values.empty:
+                continue
+            jitter = np.random.default_rng(index).normal(0, 0.05, len(values))
+            x = index + (offset - 0.5) * 0.4 + jitter
+            ax.plot(x, values, "o", color=colour, markersize=4, alpha=0.55,
+                    label=group if index == 0 else None)
+            ax.plot([index + (offset - 0.5) * 0.4 - 0.12,
+                     index + (offset - 0.5) * 0.4 + 0.12],
+                    [values.median()] * 2, "-", color=colour, linewidth=2.2)
+    ax.set_xticks(np.arange(len(sessions)))
+    ax.set_xticklabels([s.split("_")[0] for s in sessions], fontsize=8)
+    ax.set_ylabel("median speed at in-field spikes (cm/s)")
+    ax.set_title("How fast the animal was moving", fontsize=9, color=INK)
+    ax.legend(frameon=False, fontsize=7.5)
+    _style(ax)
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path

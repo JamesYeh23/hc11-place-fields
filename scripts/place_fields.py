@@ -23,6 +23,7 @@ from hc11.behavior import running_mask_from_config
 from hc11.fields import analyse_cell, select_running_samples
 from hc11.io import Session, list_sessions, load_session
 from hc11.laps import DIRECTIONS, lap_summary, segment_laps_from_config
+from hc11.linearize import with_own_linearization
 from hc11.preprocess import truncate_to_session
 from hc11.track import Track
 
@@ -32,11 +33,31 @@ log = logging.getLogger("place_fields")
 LAP_WARNING_THRESHOLD = 20
 
 
-def prepare(session_name: str, params: dict):
-    """Load a session and derive track, running mask and laps."""
+def prepare(session_name: str, params: dict, base: str = "authors"):
+    """Load a session and derive track, running mask and laps.
+
+    ``base`` selects the **measurement base** (Phase 5, D11.1):
+
+    * ``"authors"`` -- the released ``OneDLocation``. The default, the primary
+      base for every reported result, and the only one any of Phases 1-4 uses.
+    * ``"extended"`` -- our own linearisation of the 2-D position over all MAZE
+      time with valid tracking (`hc11.linearize`). A **parallel column**, never
+      a replacement. Valid on linear tracks only: on a ring the arc-length
+      reconstruction reaches r = 0.9724-0.9967 against ``OneDLocation`` and
+      disagrees with it on extent, so a circular session scored this way
+      measures the reconstruction rather than the base.
+    """
     session = load_session(session_name)
     if params["preprocess"]["truncate_to_session"]:
         session, _ = truncate_to_session(session, verbose=False)
+    if base == "extended":
+        if session.maze_kind != "linear":
+            raise SystemExit(
+                f"{session_name}: the extended base is linear-track only (D11.1); "
+                f"this session is {session.maze_kind}")
+        session = with_own_linearization(session)
+    elif base != "authors":
+        raise SystemExit(f"unknown base {base!r}; use 'authors' or 'extended'")
     track = Track.from_session(session, params["place_fields"]["bin_size_cm"])
     running = running_mask_from_config(session, params)
     laps = segment_laps_from_config(session, track, params)
@@ -66,7 +87,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("sessions", nargs="*", help="session names (default: all)")
     parser.add_argument("--no-figures", action="store_true")
+    parser.add_argument("--base", choices=("authors", "extended"), default="authors",
+                        help="measurement base; 'extended' writes to its own files and "
+                             "never touches the primary ones (D11.1)")
     args = parser.parse_args()
+    # The extended base is a parallel column: separate outputs, no per-session
+    # figures, so a run of it cannot overwrite anything a primary result rests on.
+    suffix = "" if args.base == "authors" else "_extended"
+    if args.base == "extended":
+        args.no_figures = True
 
     params = config.load_params()
     names = args.sessions or list_sessions()
@@ -74,7 +103,7 @@ def main() -> None:
 
     all_rows, lap_rows = [], []
     for name in names:
-        session, track, running, laps = prepare(name, params)
+        session, track, running, laps = prepare(name, params, base=args.base)
         summary = lap_summary(laps)
         rng = np.random.default_rng(seed)
         cells = analyse_session(session, track, running, laps, params, rng)
@@ -140,13 +169,14 @@ def main() -> None:
     cells_df = pd.DataFrame(all_rows)
     laps_df = pd.DataFrame(lap_rows)
     results = config.results_dir()
-    cells_df.round(6).to_csv(results / "place_fields_summary.csv", index=False)
-    laps_df.round(4).to_csv(results / "lap_summary.csv", index=False)
-    (results / "place_fields_summary.json").write_text(json.dumps({
+    cells_df.round(6).to_csv(results / f"place_fields_summary{suffix}.csv", index=False)
+    laps_df.round(4).to_csv(results / f"lap_summary{suffix}.csv", index=False)
+    (results / f"place_fields_summary{suffix}.json").write_text(json.dumps({
         "script": "scripts/place_fields.py",
         "git_commit": config.git_commit(),
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "sessions": names,
+        "base": args.base,
         "params": params,
     }, indent=2) + "\n")
 
