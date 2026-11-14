@@ -53,10 +53,12 @@ question at all on their own running control, and the third is a negative.
 **What Phase 4 is and is not.** The result is real and it is narrow: on the best-powered
 sessions, replay can be read without receptive fields, at about twice what the same model
 fitted to shuffled data achieves on the same events. It is not an order of magnitude, it is
-not five sessions, and it comes with an unexplained caveat — on four of five sessions a
-model fitted to **shuffled** spike trains also decodes position and also separates POST
-from PRE. Two mechanisms for that were proposed, tested and rejected. Every number in Phase
-4 is reported against that control rather than against zero.
+not five sessions, and it comes with a caveat — on four of five sessions a model fitted to
+**shuffled** spike trains also decodes position and also separates POST from PRE. Three
+mechanisms for that were tested and the third explains it: the leak is the decode-and-map
+pipeline rather than the shuffle, which also means part of Claim A's absolute level needs
+no fit at all. Every number in Phase 4 is reported against that control rather than against
+zero, and the explanation moves neither term of those margins.
 
 **Scope.** Five of the eight hc-11 sessions are analysed — Achilles_10252013,
 Achilles_11012013, Cicero_09012014, Cicero_09102014 and Gatsby_08022013. Buddy_06272013,
@@ -545,27 +547,38 @@ estimate.
 ### The control that stopped being one
 
 The phase's main caveat. A model fitted to spike trains with the **cross-cell alignment
-destroyed** — each cell circularly shifted along the running timeline — should decode
-nothing. On Achilles_11012013 it decodes at 0.16 against the real fit's 0.71. On the other
-four sessions it reaches **0.21 to 0.51**, and on Cicero_09012014 one shuffled fit in six
-beats a real one, which means Claim A is **not established on that session**. It beats
-chance on decoding error too, not only on correlation.
+destroyed** — each cell given its own circular time shift along the running timeline —
+should decode nothing. On Achilles_11012013 it decodes at 0.16 against the real fit's 0.71.
+On the other four sessions it reaches **0.21 to 0.51**, and on Cicero_09012014 one shuffled
+fit in six beats a real one, which means Claim A is **not established on that session**. It
+beats chance on decoding error too, not only on correlation.
 
-Two mechanisms were proposed and both were tested and rejected:
+Three mechanisms were tested, each measured with no model involved:
 
 | Explanation | What it predicts | What it gives |
 |---|---|---|
 | **Bout timing** — a directed run makes bin-index-within-bout predict position with no spikes | the leak, on every session | +0.08, −0.11, +0.01, +0.03, −0.22 — none of it |
-| **Population rate** — states differing in total rate, with rate tracking position | the leak, and the linear/circular split | +0.29, +0.03, +0.04, +0.04, +0.31 against leaks of 0.51, 0.16, 0.48, 0.21, 0.34 |
+| **Population rate** — states differing in total rate, with rate tracking position | the leak, and the linear/circular split | +0.29, +0.03, +0.04, +0.04, +0.31 — one session, not the decisive one |
+| **An arbitrary partition** — rate vectors no optimiser produced, everything downstream identical | the leak, wherever the pipeline is the cause | **+0.76, +0.17, +0.37, +0.20, +0.50** against leaks of 0.51, 0.16, 0.48, 0.21, 0.34 |
 
-Population rate explains nearly all of Gatsby_08022013's leak and about half of
-Achilles_10252013's, and **none** of Cicero_09012014's — the session where the leak does
-the most damage and the one with the weakest rate-position association of the five. The
-geometry prediction fails on its own terms.
+**The third explains it.** On four of five sessions a model with randomly chosen rate
+vectors matches or exceeds the leak, and on Cicero_09012014 — where the leak is largest and
+the first two mechanisms accounted for none of it — it reaches 77 %, stable across folds.
+Claim A evaluates its posterior on **real** spikes and builds its state-to-position map
+from **real** training behaviour, so an arbitrary *m*-way partition of real population
+vectors is already position-informative however it was obtained. Restoring the fitted
+stickiness changes nothing, so the missing transitions are not the reason.
 
-So the leak is real, measured per session, subtracted from every claim in this phase, and
-**unexplained**. Anyone building on this method should measure the same control before
-believing any of its numbers.
+That has a consequence for the model, not only for the control: **on Achilles_10252013,
+0.76 of Claim A's 0.91 needs no fit at all.** The fit buys +0.16 to +0.54 on the
+correlation across the five sessions — nearly all of it on the circular ones — while on
+decoding error it roughly halves the error everywhere. Where the two statistics disagree,
+the error is the one to read.
+
+None of this moves a Phase 4 result. Every claim below is a margin between the real fit and
+the shuffled fit on the same events, and the explanation moves neither term. What it
+changes is how Claim A's absolute level should be read — and anyone building on this method
+should measure the same control before believing any of its numbers.
 
 ### Sleep, read without receptive fields
 
@@ -869,13 +882,24 @@ one, and one the EMG or theta/delta channels of the LFP would settle.
 - **The removal and shuffle curves of the paper's Fig. 2D/E were not built.** They would
   measure an estimator whose resolution is now bounded below the effects they would look
   for; the reasoning is in D9.6 rather than in an unfinished script.
-- **Phase 4's control leaks, and we could not explain why.** On four of five sessions a
-  model fitted to spike trains with the cross-cell alignment destroyed still decodes
-  held-out running position (0.21–0.51) and, on three sessions, still separates POST sleep
-  events from PRE at p < 0.02. Two concrete mechanisms — bout timing and population rate —
-  were tested and rejected (D10.16, D10.25). Every Phase 4 number is reported against that
-  control; none is reported against zero. **Anyone reusing this method should measure the
-  same control first.**
+- **Phase 4's control leaks, and the reason is the pipeline rather than the shuffle.** On
+  four of five sessions a model fitted to spike trains with the cross-cell alignment
+  destroyed still decodes held-out running position (0.21–0.51) and, on three sessions,
+  still separates POST sleep events from PRE at p < 0.02. Three mechanisms were tested:
+  bout timing explains none of it, population rate explains one session and not the
+  decisive one, and **an arbitrary partition explains it** — rate vectors no optimiser
+  produced match or exceed the leak on four of five sessions (D10.16, D10.27). Claim A
+  evaluates its posterior on real spikes and builds its map from real behaviour, so any
+  *m*-way partition of real population vectors is already position-informative. Every
+  Phase 4 number is reported against that control; none is reported against zero.
+  **Anyone reusing this method should measure the same control first.**
+- **Part of Claim A does not need the fit.** On Achilles_10252013 — the largest ensemble,
+  and the session closest to Chen et al.'s reported 0.73–0.79 — **0.76 of the 0.91 is
+  reachable with randomly chosen rate vectors**. Across the five sessions the fit buys
+  +0.16 to +0.54 on the correlation, doing nearly all the work on the circular sessions and
+  little on the largest linear one. On decoding error the fit roughly halves the error
+  everywhere, and where the two statistics disagree the error is the one to read (D10.28).
+  No Phase 4 result changes: every claim is a margin, and both of its terms are unmoved.
 - **Phase 4's positive is two of five sessions at roughly 2:1 over its own control**, not
   an order of magnitude, and those two are the two sessions above Phase 2's sensitivity
   floor — the ones where place fields already worked (D10.22, D10.23).
@@ -968,6 +992,8 @@ uv run python scripts/fit_hmm.py <session> --kinds shuffled   # the control, rea
 uv run python scripts/fit_hmm.py <session> --kinds real       # the m-sweep
 uv run python scripts/bout_phase_baseline.py           # is the leak bout timing?   (no)
 uv run python scripts/population_rate_baseline.py      # is it population rate?      (no)
+uv run python scripts/unfitted_model_baseline.py       # is it the pipeline?        (yes)
+uv run python scripts/sorted_count_baseline.py         # would a per-bin shuffle be clean?
 uv run python scripts/select_hmm_states.py             # choose m, by Claim A
 uv run python scripts/score_events_hmm.py <session>    # sleep, receptive-field-free
 uv run python scripts/replay_comparison_hmm.py         # PRE against POST
@@ -1017,7 +1043,7 @@ data/            raw data (gitignored)
 ```
 
 `docs/decisions.md` records every methodological choice with its reasoning, numbered
-D1.1 through D10.25 and cross-referenced from `docs/METHODS.md`. A test
+D1.1 through D10.29 and cross-referenced from `docs/METHODS.md`. A test
 (`tests/test_decision_references.py`) checks that every decision number cited anywhere in
 the repository resolves to an entry that exists, because three of them once did not. `docs/worklog.md` is the
 running diary, including what went wrong and when.

@@ -1555,3 +1555,65 @@ The decision log now holds **108 entries**, D1.1 through D10.25, with the cross-
 test guarding every citation of them.
 
 **Tests**: 547 passing, 3 skipped. **Time**: ~1 h.
+
+## 2026-11-14 — Step 11a: the leak explained, and a control worth building that we did not build
+
+**The control was misdescribed, twice, and the write-up was the reason (D10.26).** It is
+neither a per-bin identity permutation nor a global relabelling: `roll_cells` gives **each
+cell its own circular time shift** along the concatenated running timeline, then re-splits
+into bouts. Measured on all five sessions: each cell's marginal count distribution is
+preserved exactly; the per-bin count multiset survives in **under 0.2 %** of bins — the two
+or three that do are coincidences carrying 8–17 spikes, not empty bins; the per-bin total
+is uncorrelated with the real one (−0.02 to +0.05) and 8–27 % less variable. So the step as
+scoped could not have worked: the count multiset is precisely what this shuffle destroys.
+Reported before running anything, and the test was re-aimed.
+
+**The matched test: the leak is the decode-and-map pipeline (D10.27).** Remove the fit
+entirely, change nothing downstream.
+
+| Session | real fit | leak | exemplar | marginal | best ÷ leak |
+|---|---|---|---|---|---|
+| Achilles_10252013 | +0.91 | +0.51 | **+0.76** | +0.46 | 1.49 |
+| Achilles_11012013 | +0.71 | +0.16 | +0.11 | +0.17 | 1.09 |
+| Cicero_09012014 | +0.70 | +0.48 | **+0.37** | +0.29 | **0.77** |
+| Cicero_09102014 | +0.72 | +0.21 | +0.06 | +0.20 | 0.93 |
+| Gatsby_08022013 | +0.79 | +0.34 | **+0.50** | +0.26 | 1.49 |
+
+Four of five match or exceed the leak; the decisive session reaches 77 % of it, stable
+across folds (0.30, 0.45, 0.36), where rate explained none. Where the unfitted model
+*exceeds* the shuffled fit the reason is visible — exemplar rate vectors are real
+population vectors, while the shuffled fit's EM converges on mixtures no real bin
+resembles. Restoring the fitted stickiness moves nothing (within 0.05 everywhere), so the
+missing transitions are not the explanation. **After three tested mechanisms the leak is
+explained rather than undetermined.**
+
+**What that says about the model (D10.28).** On Achilles_10252013 — largest ensemble,
+closest to Chen et al.'s 0.73–0.79 — **0.76 of Claim A's 0.91 needs no fit at all**. The
+fit buys +0.16, +0.54, +0.33, +0.52, +0.29 on the correlation, nearly everything on the
+circular sessions and little on the largest linear one. On error it roughly halves the
+error everywhere (9 vs 18 cm there), which is the sharper statistic: a correlation on a
+16-bin linear track rewards almost any partition monotone in position. No Phase 4 result
+changes — every claim is a margin and both terms are unmoved.
+
+**The sorted-count test, reported as what it is (D10.29).** A bound on a control we do not
+have. The count multiset carries little position: at most r ≈ 0.3 on two linear sessions
+with errors a few centimetres below chance, and essentially nothing on the other three,
+including **−0.02 on Cicero_09012014 against a leak of +0.48**. So a per-bin identity
+permutation **would be a clean control and a stricter one than the time shift** — not built
+here, because this step was scoped to explain the existing control and D10.27 explains it.
+One honest correction: `nearest_neighbour` was meant to bound the *m*-way partition from
+above and does not, because averaging inside a cluster suppresses variance. Both reported,
+the larger is the one to read.
+
+**Documents**: the METHODS leak section rewritten around the explanation, with a new
+subsection on how much of Claim A is the model and another on the control not built; the
+README limitation bullet replaced and a second one added for the unfitted-model finding;
+the Phase 4 control subsection and the one-minute arc updated from "unexplained" to the
+third mechanism; run order and decision range updated.
+
+**Tests**: 556 passing, 3 skipped (9 new), including one that pins the sorted-count scorer
+against `population_rate_baseline.decode` so "the same statistic" is checked rather than
+intended, and one that caught the rate floor turning an exemplar vector into something that
+is not exactly a real bin.
+
+**Time**: ~1.5 h.

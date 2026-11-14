@@ -3225,3 +3225,157 @@ So the leak is real, measured per session, subtracted from every claim in this p
 **unexplained**. Two cheap explanations have been eliminated, which makes the statement
 stronger than it was in D10.12, and a third has not been found. Anyone building on this
 method should measure the same control before believing any of its numbers.
+
+### D10.26 — The control is a per-cell circular time shift, and the write-up has to say so
+
+Twice now the fit-on-shuffled-data control has been described back to the project as
+something it is not — a per-bin permutation of cell identities, or a single global
+relabelling. Neither is right, the write-up was not explicit enough to prevent it, and what
+it actually is changes what any explanation of its leak has to look like. So, plainly:
+
+`fit_hmm.roll_cells` gives **each cell its own independent circular time shift** along the
+concatenated running timeline, then re-splits the result into bouts by their original
+lengths. There is one such function, one call site in step 10c (running) and one in 10d
+(sleep), and nothing else feeds `hmm.fit`.
+
+What that preserves and destroys, measured on all five sessions rather than argued from the
+code:
+
+| Session | Each cell's own count distribution | Bins whose sorted count vector survives | r(real, rolled) per-bin total | SD of total, real → rolled | Mean L1 between sorted vectors |
+|---|---|---|---|---|---|
+| Achilles_10252013 | exact | 0.0 % | +0.019 | 17.3 → 12.6 | 22.0 |
+| Achilles_11012013 | exact | 0.0 % | −0.015 | 15.1 → 10.3 | 17.7 |
+| Cicero_09012014 | exact | 0.2 % | +0.033 | 6.8 → 6.2 | 9.1 |
+| Cicero_09102014 | exact | 0.1 % | −0.018 | 8.7 → 7.1 | 10.9 |
+| Gatsby_08022013 | exact | 0.0 % | +0.048 | 10.7 → 7.8 | 13.1 |
+
+Each cell's marginal count distribution is preserved **exactly**, and its burst structure by
+construction except at the wrap seam. Everything cross-cell goes: the per-bin count multiset
+survives in under 0.2 % of bins — and the handful that do are coincidences carrying 8 to 17
+spikes, not empty bins — while the population-rate envelope is uncorrelated with the real
+one and 8–27 % less variable, being a sum of decorrelated series.
+
+Two consequences worth stating because they were not obvious:
+
+1. **A test built on the per-bin count multiset cannot explain this control's leak**, since
+   the multiset is the one thing it reliably destroys. That is a separate question and it
+   has its own entry (D10.29).
+2. **The model that leaks was fitted on data with a *flatter* rate envelope than the real
+   data.** That makes population rate a weaker candidate than it already looked (D10.16),
+   rather than a stronger one.
+
+### D10.27 — The leak is the decode-and-map pipeline, not the shuffle
+
+`scripts/unfitted_model_baseline.py` removes the fit entirely and changes nothing else —
+same folds, the same `claim_a`, the same statistic, the same permuted-map chance level —
+and hands Claim A rate matrices that no optimiser ever saw. Two variants, chosen because
+they fail differently:
+
+* **exemplar** — *m* real training population vectors, picked at random. Real cross-cell
+  structure, no information about which bins they came from.
+* **marginal** — each cell's *m* rates drawn independently from its own training counts.
+  Real per-cell marginals, no co-occurrence: exactly what the shuffled fit is given (D10.26).
+
+Medians over five draws and three folds, against the shuffled-fit leak and the real fit:
+
+| Session | real fit | shuffled leak | exemplar | marginal | best ÷ leak |
+|---|---|---|---|---|---|
+| Achilles_10252013 | +0.91 | +0.51 | **+0.76** | +0.46 | **1.49** |
+| Achilles_11012013 | +0.71 | +0.16 | +0.11 | **+0.17** | **1.09** |
+| Cicero_09012014 | +0.70 | **+0.48** | **+0.37** | +0.29 | **0.77** |
+| Cicero_09102014 | +0.72 | +0.21 | +0.06 | **+0.20** | **0.93** |
+| Gatsby_08022013 | +0.79 | +0.34 | **+0.50** | +0.26 | **1.49** |
+
+Decoding error, cm: real 9 / 14 / 19 / 9 / 21; leak 32 / 41 / 30 / 42 / 39; exemplar 18 / 39
+/ 35 / 28 / 38; chance 49 / 71 / 48 / 68 / 54.
+
+**On four of five sessions an unfitted model matches or exceeds the leak**, and on
+Cicero_09012014 — where the leak is largest and where neither bout timing nor population
+rate explained any of it — it reaches 77 % of it, stable across folds (0.30, 0.45, 0.36).
+Where the unfitted model *exceeds* the shuffled fit, the reason is visible: exemplar rate
+vectors are real population vectors, while the shuffled fit's EM converges on mixtures that
+no real bin resembles.
+
+**So the leak needs no property of the shuffle to arise.** Claim A evaluates the posterior
+on **real** spikes and builds its state-to-position map from **real** training behaviour;
+given that, an arbitrary *m*-way partition of real population vectors is already
+position-informative. After three tested mechanisms the leak is **explained**, not
+undetermined.
+
+A robustness check rules out the obvious objection. Removing the fit also removes the
+fitted stickiness, so a negative could have been blamed on that; **exemplar_sticky** repeats
+*exemplar* with a transition matrix reproducing that session's fitted dwell time (D10.13)
+and lands within 0.05 of *exemplar* on every session.
+
+The *exemplar* − *marginal* gap is cross-cell structure, and it favours *exemplar* on all
+three linear sessions (+0.30, +0.08, +0.24) and reverses on both circular ones, where both
+are near noise.
+
+**Provisional choices**, both recorded here because neither is forced: the unfitted models
+are given a **uniform** transition matrix, because removing the fit means removing the
+transitions too, with `exemplar_sticky` as the check that this does not decide the answer;
+and *m* is each session's chosen value (D10.10), so the unfitted model has exactly the
+capacity the fitted one had.
+
+### D10.28 — What the matched test says about Claim A, and what it does not revise
+
+This is the consequential half of D10.27, and it is about the model rather than the control.
+
+**On Achilles_10252013, 0.76 of Claim A's 0.91 is reachable with no fit at all.** That is
+the largest ensemble and the session whose correlation sits closest to Chen et al.'s
+reported 0.73–0.79. The fit buys, on the correlation, +0.16, +0.54, +0.33, +0.52 and +0.29
+across the five sessions — so it does nearly all the work on the two circular sessions and
+comparatively little on the largest linear one.
+
+**Decoding error is the sharper statistic and says something different.** There the fit
+roughly halves the error on every session: 9 against 18 cm on Achilles_10252013, 14 against
+39, 19 against 35, 9 against 28, 21 against 38. A correlation on a 16-bin linear track
+rewards almost any partition that is monotone in position; an error in centimetres does not.
+Where the two statistics disagree, the error is the one to read — which is also what D10.15
+concluded from the opposite direction.
+
+**No Phase 4 result changes.** Every claim in D10.18 and D10.22 is a *margin* — the real
+fit minus the shuffled fit on the same events — and knowing why the shuffled fit sits where
+it does moves neither term. What changes is the reading of Claim A's absolute level, which
+was already reported with the shuffled-fit control beside it and is now reported with the
+reason that control is not near zero.
+
+### D10.29 — A per-bin identity permutation would be a clean control, and is not built here
+
+`scripts/sorted_count_baseline.py` answers a question about a control this project does
+**not** have. A per-bin permutation of cell identities would destroy which cell fired while
+leaving each bin's multiset of counts intact — how many cells fired, how the counts spread
+across them, how peaked the population vector is. The population-rate test (D10.16)
+collapsed that multiset to its sum, which is a weak summary: three cells firing four spikes
+each and twelve firing one each share a total and look nothing alike.
+
+So: decode held-out position from the **sorted count vector** alone, identity destroyed by
+construction, through the same folds and the same statistic as the rate-only decoder — a
+property pinned by a test rather than intended. Medians over the folds:
+
+| Session | shuffled leak | *m*-way, raw | *m*-way, shape only | nearest neighbour | error vs chance (cm) |
+|---|---|---|---|---|---|
+| Achilles_10252013 | +0.51 | +0.28 | +0.19 | +0.16 | 38–42 vs 43–50 |
+| Achilles_11012013 | +0.16 | +0.00 | −0.02 | −0.05 | 62–69 vs 67–71 |
+| Cicero_09012014 | +0.48 | −0.02 | +0.05 | +0.01 | 46–53 vs 48–52 |
+| Cicero_09102014 | +0.21 | +0.09 | +0.04 | +0.04 | 62–71 vs 67–71 |
+| Gatsby_08022013 | +0.34 | +0.31 | −0.02 | +0.16 | 45–48 vs 54–59 |
+
+**The count multiset carries little position.** It reaches r ≈ 0.3 on two linear sessions
+with errors a few centimetres below chance, and essentially nothing on the other three —
+including Cicero_09012014, where it gives −0.02 against a leak of +0.48. Dividing each
+vector by its own total, which removes the rate information already tested, leaves less
+still.
+
+**So a per-bin identity permutation would be a clean control, and a stricter one than the
+time shift**: it would destroy cross-cell identity while leaving a quantity that is nearly
+uninformative about position. It is **not built here** — this step was scoped to explain an
+existing control, not to replace one, and D10.27 has already explained it. If a future step
+wants a second null, this is the one to build, and this entry is the evidence that it would
+be worth the work.
+
+One honest note on the method. `nearest_neighbour` uses the training set at full resolution
+rather than *m* groups, and it was expected to bound the other two from above. It does not:
+averaging the positions inside a cluster suppresses variance, so the *m*-way partition beats
+the single nearest neighbour on Achilles_10252013 and Gatsby_08022013. Both are reported and
+the larger is the one to read; calling either an upper bound would have been wrong.

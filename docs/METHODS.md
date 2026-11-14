@@ -926,30 +926,75 @@ geometry and event count all move together here, so `results/sensitivity_floor.p
 floor — a statement of where the method stops working — and not a calibration curve. No rZ
 in this repository is corrected by it.
 
-### Phase 4's control leaks, and the mechanism is unknown
+### Phase 4's control leaks, and why
 
-**What would settle it:** a shuffle that provably removes everything the fitted model could
-use to decode position, with the cell-to-position relationship the only thing destroyed —
-or a session set where ensemble size and track geometry vary independently.
+**What the control is.** `fit_hmm.roll_cells` gives **each cell its own independent
+circular time shift** along the concatenated running timeline, then re-splits the result
+into bouts. It is not a per-bin permutation of cell identities and not a global
+relabelling — a distinction that matters, because it preserves each cell's marginal count
+distribution exactly and destroys everything cross-cell: the per-bin count multiset
+survives in under 0.2 % of bins and the population-rate envelope is uncorrelated with the
+real one (D10.26).
 
-The fit-on-shuffled-data control decodes held-out running position at circular correlation
+**The leak.** This control decodes held-out running position at circular correlation
 0.21–0.51 on four of five sessions, and on Cicero_09012014 one shuffled fit in six beats a
 real one, which means Claim A is not established there. It beats chance on decoding error
 as well as on correlation — 32 cm against 49 on Achilles_10252013 — so it is not an
 artifact of the correlation statistic alone. In sleep the same control separates POST from
 PRE at p < 0.02 on three sessions and on Gatsby_08022013 beats the real model.
 
-Two mechanisms were proposed and both were measured with no model involved. **Bout timing**
-— a directed run makes the bin index within a bout predict position without any spikes —
-gives +0.08, −0.11, +0.01, +0.03, −0.22 and explains none of it. **Population rate** — a
-fitted model's states differ in total rate, and rate might track position — gives +0.29,
-+0.03, +0.04, +0.04, +0.31 against leaks of 0.51, 0.16, 0.48, 0.21, 0.34: nearly all of
-Gatsby_08022013's leak, about half of Achilles_10252013's, and none of Cicero_09012014's,
-the session where the leak matters most (D10.16). The leak is larger on the linear-track
-sessions than the circular ones, which is a pattern and not an explanation.
+**Three mechanisms were tested, each with no model involved, and the third explains it.**
 
-Every Phase 4 number is reported against this control, per session, and none against zero.
-What the control cannot do is tell us what it is measuring.
+| Mechanism | What it would predict | What it gives |
+|---|---|---|
+| **Bout timing** — a directed run makes the bin index within a bout predict position with no spikes | the leak, on every session | +0.08, −0.11, +0.01, +0.03, −0.22 — none of it |
+| **Population rate** — states differing in total rate, with rate tracking position | the leak, and the linear/circular split | +0.29, +0.03, +0.04, +0.04, +0.31 — Gatsby_08022013 almost entirely, Cicero_09012014 not at all (D10.16) |
+| **An arbitrary partition** — rate vectors no optimiser produced, everything downstream identical | the leak, wherever the pipeline is the cause | +0.76, +0.17, +0.37, +0.20, +0.50 against leaks of 0.51, 0.16, 0.48, 0.21, 0.34 (D10.27) |
+
+**The leak is the decode-and-map pipeline, not the shuffle.** On four of five sessions a
+model with randomly chosen rate vectors matches or exceeds the leak, and on Cicero_09012014
+— where the leak is largest and the first two mechanisms explained none of it — it reaches
+77 % of it, stable across folds. Claim A evaluates the posterior on **real** spikes and
+builds its state-to-position map from **real** training behaviour; given that, an arbitrary
+*m*-way partition of real population vectors is already position-informative, however it
+was obtained. A check with the fitted stickiness restored lands within 0.05 of the unfitted
+model everywhere, so the missing transitions are not the explanation.
+
+Every Phase 4 number is still reported against this control, per session, and none against
+zero. No Phase 4 result changes: every claim is a margin between the real fit and the
+shuffled fit on the same events, and knowing why the shuffled fit sits where it does moves
+neither term.
+
+### How much of Claim A is the model
+
+The same measurement answers a question about the model rather than the control, and it is
+the more consequential of the two.
+
+**On Achilles_10252013, 0.76 of Claim A's 0.91 is reachable with no fit at all** — the
+largest ensemble, and the session whose correlation sits closest to Chen et al.'s reported
+0.73–0.79. Across the five sessions the fit buys, on the correlation, +0.16, +0.54, +0.33,
++0.52 and +0.29: nearly all the work on the two circular sessions, comparatively little on
+the largest linear one.
+
+Decoding error says something different and is the sharper statistic: there the fit roughly
+halves the error everywhere — 9 against 18 cm on Achilles_10252013, and 14/39, 19/35, 9/28,
+21/38 on the others. A correlation on a 16-bin linear track rewards almost any partition
+monotone in position; an error in centimetres does not. Where the two disagree, the error
+is the one to read (D10.28), which is also what the Cicero_09102014 sign disagreement
+concluded from the opposite direction.
+
+### A second control that would be clean, and is not built
+
+A **per-bin identity permutation** would destroy which cell fired while leaving each bin's
+count multiset intact. Decoding position from the sorted count vector alone — identity gone
+by construction, same folds and same statistic as the rate test — gives at most r ≈ 0.3, on
+two linear sessions, with errors a few centimetres below chance, and essentially nothing on
+the other three, including −0.02 on Cicero_09012014 against a leak of +0.48.
+
+So that control would be clean and stricter than the time shift. It is **not built**: this
+step was scoped to explain the existing control and D10.27 explains it. If a future step
+wants a second null, this is the one to build, and D10.29 is the evidence that it would be
+worth the work.
 
 ### Two sessions cannot test Phase 4's question, and one statistic disagrees with itself
 
